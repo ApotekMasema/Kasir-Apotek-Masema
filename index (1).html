@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kasir Apotek</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --teal-900:#0b4a3f;
+    --teal-700:#0f7864;
+    --teal-500:#189d80;
+    --teal-100:#e3f3ee;
+    --paper:#fbfaf7;
+    --bg:#f4f6f5;
+    --ink:#1f2937;
+    --ink-soft:#5b6b66;
+    --line:#dde4e1;
+    --amber:#c2790f;
+    --amber-bg:#fbf0dd;
+    --red:#b3432f;
+    --red-bg:#fbe9e5;
+    --radius:10px;
+    --shadow:0 1px 2px rgba(15,40,33,.06), 0 4px 14px rgba(15,40,33,.05);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Inter',sans-serif;background:var(--bg);color:var(--ink);}
+  h1,h2,h3,.brand,.nav-label{font-family:'Poppins',sans-serif;}
+  .app{display:flex;min-height:100vh;}
+
+  /* Sidebar */
+  .sidebar{width:220px;background:var(--teal-900);color:#eafbf5;display:flex;flex-direction:column;flex-shrink:0;}
+  .brand{padding:22px 20px 18px;font-size:18px;font-weight:700;display:flex;align-items:center;gap:10px;border-bottom:1px solid rgba(255,255,255,.12);}
+  .brand .cross{width:22px;height:22px;position:relative;flex-shrink:0;}
+  .brand .cross::before,.brand .cross::after{content:"";position:absolute;background:#7fe0c2;}
+  .brand .cross::before{left:9px;top:0;width:4px;height:22px;border-radius:2px;}
+  .brand .cross::after{left:0;top:9px;width:22px;height:4px;border-radius:2px;}
+  nav{padding:14px 10px;display:flex;flex-direction:column;gap:2px;}
+  .nav-btn{display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:8px;color:#cfe9df;background:transparent;border:none;text-align:left;font-size:14px;font-weight:500;cursor:pointer;font-family:'Inter',sans-serif;}
+  .nav-btn:hover{background:rgba(255,255,255,.07);color:#fff;}
+  .nav-btn.active{background:var(--teal-700);color:#fff;}
+  .nav-btn .dot{width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.6;}
+  .sidebar-foot{margin-top:auto;padding:16px 20px;font-size:11px;color:#8fbdad;border-top:1px solid rgba(255,255,255,.1);line-height:1.5;}
+
+  /* Main */
+  .main{flex:1;padding:26px 32px;overflow-x:hidden;}
+  .page{display:none;}
+  .page.active{display:block;}
+  .page-head{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:20px;flex-wrap:wrap;gap:12px;}
+  .page-head h1{font-size:21px;margin:0 0 4px;color:var(--teal-900);}
+  .page-head p{margin:0;color:var(--ink-soft);font-size:13px;}
+
+  .btn{border:none;border-radius:8px;padding:10px 16px;font-size:13.5px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;display:inline-flex;align-items:center;gap:6px;}
+  .btn-primary{background:var(--teal-700);color:#fff;}
+  .btn-primary:hover{background:var(--teal-900);}
+  .btn-outline{background:#fff;color:var(--teal-700);border:1px solid var(--teal-500);}
+  .btn-outline:hover{background:var(--teal-100);}
+  .btn-danger{background:#fff;color:var(--red);border:1px solid #e3b3a8;}
+  .btn-danger:hover{background:var(--red-bg);}
+  .btn-sm{padding:6px 10px;font-size:12px;border-radius:6px;}
+  .btn:disabled{opacity:.45;cursor:not-allowed;}
+
+  .card{background:#fff;border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);}
+  .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px;}
+  .stat{padding:16px 18px;}
+  .stat .label{font-size:12px;color:var(--ink-soft);margin-bottom:6px;}
+  .stat .value{font-size:22px;font-weight:700;color:var(--teal-900);font-family:'Poppins',sans-serif;}
+  .stat .sub{font-size:11.5px;color:var(--ink-soft);margin-top:4px;}
+
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th{text-align:left;background:var(--teal-100);color:var(--teal-900);padding:9px 12px;font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.02em;}
+  td{padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:middle;}
+  tr:last-child td{border-bottom:none;}
+  .table-wrap{overflow-x:auto;}
+  .empty{padding:40px 20px;text-align:center;color:var(--ink-soft);}
+  .empty .big{font-size:14px;margin-bottom:12px;}
+
+  .badge{display:inline-block;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600;}
+  .badge-ok{background:#e2f2e8;color:#1f7a45;}
+  .badge-warn{background:var(--amber-bg);color:var(--amber);}
+  .badge-danger{background:var(--red-bg);color:var(--red);}
+  .badge-resep{background:#eae3fb;color:#5b3fae;}
+
+  input,select,textarea{font-family:'Inter',sans-serif;font-size:13.5px;padding:9px 11px;border:1px solid var(--line);border-radius:7px;background:#fff;color:var(--ink);width:100%;}
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--teal-500);outline-offset:1px;border-color:var(--teal-500);}
+  label{font-size:12.5px;font-weight:600;color:var(--ink-soft);display:block;margin-bottom:5px;}
+  .field{margin-bottom:14px;}
+  .row-2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
+
+  /* Modal */
+  .overlay{position:fixed;inset:0;background:rgba(11,74,63,.35);display:none;align-items:center;justify-content:center;z-index:50;padding:20px;}
+  .overlay.open{display:flex;}
+  .modal{background:#fff;border-radius:12px;width:100%;max-width:480px;max-height:88vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.25);}
+  .modal-head{padding:18px 22px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;}
+  .modal-head h3{margin:0;font-size:16px;color:var(--teal-900);}
+  .modal-close{background:none;border:none;font-size:20px;cursor:pointer;color:var(--ink-soft);line-height:1;}
+  .modal-body{padding:20px 22px;}
+  .modal-foot{padding:14px 22px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:10px;}
+
+  /* Kasir layout */
+  .kasir-grid{display:grid;grid-template-columns:1.4fr 1fr;gap:18px;align-items:start;}
+  .product-list{max-height:60vh;overflow-y:auto;}
+  .product-row{display:flex;justify-content:space-between;align-items:center;padding:11px 14px;border-bottom:1px solid var(--line);cursor:pointer;}
+  .product-row:hover{background:var(--teal-100);}
+  .product-row:last-child{border-bottom:none;}
+  .product-row .name{font-weight:600;font-size:13.5px;}
+  .product-row .meta{font-size:11.5px;color:var(--ink-soft);margin-top:2px;}
+  .product-row .price{font-weight:600;color:var(--teal-700);font-size:13.5px;white-space:nowrap;margin-left:10px;}
+
+  .receipt{background:var(--paper);border:1px dashed #c8d3ce;border-radius:8px 8px 0 0;padding:18px;font-family:'IBM Plex Mono',monospace;font-size:12.5px;position:relative;}
+  .receipt::after{content:"";display:block;height:14px;margin:0 -1px -1px;background-image:radial-gradient(circle at 8px 7px, var(--bg) 7px, transparent 7.5px);background-size:16px 14px;background-position:left;background-repeat:repeat-x;background-color:var(--paper);border-radius:0 0 8px 8px;}
+  .receipt-head{text-align:center;border-bottom:1px dashed #c8d3ce;padding-bottom:10px;margin-bottom:10px;}
+  .receipt-head .name{font-weight:600;font-size:13.5px;letter-spacing:.03em;}
+  .receipt-head .sub{color:var(--ink-soft);font-size:11px;margin-top:2px;}
+  .receipt-item{display:flex;justify-content:space-between;margin-bottom:5px;gap:8px;}
+  .receipt-item .qty{color:var(--ink-soft);}
+  .receipt-empty{text-align:center;color:var(--ink-soft);padding:30px 10px;font-family:'Inter',sans-serif;font-size:12.5px;}
+  .receipt-total{border-top:1px dashed #c8d3ce;margin-top:10px;padding-top:10px;display:flex;justify-content:space-between;font-weight:700;font-size:14px;color:var(--teal-900);}
+  .qty-ctrl{display:flex;align-items:center;gap:6px;}
+  .qty-ctrl button{width:20px;height:20px;border-radius:5px;border:1px solid var(--line);background:#fff;cursor:pointer;font-family:'Inter',sans-serif;line-height:1;}
+  .cart-actions{padding:14px 4px 4px;display:flex;gap:8px;}
+  .cart-actions .btn{flex:1;justify-content:center;}
+  .resep-flag{background:var(--badge-resep,#eae3fb);color:#5b3fae;font-size:10px;padding:2px 6px;border-radius:20px;margin-left:6px;}
+
+  .search-bar{margin-bottom:12px;}
+  .low-stock-alert{background:var(--amber-bg);border:1px solid #edd6ac;color:var(--amber);border-radius:8px;padding:10px 14px;font-size:12.5px;margin-bottom:16px;display:flex;align-items:center;gap:8px;}
+  .import-note{background:var(--teal-100);border:1px solid #c9e6dc;color:var(--teal-900);border-radius:8px;padding:10px 14px;font-size:12px;line-height:1.6;margin-bottom:16px;}
+
+  .filters{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:flex-end;}
+  .filters .field{margin-bottom:0;min-width:150px;}
+
+  .toast{position:fixed;bottom:22px;right:22px;background:var(--teal-900);color:#fff;padding:12px 18px;border-radius:9px;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.2);z-index:100;opacity:0;transform:translateY(10px);transition:.25s;pointer-events:none;}
+  .toast.show{opacity:1;transform:translateY(0);}
+
+  .backup-box{max-width:560px;}
+  .backup-box .card{padding:20px 22px;margin-bottom:16px;}
+  .backup-box h3{margin:0 0 6px;font-size:14.5px;color:var(--teal-900);}
+  .backup-box p{margin:0 0 14px;font-size:12.5px;color:var(--ink-soft);line-height:1.6;}
+  .file-drop{border:1.5px dashed var(--teal-500);border-radius:9px;padding:20px;text-align:center;font-size:12.5px;color:var(--ink-soft);cursor:pointer;}
+  .file-drop:hover{background:var(--teal-100);}
+
+  @media(max-width:900px){
+    .kasir-grid{grid-template-columns:1fr;}
+    .grid-3{grid-template-columns:1fr;}
+    .row-2,.row-3{grid-template-columns:1fr;}
+    .app{flex-direction:column;}
+    .sidebar{width:100%;flex-direction:row;overflow-x:auto;}
+    nav{flex-direction:row;}
+    .sidebar-foot{display:none;}
+  }
+
+  @media print{
+    body *{visibility:hidden;}
+    #printArea, #printArea *{visibility:visible;}
+    #printArea{position:absolute;top:0;left:0;width:100%;}
+    .receipt{border:none;}
+    .receipt::after{display:none;}
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand"><span class="cross"></span> Kasir Apotek</div>
+    <nav>
+      <button class="nav-btn active" data-page="kasir"><span class="dot"></span>Kasir</button>
+      <button class="nav-btn" data-page="stok"><span class="dot"></span>Stok Obat</button>
+      <button class="nav-btn" data-page="resep"><span class="dot"></span>Resep Dokter</button>
+      <button class="nav-btn" data-page="laporan"><span class="dot"></span>Laporan Keuangan</button>
+      <button class="nav-btn" data-page="backup"><span class="dot"></span>Backup Data</button>
+    </nav>
+    <div class="sidebar-foot">Data tersimpan di perangkat ini saja (browser). Backup rutin lewat menu "Backup Data".</div>
+  </aside>
+
+  <main class="main">
+
+    <!-- ===================== KASIR ===================== -->
+    <section class="page active" id="page-kasir">
+      <div class="page-head">
+        <div><h1>Kasir</h1><p>Cari obat, tambahkan ke keranjang, lalu selesaikan transaksi.</p></div>
+      </div>
+      <div id="lowStockBanner"></div>
+      <div class="kasir-grid">
+        <div class="card" style="padding:16px;">
+          <div class="search-bar"><input type="text" id="searchObat" placeholder="Cari nama obat..." /></div>
+          <div class="product-list" id="productList"></div>
+        </div>
+        <div class="card" style="padding:16px;">
+          <div id="printArea">
+            <div class="receipt" id="receiptBox">
+              <div class="receipt-head">
+                <div class="name">APOTEK</div>
+                <div class="sub" id="receiptDate"></div>
+              </div>
+              <div id="cartItems"></div>
+              <div class="receipt-total"><span>TOTAL</span><span id="cartTotal">Rp 0</span></div>
+            </div>
+          </div>
+          <div class="cart-actions">
+            <button class="btn btn-outline" id="btnClearCart">Kosongkan</button>
+            <button class="btn btn-primary" id="btnCheckout" disabled>Selesaikan &amp; Cetak</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== STOK OBAT ===================== -->
+    <section class="page" id="page-stok">
+      <div class="page-head">
+        <div><h1>Stok Obat</h1><p>Data master obat: harga, stok, dan status resep.</p></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-outline" id="btnDownloadTemplate">Unduh Template Excel</button>
+          <button class="btn btn-outline" id="btnImportExcel">Import dari Excel</button>
+          <input type="file" id="obatFileInput" accept=".xlsx,.xls,.csv" style="display:none;">
+          <button class="btn btn-primary" id="btnAddObat">+ Tambah Obat</button>
+        </div>
+      </div>
+      <div class="import-note">
+        Format kolom Excel: <b>Nama Obat, Kategori, Satuan, Harga Beli, Harga Jual, Stok, Stok Minimum, Wajib Resep (Ya/Tidak)</b>.
+        Urutan kolom bebas asalkan judul kolomnya sama. Baris dengan Nama Obat sama akan MEMPERBARUI data yang sudah ada, bukan menduplikasi.
+      </div>
+      <div class="card table-wrap">
+        <table>
+          <thead><tr>
+            <th>Nama Obat</th><th>Kategori</th><th>Satuan</th><th>Harga Beli</th><th>Harga Jual</th>
+            <th>Stok</th><th>Stok Min.</th><th>Resep</th><th>Status</th><th></th>
+          </tr></thead>
+          <tbody id="obatTableBody"></tbody>
+        </table>
+        <div class="empty" id="obatEmpty" style="display:none;">
+          <div class="big">Belum ada data obat.</div>
+          <button class="btn btn-primary" id="btnAddObatEmpty">+ Tambah Obat Pertama</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== RESEP DOKTER ===================== -->
+    <section class="page" id="page-resep">
+      <div class="page-head">
+        <div><h1>Resep Dokter</h1><p>Riwayat resep — otomatis tercatat saat obat wajib-resep terjual, atau tambah manual.</p></div>
+        <button class="btn btn-primary" id="btnAddResep">+ Catat Resep</button>
+      </div>
+      <div class="card table-wrap">
+        <table>
+          <thead><tr><th>Tanggal</th><th>Pasien</th><th>Dokter</th><th>No. Resep</th><th>Obat</th><th>Catatan</th></tr></thead>
+          <tbody id="resepTableBody"></tbody>
+        </table>
+        <div class="empty" id="resepEmpty" style="display:none;"><div class="big">Belum ada catatan resep.</div></div>
+      </div>
+    </section>
+
+    <!-- ===================== LAPORAN ===================== -->
+    <section class="page" id="page-laporan">
+      <div class="page-head">
+        <div><h1>Laporan Keuangan</h1><p>Ringkasan omzet, laba, dan riwayat transaksi.</p></div>
+      </div>
+      <div class="filters">
+        <div class="field"><label>Dari Tanggal</label><input type="date" id="filterFrom"></div>
+        <div class="field"><label>Sampai Tanggal</label><input type="date" id="filterTo"></div>
+        <button class="btn btn-outline" id="btnFilterLaporan">Terapkan</button>
+        <button class="btn btn-outline" id="btnResetLaporan">Reset</button>
+      </div>
+      <div class="grid-3">
+        <div class="card stat"><div class="label">Total Omzet</div><div class="value" id="statOmzet">Rp 0</div><div class="sub" id="statTrxCount">0 transaksi</div></div>
+        <div class="card stat"><div class="label">Total Laba Kotor</div><div class="value" id="statLaba">Rp 0</div><div class="sub">Harga jual − harga beli</div></div>
+        <div class="card stat"><div class="label">Item Terjual</div><div class="value" id="statItemTerjual">0</div><div class="sub">unit obat</div></div>
+      </div>
+      <div class="card table-wrap">
+        <table>
+          <thead><tr><th>Tanggal</th><th>No. Transaksi</th><th>Item</th><th>Total</th></tr></thead>
+          <tbody id="laporanTableBody"></tbody>
+        </table>
+        <div class="empty" id="laporanEmpty" style="display:none;"><div class="big">Belum ada transaksi pada rentang ini.</div></div>
+      </div>
+    </section>
+
+    <!-- ===================== BACKUP ===================== -->
+    <section class="page" id="page-backup">
+      <div class="page-head">
+        <div><h1>Backup Data</h1><p>Aplikasi ini tidak memakai server/cloud — data hanya tersimpan di browser perangkat ini.</p></div>
+      </div>
+      <div class="backup-box">
+        <div class="card">
+          <h3>Ekspor Data</h3>
+          <p>Unduh seluruh data (obat, transaksi, resep) sebagai 1 file cadangan. Lakukan ini secara rutin, terutama sebelum membersihkan cache browser atau mengganti perangkat.</p>
+          <button class="btn btn-primary" id="btnExport">Unduh Backup (.json)</button>
+        </div>
+        <div class="card">
+          <h3>Pulihkan Data</h3>
+          <p>Pilih file backup (.json) untuk memulihkan data. Ini akan MENGGANTI seluruh data yang ada saat ini di perangkat ini.</p>
+          <div class="file-drop" id="fileDrop">Klik untuk pilih file backup .json</div>
+          <input type="file" id="fileInput" accept="application/json" style="display:none;">
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- Modal: Tambah/Edit Obat -->
+<div class="overlay" id="modalObat">
+  <div class="modal">
+    <div class="modal-head"><h3 id="modalObatTitle">Tambah Obat</h3><button class="modal-close" data-close>&times;</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="obatId">
+      <div class="field"><label>Nama Obat</label><input type="text" id="obatNama" placeholder="mis. Paracetamol 500mg"></div>
+      <div class="row-2">
+        <div class="field"><label>Kategori</label><input type="text" id="obatKategori" placeholder="mis. Analgesik"></div>
+        <div class="field"><label>Satuan</label><input type="text" id="obatSatuan" placeholder="mis. Strip / Botol / Tablet"></div>
+      </div>
+      <div class="row-2">
+        <div class="field"><label>Harga Beli (Rp)</label><input type="number" id="obatHargaBeli" min="0"></div>
+        <div class="field"><label>Harga Jual (Rp)</label><input type="number" id="obatHargaJual" min="0"></div>
+      </div>
+      <div class="row-2">
+        <div class="field"><label>Stok Saat Ini</label><input type="number" id="obatStok" min="0"></div>
+        <div class="field"><label>Stok Minimum</label><input type="number" id="obatStokMin" min="0"></div>
+      </div>
+      <div class="field">
+        <label><input type="checkbox" id="obatResep" style="width:auto;margin-right:6px;">Wajib resep dokter</label>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" data-close>Batal</button>
+      <button class="btn btn-primary" id="btnSaveObat">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Info Resep saat checkout -->
+<div class="overlay" id="modalResepCheckout">
+  <div class="modal">
+    <div class="modal-head"><h3>Data Resep Diperlukan</h3><button class="modal-close" data-close>&times;</button></div>
+    <div class="modal-body">
+      <p style="font-size:12.5px;color:var(--ink-soft);margin-top:0;">Keranjang berisi obat yang wajib resep. Lengkapi data berikut sebelum transaksi diselesaikan.</p>
+      <div class="field"><label>Nama Pasien</label><input type="text" id="rcNamaPasien"></div>
+      <div class="row-2">
+        <div class="field"><label>Nama Dokter</label><input type="text" id="rcNamaDokter"></div>
+        <div class="field"><label>No. Resep (opsional)</label><input type="text" id="rcNoResep"></div>
+      </div>
+      <div class="field"><label>Catatan (opsional)</label><textarea id="rcCatatan" rows="2"></textarea></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" data-close>Batal</button>
+      <button class="btn btn-primary" id="btnConfirmResepCheckout">Lanjutkan Transaksi</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Catat Resep manual -->
+<div class="overlay" id="modalResepManual">
+  <div class="modal">
+    <div class="modal-head"><h3>Catat Resep</h3><button class="modal-close" data-close>&times;</button></div>
+    <div class="modal-body">
+      <div class="field"><label>Nama Pasien</label><input type="text" id="mrNamaPasien"></div>
+      <div class="row-2">
+        <div class="field"><label>Nama Dokter</label><input type="text" id="mrNamaDokter"></div>
+        <div class="field"><label>No. Resep (opsional)</label><input type="text" id="mrNoResep"></div>
+      </div>
+      <div class="field"><label>Nama Obat</label><input type="text" id="mrObat" placeholder="mis. Amoxicillin 500mg"></div>
+      <div class="field"><label>Catatan (opsional)</label><textarea id="mrCatatan" rows="2"></textarea></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" data-close>Batal</button>
+      <button class="btn btn-primary" id="btnSaveResepManual">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ================= DATA LAYER (localStorage) ================= */
+const STORE_KEY = "apotekKasirData_v1";
+function loadData(){
+  const raw = localStorage.getItem(STORE_KEY);
+  if(!raw){
+    return { obat: [], transaksi: [], resep: [] };
+  }
+  try{
+    const parsed = JSON.parse(raw);
+    return {
+      obat: parsed.obat || [],
+      transaksi: parsed.transaksi || [],
+      resep: parsed.resep || []
+    };
+  }catch(e){
+    console.error("Gagal membaca data, memulai data kosong.", e);
+    return { obat: [], transaksi: [], resep: [] };
+  }
+}
+function saveData(){
+  localStorage.setItem(STORE_KEY, JSON.stringify(DATA));
+}
+let DATA = loadData();
+let cart = []; // {obatId, nama, hargaJual, hargaBeli, qty, perluResep}
+
+function uid(prefix){ return prefix + "-" + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+function rupiah(n){ n = Number(n)||0; return "Rp " + n.toLocaleString("id-ID"); }
+function todayStr(){ return new Date().toISOString().slice(0,10); }
+function fmtTanggal(iso){
+  const d = new Date(iso);
+  return d.toLocaleDateString("id-ID", {day:"2-digit", month:"short", year:"numeric"}) + " " +
+         d.toLocaleTimeString("id-ID", {hour:"2-digit", minute:"2-digit"});
+}
+function showToast(msg){
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(t._timer);
+  t._timer = setTimeout(()=>t.classList.remove("show"), 2200);
+}
+
+/* ================= NAVIGATION ================= */
+document.querySelectorAll(".nav-btn").forEach(btn=>{
+  btn.addEventListener("click", ()=>{
+    document.querySelectorAll(".nav-btn").forEach(b=>b.classList.remove("active"));
+    document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById("page-"+btn.dataset.page).classList.add("active");
+    if(btn.dataset.page === "stok") renderStokTable();
+    if(btn.dataset.page === "resep") renderResepTable();
+    if(btn.dataset.page === "laporan") renderLaporan();
+    if(btn.dataset.page === "kasir") renderProductList();
+  });
+});
+
+/* ================= MODAL HELPERS ================= */
+function openModal(id){ document.getElementById(id).classList.add("open"); }
+function closeModal(id){ document.getElementById(id).classList.remove("open"); }
+document.querySelectorAll("[data-close]").forEach(el=>{
+  el.addEventListener("click", (e)=>{
+    e.target.closest(".overlay").classList.remove("open");
+  });
+});
+document.querySelectorAll(".overlay").forEach(ov=>{
+  ov.addEventListener("click",(e)=>{ if(e.target === ov) ov.classList.remove("open"); });
+});
+
+/* ================= STOK OBAT ================= */
+function statusBadge(o){
+  if(o.stok <= 0) return '<span class="badge badge-danger">Habis</span>';
+  if(o.stok <= o.stokMin) return '<span class="badge badge-warn">Menipis</span>';
+  return '<span class="badge badge-ok">Aman</span>';
+}
+function renderStokTable(){
+  const tbody = document.getElementById("obatTableBody");
+  const empty = document.getElementById("obatEmpty");
+  if(DATA.obat.length === 0){
+    tbody.innerHTML = ""; empty.style.display = "block"; return;
+  }
+  empty.style.display = "none";
+  tbody.innerHTML = DATA.obat.map(o=>`
+    <tr>
+      <td>${o.nama}</td>
+      <td>${o.kategori||"-"}</td>
+      <td>${o.satuan||"-"}</td>
+      <td>${rupiah(o.hargaBeli)}</td>
+      <td>${rupiah(o.hargaJual)}</td>
+      <td>${o.stok}</td>
+      <td>${o.stokMin}</td>
+      <td>${o.perluResep ? '<span class="badge badge-resep">Resep</span>' : '-'}</td>
+      <td>${statusBadge(o)}</td>
+      <td>
+        <button class="btn btn-outline btn-sm" onclick="editObat('${o.id}')">Ubah</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteObat('${o.id}')">Hapus</button>
+      </td>
+    </tr>
+  `).join("");
+}
+function resetObatForm(){
+  document.getElementById("obatId").value = "";
+  document.getElementById("obatNama").value = "";
+  document.getElementById("obatKategori").value = "";
+  document.getElementById("obatSatuan").value = "";
+  document.getElementById("obatHargaBeli").value = "";
+  document.getElementById("obatHargaJual").value = "";
+  document.getElementById("obatStok").value = "";
+  document.getElementById("obatStokMin").value = "";
+  document.getElementById("obatResep").checked = false;
+}
+function openAddObat(){
+  resetObatForm();
+  document.getElementById("modalObatTitle").textContent = "Tambah Obat";
+  openModal("modalObat");
+}
+document.getElementById("btnAddObat").addEventListener("click", openAddObat);
+document.getElementById("btnAddObatEmpty").addEventListener("click", openAddObat);
+
+function editObat(id){
+  const o = DATA.obat.find(x=>x.id===id);
+  if(!o) return;
+  document.getElementById("obatId").value = o.id;
+  document.getElementById("obatNama").value = o.nama;
+  document.getElementById("obatKategori").value = o.kategori||"";
+  document.getElementById("obatSatuan").value = o.satuan||"";
+  document.getElementById("obatHargaBeli").value = o.hargaBeli;
+  document.getElementById("obatHargaJual").value = o.hargaJual;
+  document.getElementById("obatStok").value = o.stok;
+  document.getElementById("obatStokMin").value = o.stokMin;
+  document.getElementById("obatResep").checked = !!o.perluResep;
+  document.getElementById("modalObatTitle").textContent = "Ubah Obat";
+  openModal("modalObat");
+}
+function deleteObat(id){
+  if(!confirm("Hapus obat ini dari daftar stok? Riwayat transaksi lama tidak akan berubah.")) return;
+  DATA.obat = DATA.obat.filter(o=>o.id!==id);
+  saveData(); renderStokTable(); renderProductList();
+  showToast("Obat dihapus.");
+}
+document.getElementById("btnSaveObat").addEventListener("click", ()=>{
+  const nama = document.getElementById("obatNama").value.trim();
+  if(!nama){ showToast("Nama obat wajib diisi."); return; }
+  const id = document.getElementById("obatId").value;
+  const payload = {
+    nama,
+    kategori: document.getElementById("obatKategori").value.trim(),
+    satuan: document.getElementById("obatSatuan").value.trim(),
+    hargaBeli: Number(document.getElementById("obatHargaBeli").value)||0,
+    hargaJual: Number(document.getElementById("obatHargaJual").value)||0,
+    stok: Number(document.getElementById("obatStok").value)||0,
+    stokMin: Number(document.getElementById("obatStokMin").value)||0,
+    perluResep: document.getElementById("obatResep").checked
+  };
+  if(id){
+    const o = DATA.obat.find(x=>x.id===id);
+    Object.assign(o, payload);
+  }else{
+    DATA.obat.push({ id: uid("obat"), ...payload });
+  }
+  saveData();
+  closeModal("modalObat");
+  renderStokTable();
+  renderProductList();
+  showToast("Data obat disimpan.");
+});
+
+/* ================= IMPORT / TEMPLATE EXCEL ================= */
+document.getElementById("btnDownloadTemplate").addEventListener("click", ()=>{
+  const headers = ["Nama Obat","Kategori","Satuan","Harga Beli","Harga Jual","Stok","Stok Minimum","Wajib Resep"];
+  const example = ["Paracetamol 500mg","Analgesik","Strip","8000","15000","50","10","Tidak"];
+  const ws = XLSX.utils.aoa_to_sheet([headers, example]);
+  ws["!cols"] = headers.map(h=>({wch: Math.max(14, h.length+2)}));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Obat");
+  XLSX.writeFile(wb, "template-import-obat.xlsx");
+  showToast("Template diunduh.");
+});
+
+function normalizeHeaderKey(s){
+  return String(s||"").trim().toLowerCase().replace(/[^a-z0-9]/g,"");
+}
+const HEADER_MAP = {
+  namaobat: "nama", nama: "nama",
+  kategori: "kategori",
+  satuan: "satuan",
+  hargabeli: "hargaBeli",
+  hargajual: "hargaJual",
+  stok: "stok", stoksaatini: "stok",
+  stokminimum: "stokMin", stokmin: "stokMin",
+  wajibresep: "perluResep", resep: "perluResep"
+};
+function parseBoolResep(v){
+  const s = String(v||"").trim().toLowerCase();
+  return ["ya","yes","true","1","y"].includes(s);
+}
+document.getElementById("btnImportExcel").addEventListener("click", ()=>{
+  document.getElementById("obatFileInput").click();
+});
+document.getElementById("obatFileInput").addEventListener("change", (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev)=>{
+    try{
+      const wb = XLSX.read(ev.target.result, {type:"array"});
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(sheet, {defval:""});
+      if(rows.length === 0){ showToast("File kosong atau format tidak dikenali."); return; }
+
+      let added = 0, updated = 0, skipped = 0;
+      rows.forEach(row=>{
+        const mapped = {};
+        Object.keys(row).forEach(k=>{
+          const key = HEADER_MAP[normalizeHeaderKey(k)];
+          if(key) mapped[key] = row[k];
+        });
+        const nama = String(mapped.nama||"").trim();
+        if(!nama){ skipped++; return; }
+        const payload = {
+          nama,
+          kategori: String(mapped.kategori||"").trim(),
+          satuan: String(mapped.satuan||"").trim(),
+          hargaBeli: Number(mapped.hargaBeli)||0,
+          hargaJual: Number(mapped.hargaJual)||0,
+          stok: Number(mapped.stok)||0,
+          stokMin: Number(mapped.stokMin)||0,
+          perluResep: parseBoolResep(mapped.perluResep)
+        };
+        const existing = DATA.obat.find(o=>o.nama.toLowerCase() === nama.toLowerCase());
+        if(existing){
+          Object.assign(existing, payload);
+          updated++;
+        }else{
+          DATA.obat.push({ id: uid("obat"), ...payload });
+          added++;
+        }
+      });
+      saveData();
+      renderStokTable();
+      renderProductList();
+      showToast(`Import selesai: ${added} ditambahkan, ${updated} diperbarui${skipped?`, ${skipped} dilewati (nama kosong)`:""}.`);
+    }catch(err){
+      console.error(err);
+      showToast("Gagal membaca file. Pastikan formatnya .xlsx/.xls/.csv yang valid.");
+    }
+  };
+  reader.readAsArrayBuffer(file);
+  e.target.value = "";
+});
+
+/* ================= KASIR / POS ================= */
+function renderLowStockBanner(){
+  const low = DATA.obat.filter(o=>o.stok <= o.stokMin);
+  const box = document.getElementById("lowStockBanner");
+  if(low.length===0){ box.innerHTML=""; return; }
+  box.innerHTML = `<div class="low-stock-alert">⚠ ${low.length} obat stoknya menipis/habis — cek menu Stok Obat.</div>`;
+}
+function renderProductList(){
+  renderLowStockBanner();
+  const q = (document.getElementById("searchObat").value||"").toLowerCase();
+  const list = document.getElementById("productList");
+  const items = DATA.obat.filter(o=>o.nama.toLowerCase().includes(q));
+  if(DATA.obat.length===0){
+    list.innerHTML = `<div class="empty"><div class="big">Belum ada obat di stok.</div>Tambahkan dulu lewat menu "Stok Obat".</div>`;
+    return;
+  }
+  if(items.length===0){
+    list.innerHTML = `<div class="empty">Tidak ditemukan.</div>`;
+    return;
+  }
+  list.innerHTML = items.map(o=>`
+    <div class="product-row" onclick="addToCart('${o.id}')">
+      <div>
+        <div class="name">${o.nama}${o.perluResep?'<span class="resep-flag">Resep</span>':''}</div>
+        <div class="meta">Stok: ${o.stok} ${o.satuan||""} ${o.stok<=o.stokMin?'· <span style="color:var(--amber)">menipis</span>':''}</div>
+      </div>
+      <div class="price">${rupiah(o.hargaJual)}</div>
+    </div>
+  `).join("");
+}
+document.getElementById("searchObat").addEventListener("input", renderProductList);
+
+function addToCart(obatId){
+  const o = DATA.obat.find(x=>x.id===obatId);
+  if(!o) return;
+  if(o.stok <= 0){ showToast("Stok obat ini habis."); return; }
+  const existing = cart.find(c=>c.obatId===obatId);
+  if(existing){
+    if(existing.qty + 1 > o.stok){ showToast("Jumlah melebihi stok tersedia."); return; }
+    existing.qty += 1;
+  }else{
+    cart.push({ obatId: o.id, nama: o.nama, hargaJual: o.hargaJual, hargaBeli: o.hargaBeli, qty: 1, perluResep: o.perluResep });
+  }
+  renderCart();
+}
+function changeQty(obatId, delta){
+  const item = cart.find(c=>c.obatId===obatId);
+  const o = DATA.obat.find(x=>x.id===obatId);
+  if(!item) return;
+  const newQty = item.qty + delta;
+  if(newQty <= 0){ cart = cart.filter(c=>c.obatId!==obatId); renderCart(); return; }
+  if(o && newQty > o.stok){ showToast("Jumlah melebihi stok tersedia."); return; }
+  item.qty = newQty;
+  renderCart();
+}
+function renderCart(){
+  const box = document.getElementById("cartItems");
+  const totalEl = document.getElementById("cartTotal");
+  const checkoutBtn = document.getElementById("btnCheckout");
+  if(cart.length===0){
+    box.innerHTML = `<div class="receipt-empty">Keranjang masih kosong.<br>Klik obat di sebelah kiri untuk menambahkan.</div>`;
+    totalEl.textContent = rupiah(0);
+    checkoutBtn.disabled = true;
+    document.getElementById("receiptDate").textContent = "";
+    return;
+  }
+  document.getElementById("receiptDate").textContent = fmtTanggal(new Date().toISOString());
+  let total = 0;
+  box.innerHTML = cart.map(c=>{
+    total += c.hargaJual * c.qty;
+    return `
+      <div class="receipt-item">
+        <div>${c.nama}${c.perluResep?' <span class="resep-flag">R</span>':''}
+          <div class="qty-ctrl" style="margin-top:3px;">
+            <button onclick="changeQty('${c.obatId}',-1)">−</button>
+            <span class="qty">${c.qty}</span>
+            <button onclick="changeQty('${c.obatId}',1)">+</button>
+          </div>
+        </div>
+        <div>${rupiah(c.hargaJual * c.qty)}</div>
+      </div>`;
+  }).join("");
+  totalEl.textContent = rupiah(total);
+  checkoutBtn.disabled = false;
+}
+document.getElementById("btnClearCart").addEventListener("click", ()=>{
+  if(cart.length===0) return;
+  if(!confirm("Kosongkan keranjang?")) return;
+  cart = []; renderCart();
+});
+
+let pendingResepInfo = null;
+document.getElementById("btnCheckout").addEventListener("click", ()=>{
+  const needResep = cart.some(c=>c.perluResep);
+  if(needResep){
+    document.getElementById("rcNamaPasien").value = "";
+    document.getElementById("rcNamaDokter").value = "";
+    document.getElementById("rcNoResep").value = "";
+    document.getElementById("rcCatatan").value = "";
+    openModal("modalResepCheckout");
+  }else{
+    finalizeCheckout(null);
+  }
+});
+document.getElementById("btnConfirmResepCheckout").addEventListener("click", ()=>{
+  const namaPasien = document.getElementById("rcNamaPasien").value.trim();
+  const namaDokter = document.getElementById("rcNamaDokter").value.trim();
+  if(!namaPasien || !namaDokter){ showToast("Nama pasien & dokter wajib diisi."); return; }
+  const info = {
+    namaPasien, namaDokter,
+    noResep: document.getElementById("rcNoResep").value.trim(),
+    catatan: document.getElementById("rcCatatan").value.trim()
+  };
+  closeModal("modalResepCheckout");
+  finalizeCheckout(info);
+});
+
+function finalizeCheckout(resepInfo){
+  // validasi ulang stok
+  for(const c of cart){
+    const o = DATA.obat.find(x=>x.id===c.obatId);
+    if(!o || c.qty > o.stok){ showToast(`Stok "${c.nama}" tidak mencukupi.`); return; }
+  }
+  const total = cart.reduce((s,c)=>s + c.hargaJual*c.qty, 0);
+  const trx = {
+    id: uid("trx"),
+    tanggal: new Date().toISOString(),
+    items: cart.map(c=>({obatId:c.obatId, nama:c.nama, qty:c.qty, hargaJual:c.hargaJual, hargaBeli:c.hargaBeli})),
+    total
+  };
+  // kurangi stok
+  cart.forEach(c=>{
+    const o = DATA.obat.find(x=>x.id===c.obatId);
+    if(o) o.stok -= c.qty;
+  });
+  DATA.transaksi.push(trx);
+  if(resepInfo){
+    DATA.resep.push({
+      id: uid("resep"),
+      tanggal: new Date().toISOString(),
+      namaPasien: resepInfo.namaPasien,
+      namaDokter: resepInfo.namaDokter,
+      noResep: resepInfo.noResep,
+      catatan: resepInfo.catatan,
+      obat: cart.filter(c=>c.perluResep).map(c=>c.nama).join(", "),
+      trxId: trx.id
+    });
+  }
+  saveData();
+  window.print();
+  cart = [];
+  renderCart();
+  renderStokTable();
+  renderProductList();
+  showToast("Transaksi selesai & tersimpan.");
+}
+
+/* ================= RESEP DOKTER ================= */
+function renderResepTable(){
+  const tbody = document.getElementById("resepTableBody");
+  const empty = document.getElementById("resepEmpty");
+  const list = [...DATA.resep].sort((a,b)=> new Date(b.tanggal)-new Date(a.tanggal));
+  if(list.length===0){ tbody.innerHTML=""; empty.style.display="block"; return; }
+  empty.style.display="none";
+  tbody.innerHTML = list.map(r=>`
+    <tr>
+      <td>${fmtTanggal(r.tanggal)}</td>
+      <td>${r.namaPasien}</td>
+      <td>${r.namaDokter}</td>
+      <td>${r.noResep||"-"}</td>
+      <td>${r.obat||"-"}</td>
+      <td>${r.catatan||"-"}</td>
+    </tr>
+  `).join("");
+}
+document.getElementById("btnAddResep").addEventListener("click", ()=>{
+  document.getElementById("mrNamaPasien").value = "";
+  document.getElementById("mrNamaDokter").value = "";
+  document.getElementById("mrNoResep").value = "";
+  document.getElementById("mrObat").value = "";
+  document.getElementById("mrCatatan").value = "";
+  openModal("modalResepManual");
+});
+document.getElementById("btnSaveResepManual").addEventListener("click", ()=>{
+  const namaPasien = document.getElementById("mrNamaPasien").value.trim();
+  const namaDokter = document.getElementById("mrNamaDokter").value.trim();
+  if(!namaPasien || !namaDokter){ showToast("Nama pasien & dokter wajib diisi."); return; }
+  DATA.resep.push({
+    id: uid("resep"),
+    tanggal: new Date().toISOString(),
+    namaPasien, namaDokter,
+    noResep: document.getElementById("mrNoResep").value.trim(),
+    obat: document.getElementById("mrObat").value.trim(),
+    catatan: document.getElementById("mrCatatan").value.trim(),
+    trxId: null
+  });
+  saveData();
+  closeModal("modalResepManual");
+  renderResepTable();
+  showToast("Resep dicatat.");
+});
+
+/* ================= LAPORAN KEUANGAN ================= */
+function renderLaporan(){
+  const from = document.getElementById("filterFrom").value;
+  const to = document.getElementById("filterTo").value;
+  let list = [...DATA.transaksi];
+  if(from) list = list.filter(t=> t.tanggal.slice(0,10) >= from);
+  if(to) list = list.filter(t=> t.tanggal.slice(0,10) <= to);
+  list.sort((a,b)=> new Date(b.tanggal)-new Date(a.tanggal));
+
+  const omzet = list.reduce((s,t)=>s+t.total,0);
+  const laba = list.reduce((s,t)=> s + t.items.reduce((si,it)=> si + (it.hargaJual-it.hargaBeli)*it.qty, 0), 0);
+  const itemCount = list.reduce((s,t)=> s + t.items.reduce((si,it)=>si+it.qty,0), 0);
+
+  document.getElementById("statOmzet").textContent = rupiah(omzet);
+  document.getElementById("statTrxCount").textContent = list.length + " transaksi";
+  document.getElementById("statLaba").textContent = rupiah(laba);
+  document.getElementById("statItemTerjual").textContent = itemCount;
+
+  const tbody = document.getElementById("laporanTableBody");
+  const empty = document.getElementById("laporanEmpty");
+  if(list.length===0){ tbody.innerHTML=""; empty.style.display="block"; return; }
+  empty.style.display="none";
+  tbody.innerHTML = list.map(t=>`
+    <tr>
+      <td>${fmtTanggal(t.tanggal)}</td>
+      <td>${t.id}</td>
+      <td>${t.items.map(i=>`${i.nama} x${i.qty}`).join(", ")}</td>
+      <td>${rupiah(t.total)}</td>
+    </tr>
+  `).join("");
+}
+document.getElementById("btnFilterLaporan").addEventListener("click", renderLaporan);
+document.getElementById("btnResetLaporan").addEventListener("click", ()=>{
+  document.getElementById("filterFrom").value = "";
+  document.getElementById("filterTo").value = "";
+  renderLaporan();
+});
+
+/* ================= BACKUP / RESTORE ================= */
+document.getElementById("btnExport").addEventListener("click", ()=>{
+  const blob = new Blob([JSON.stringify(DATA, null, 2)], {type:"application/json"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `backup-kasir-apotek-${todayStr()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast("Backup diunduh.");
+});
+document.getElementById("fileDrop").addEventListener("click", ()=> document.getElementById("fileInput").click());
+document.getElementById("fileInput").addEventListener("change", (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    try{
+      const parsed = JSON.parse(reader.result);
+      if(!parsed || !Array.isArray(parsed.obat) || !Array.isArray(parsed.transaksi) || !Array.isArray(parsed.resep)){
+        showToast("Format file backup tidak dikenali."); return;
+      }
+      if(!confirm("Ini akan mengganti seluruh data saat ini di perangkat ini. Lanjutkan?")) return;
+      DATA = parsed;
+      saveData();
+      renderStokTable(); renderProductList(); renderResepTable(); renderLaporan();
+      showToast("Data berhasil dipulihkan.");
+    }catch(err){
+      showToast("Gagal membaca file. Pastikan file .json valid.");
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = "";
+});
+
+/* ================= INIT ================= */
+renderProductList();
+renderCart();
+renderStokTable();
+renderResepTable();
+renderLaporan();
+</script>
+</body>
+</html>
