@@ -111,6 +111,10 @@
   .tag{display:inline-flex;align-items:center;font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:99px;}
   .tag-low{background:var(--danger-soft);color:var(--danger);}
   .tag-ok{background:var(--primary-soft);color:var(--primary-dark);}
+  .tag-soon{background:#FFF4E5;color:#8A5A00;}
+  tr.row-void{opacity:0.55;}
+  tr.row-void td{text-decoration:line-through;}
+  tr.row-void td:last-child{text-decoration:none;}
 
   .empty-state{border:1px dashed var(--border);border-radius:var(--radius);padding:34px;text-align:center;color:var(--ink-soft);}
 
@@ -248,6 +252,10 @@
     <div class="banner-alert hidden" id="stokMenipisBanner">
       <span id="stokMenipisText">⚠️ Ada obat yang stoknya menipis.</span>
       <button class="link-btn" id="btnGoStokMenipis">Cek Stok →</button>
+    </div>
+    <div class="banner-alert danger hidden" id="kadaluarsaBanner">
+      <span id="kadaluarsaText">⚠️ Ada obat yang kadaluarsa/mendekati kadaluarsa.</span>
+      <button class="link-btn" id="btnGoKadaluarsa">Cek Stok →</button>
     </div>
     <div class="kasir-grid">
       <div>
@@ -501,6 +509,13 @@
         <button type="submit" class="btn btn-primary" style="align-self:flex-end;">Simpan PIN</button>
       </form>
       <p class="muted" style="margin-top:10px;">PIN default saat pertama kali dipakai adalah <b>1234</b>.</p>
+    </div>
+
+    <h2>Backup Data</h2>
+    <p class="section-hint">Unduh seluruh data (stok obat, riwayat transaksi, pengaturan) sebagai file cadangan. Simpan file ini di HP/laptop/Google Drive secara berkala (mis. tiap minggu), untuk jaga-jaga kalau data bermasalah.</p>
+    <div class="card">
+      <button class="btn btn-primary" id="btnUnduhBackup">📥 Unduh Backup Lengkap (JSON)</button>
+      <p class="muted" style="margin-top:10px;">Catatan: PIN admin tidak ikut disertakan dalam file backup demi keamanan.</p>
     </div>
   </section>
 
@@ -1011,6 +1026,27 @@ function updateKasirBanners(){
     stokBanner.classList.add('hidden');
   }
 
+  const today = new Date(); today.setHours(0,0,0,0);
+  const batas = new Date(today); batas.setDate(batas.getDate()+30);
+  let expiredCount = 0, soonCount = 0;
+  obatList.forEach(o=>{
+    if(!o.kadaluarsa) return;
+    const d = parseDateInput(o.kadaluarsa);
+    if(isNaN(d)) return;
+    if(d < today) expiredCount++;
+    else if(d <= batas) soonCount++;
+  });
+  const kadaluarsaBanner = document.getElementById('kadaluarsaBanner');
+  if(expiredCount > 0 || soonCount > 0){
+    const parts = [];
+    if(expiredCount>0) parts.push(`${expiredCount} obat sudah kadaluarsa`);
+    if(soonCount>0) parts.push(`${soonCount} obat akan kadaluarsa dalam 30 hari`);
+    document.getElementById('kadaluarsaText').textContent = `⚠️ ${parts.join(', ')}. Segera cek & pisahkan dari rak jual.`;
+    kadaluarsaBanner.classList.remove('hidden');
+  } else {
+    kadaluarsaBanner.classList.add('hidden');
+  }
+
   const pinBanner = document.getElementById('pinDefaultBanner');
   pinBanner.classList.toggle('hidden', adminPin !== '1234');
 }
@@ -1028,6 +1064,16 @@ function renderStokTable(){
   }
   body.innerHTML = list.map(o=>{
     const low = Number(o.stok||0) <= Number(o.stokMin||pengaturan.stokMinDefault);
+    let expStatus = '';
+    if(o.kadaluarsa){
+      const d = parseDateInput(o.kadaluarsa);
+      if(!isNaN(d)){
+        const today = new Date(); today.setHours(0,0,0,0);
+        const batas = new Date(today); batas.setDate(batas.getDate()+30);
+        if(d < today) expStatus = 'expired';
+        else if(d <= batas) expStatus = 'soon';
+      }
+    }
     return `
     <tr class="${low?'row-low':''}" data-id="${o.id}">
       <td>${escapeHtml(o.nama)}</td>
@@ -1036,7 +1082,7 @@ function renderStokTable(){
       <td class="num">${rupiah(o.hargaBeli)}</td>
       <td class="num">${rupiah(o.hargaJual)}</td>
       <td class="num">${o.stok}</td>
-      <td>${o.kadaluarsa || '-'}</td>
+      <td>${o.kadaluarsa || '-'} ${expStatus==='expired' ? '<span class="tag tag-low">Kadaluarsa</span>' : expStatus==='soon' ? '<span class="tag tag-soon">Segera</span>' : ''}</td>
       <td>${low ? '<span class="tag tag-low">Menipis</span>' : '<span class="tag tag-ok">Aman</span>'}</td>
       <td>
         <button class="btn btn-sm edit-obat" data-id="${o.id}">Edit</button>
@@ -1234,6 +1280,7 @@ async function buildLaporan(startStr, endStr){
     if(raw){
       Object.values(raw).forEach(trx=>{
         rows.push(trx);
+        if(trx.dibatalkan) return;
         trx.items.forEach(it=>{
           if(!produk[it.nama]) produk[it.nama] = { qty:0, total:0, laba:0 };
           produk[it.nama].qty += it.qty;
@@ -1257,11 +1304,12 @@ async function renderLaporan(){
   document.getElementById('lapTransBody').innerHTML = `<tr><td colspan="7" class="muted">Menghitung laporan...</td></tr>`;
   document.getElementById('lapProdukBody').innerHTML = '';
   const { rows, produk } = await buildLaporan(startVal, endVal);
+  const rowsAktif = rows.filter(r=>!r.dibatalkan);
 
-  const totalPenjualan = rows.reduce((s,r)=>s+r.total,0);
-  const totalHpp = rows.reduce((s,r)=>s+r.totalHpp,0);
+  const totalPenjualan = rowsAktif.reduce((s,r)=>s+r.total,0);
+  const totalHpp = rowsAktif.reduce((s,r)=>s+r.totalHpp,0);
   const labaKotor = totalPenjualan - totalHpp;
-  const jumlahTrx = rows.length;
+  const jumlahTrx = rowsAktif.length;
 
   document.getElementById('lapSummaryCards').innerHTML = `
     <div class="s-card"><div class="k">Total Penjualan</div><div class="v">${rupiah(totalPenjualan)}</div></div>
@@ -1288,21 +1336,34 @@ async function renderLaporan(){
 }
 
 function buildLapTransRows(rows){
-  return rows.map(r=>`
-    <tr>
+  return rows.map(r=>{
+    const isVoid = !!r.dibatalkan;
+    return `
+    <tr class="${isVoid?'row-void':''}">
       <td>${fmtDateFull(parseDateInput(r.tanggal))} ${r.waktu}</td>
-      <td>${r.noStruk}</td>
+      <td>${r.noStruk} ${isVoid?'<span class="tag tag-low">Dibatalkan</span>':''}</td>
       <td>${r.metode}${r.pakaiResep?' (Resep)':''}</td>
       <td class="num">${rupiah(r.total)}</td>
       <td class="num">${rupiah(r.totalHpp)}</td>
       <td class="num">${rupiah(r.total-r.totalHpp)}</td>
-      <td><button class="btn btn-reprint" data-nostruk="${r.noStruk}">🖨️ Cetak Ulang</button></td>
-    </tr>`).join('');
+      <td>
+        <button class="btn btn-reprint" data-nostruk="${r.noStruk}">🖨️ Cetak Ulang</button>
+        ${!isVoid ? `<button class="btn btn-sm btn-danger btn-batalkan" data-nostruk="${r.noStruk}">🚫 Batalkan</button>` : ''}
+      </td>
+    </tr>`;
+  }).join('');
 }
 
 function wireLapTransActions(){
   document.querySelectorAll('.btn-reprint').forEach(b=>{
     b.addEventListener('click', e=>reprintTrx(e.target.dataset.nostruk));
+  });
+  document.querySelectorAll('.btn-batalkan').forEach(b=>{
+    b.addEventListener('click', e=>{
+      const noStruk = e.target.dataset.nostruk;
+      pinCallback = ()=>batalkanTrx(noStruk);
+      openPinModal('Masukkan PIN untuk membatalkan transaksi ini.');
+    });
   });
 }
 
@@ -1314,6 +1375,30 @@ function reprintTrx(noStruk){
   } else {
     cetakStruk(trx);
   }
+}
+
+async function batalkanTrx(noStruk){
+  const trx = lapCache.rows.find(r=>r.noStruk===noStruk);
+  if(!trx){ toast('Transaksi tidak ditemukan.', true); return; }
+  if(trx.dibatalkan){ toast('Transaksi ini sudah dibatalkan sebelumnya.', true); return; }
+  if(!confirm(`Batalkan transaksi ${trx.noStruk}?\n\nStok obat yang terjual di transaksi ini akan otomatis dikembalikan. Aksi ini tidak bisa dibatalkan.`)) return;
+
+  trx.items.forEach(it=>{
+    const o = obatList.find(x=>x.id===it.obatId);
+    if(o) o.stok = Number(o.stok||0) + Number(it.qty||0);
+  });
+  await saveObatList();
+
+  trx.dibatalkan = true;
+  trx.waktuBatal = new Date().toISOString();
+  const existingTrx = await sGet('transaksi/' + trx.tanggal) || {};
+  existingTrx[trx.id] = trx;
+  await sSet('transaksi/' + trx.tanggal, existingTrx);
+
+  toast(`Transaksi ${trx.noStruk} dibatalkan, stok telah dikembalikan ✓`);
+  renderStokTable();
+  renderStokSummary();
+  renderLaporan();
 }
 
 function filterLapTrans(query){
@@ -1407,7 +1492,31 @@ function goToTab(target){
 document.querySelectorAll('.tab').forEach(tabBtn=>{
   tabBtn.addEventListener('click', ()=> goToTab(tabBtn.dataset.tab));
 });
+async function unduhBackup(){
+  toast('Menyiapkan file backup...');
+  const transaksi = await sGet('transaksi') || {};
+  const backup = {
+    dibuat: new Date().toISOString(),
+    aplikasi: 'Kasir Apotek Masema',
+    obat: obatList,
+    transaksi,
+    pengaturan,
+  };
+  const blob = new Blob([JSON.stringify(backup, null, 2)], { type:'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const stamp = dateKey(new Date());
+  a.href = url;
+  a.download = `backup-kasir-apotek-${stamp}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  toast('Backup berhasil diunduh ✓');
+}
+document.getElementById('btnUnduhBackup').addEventListener('click', unduhBackup);
 document.getElementById('btnGoStokMenipis').addEventListener('click', ()=> goToTab('stok'));
+document.getElementById('btnGoKadaluarsa').addEventListener('click', ()=> goToTab('stok'));
 document.getElementById('btnGoPengaturanPin').addEventListener('click', ()=> goToTab('pengaturan'));
 
 function activateTab(target){
