@@ -200,7 +200,12 @@
     main{padding:0;max-width:100%;}
     .card,.emp-card{box-shadow:none;}
   }
-  .struk-box{max-width:320px;margin:0 auto;font-family:var(--font-mono);font-size:12px;color:#000;}
+  .struk-box{max-width:80mm;margin:0 auto;font-family:var(--font-mono);font-size:12px;color:#000;}
+
+  .banner-alert{display:flex;align-items:center;justify-content:space-between;gap:12px;background:#FFF4E5;border:1px solid #F0B429;color:#7A4A00;border-radius:10px;padding:11px 14px;margin-bottom:14px;font-size:13px;font-weight:600;flex-wrap:wrap;}
+  .banner-alert.danger{background:#FDEBEA;border-color:#E5A29E;color:#8A241C;}
+  .banner-alert a, .banner-alert button.link-btn{color:inherit;text-decoration:underline;background:none;border:none;font-weight:700;font-size:13px;cursor:pointer;padding:0;}
+  .banner-alert.hidden{display:none;}
   .struk-box h3{text-align:center;margin:0 0 2px;font-family:var(--font-mono);}
   .struk-box .center{text-align:center;}
   .struk-box hr{border:none;border-top:1px dashed #000;margin:8px 0;}
@@ -236,6 +241,14 @@
 
   <!-- ===== TAB KASIR ===== -->
   <section class="tab-panel active" id="tab-kasir">
+    <div class="banner-alert danger hidden" id="pinDefaultBanner">
+      <span>⚠️ PIN admin masih memakai kode default (1234). Segera ganti di tab Pengaturan.</span>
+      <button class="link-btn" id="btnGoPengaturanPin">Ganti PIN →</button>
+    </div>
+    <div class="banner-alert hidden" id="stokMenipisBanner">
+      <span id="stokMenipisText">⚠️ Ada obat yang stoknya menipis.</span>
+      <button class="link-btn" id="btnGoStokMenipis">Cek Stok →</button>
+    </div>
     <div class="kasir-grid">
       <div>
         <h2>Cari Obat</h2>
@@ -457,6 +470,21 @@
         <div class="field full">
           <label>Pesan Penutup Struk</label>
           <input type="text" id="setPesanStruk" placeholder="Terima kasih atas kunjungan Anda">
+        </div>
+        <div class="field">
+          <label>Ukuran Kertas Struk (Printer Thermal)</label>
+          <select id="setStrukWidth">
+            <option value="80">80mm (thermal umum)</option>
+            <option value="76">76mm (thermal POS)</option>
+            <option value="58">58mm (thermal mini/portable)</option>
+            <option value="57">57mm (thermal mini)</option>
+            <option value="44">44mm (thermal mini kasir)</option>
+            <option value="custom">Custom (masukkan sendiri)</option>
+          </select>
+        </div>
+        <div class="field" id="strukWidthCustomField" style="display:none;">
+          <label>Lebar Custom (mm)</label>
+          <input type="number" id="setStrukWidthCustom" min="20" max="120" placeholder="contoh: 70">
         </div>
       </div>
       <button class="btn btn-primary" id="btnSimpanPengaturan" style="margin-top:12px;">Simpan Pengaturan</button>
@@ -880,8 +908,22 @@ function showStrukPilihan(trx, isReprint){
 }
 let lastTrx = null;
 
+function getStrukWidthMm(){
+  if(pengaturan.strukWidth === 'custom'){
+    return Number(pengaturan.strukWidthCustom) > 0 ? Number(pengaturan.strukWidthCustom) : 80;
+  }
+  return Number(pengaturan.strukWidth) || 80;
+}
+function applyStrukSize(el){
+  const mm = getStrukWidthMm();
+  el.className = 'struk-box';
+  el.style.maxWidth = mm + 'mm';
+  el.style.fontSize = mm <= 46 ? '9.5px' : (mm <= 60 ? '10.5px' : '12px');
+}
+
 function cetakStruk(trx){
   const el = document.getElementById('strukContent');
+  applyStrukSize(el);
   el.innerHTML = `
     <h3>${escapeHtml(pengaturan.namaApotek||'Apotek Masema Medika')}</h3>
     <div class="center">${escapeHtml(pengaturan.alamat||'')}</div>
@@ -913,6 +955,7 @@ function cetakStruk(trx){
 function cetakStrukCustom(trx){
   if(!trx.hasCustom) return;
   const el = document.getElementById('strukContent');
+  applyStrukSize(el);
   el.innerHTML = `
     <h3>${escapeHtml(pengaturan.namaApotek||'Apotek Masema Medika')}</h3>
     <div class="center">${escapeHtml(pengaturan.alamat||'')}</div>
@@ -955,6 +998,21 @@ function renderStokSummary(){
     <div class="s-card"><div class="k">Nilai Stok (Harga Beli)</div><div class="v" style="font-size:15px;">${rupiah(nilaiStok)}</div></div>
     <div class="s-card"><div class="k">Stok Menipis</div><div class="v" style="color:${stokMenipis>0?'#B3261E':'#0E4A41'};">${stokMenipis}</div></div>
   `;
+  updateKasirBanners();
+}
+
+function updateKasirBanners(){
+  const stokMenipis = obatList.filter(o=>Number(o.stok||0) <= Number(o.stokMin||pengaturan.stokMinDefault)).length;
+  const stokBanner = document.getElementById('stokMenipisBanner');
+  if(stokMenipis > 0){
+    document.getElementById('stokMenipisText').textContent = `⚠️ Ada ${stokMenipis} obat yang stoknya menipis, segera cek & restok.`;
+    stokBanner.classList.remove('hidden');
+  } else {
+    stokBanner.classList.add('hidden');
+  }
+
+  const pinBanner = document.getElementById('pinDefaultBanner');
+  pinBanner.classList.toggle('hidden', adminPin !== '1234');
 }
 
 function renderStokTable(){
@@ -1293,20 +1351,33 @@ function fillPengaturanForm(){
   document.getElementById('setTelp').value = pengaturan.telp||'';
   document.getElementById('setStokMin').value = pengaturan.stokMinDefault!=null ? pengaturan.stokMinDefault : 10;
   document.getElementById('setPesanStruk').value = pengaturan.pesanStruk||'Terima kasih atas kunjungan Anda';
+  document.getElementById('setStrukWidth').value = pengaturan.strukWidth || '80';
+  document.getElementById('setStrukWidthCustom').value = pengaturan.strukWidthCustom || '';
+  document.getElementById('strukWidthCustomField').style.display = (pengaturan.strukWidth==='custom') ? '' : 'none';
 }
 async function simpanPengaturan(){
+  const strukWidth = document.getElementById('setStrukWidth').value || '80';
+  let strukWidthCustom = Number(document.getElementById('setStrukWidthCustom').value) || 0;
+  if(strukWidth === 'custom' && strukWidthCustom <= 0){
+    toast('Isi lebar custom dalam mm terlebih dahulu.', true);
+    return;
+  }
   pengaturan = {
     namaApotek: document.getElementById('setNamaApotek').value.trim(),
     alamat: document.getElementById('setAlamat').value.trim(),
     telp: document.getElementById('setTelp').value.trim(),
     stokMinDefault: Number(document.getElementById('setStokMin').value)||0,
     pesanStruk: document.getElementById('setPesanStruk').value.trim() || 'Terima kasih atas kunjungan Anda',
+    strukWidth, strukWidthCustom,
   };
   await sSet('pengaturan', pengaturan);
   toast('Pengaturan disimpan ✓');
   renderStokTable();
   renderStokSummary();
 }
+document.getElementById('setStrukWidth').addEventListener('change', e=>{
+  document.getElementById('strukWidthCustomField').style.display = (e.target.value==='custom') ? '' : 'none';
+});
 
 document.getElementById('pinForm').addEventListener('submit', async (e)=>{
   e.preventDefault();
@@ -1316,6 +1387,7 @@ document.getElementById('pinForm').addEventListener('submit', async (e)=>{
   await sSet('admin-pin', adminPin);
   e.target.reset();
   toast('PIN admin diperbarui ✓');
+  updateKasirBanners();
 });
 
 /* =========================================================
@@ -1323,17 +1395,20 @@ document.getElementById('pinForm').addEventListener('submit', async (e)=>{
    ========================================================= */
 const PROTECTED_TABS = ['stok','laporan','pengaturan'];
 
+function goToTab(target){
+  if(PROTECTED_TABS.includes(target) && !pinUnlocked){
+    pendingTabAfterPin = target;
+    openPinModal();
+    return;
+  }
+  activateTab(target);
+}
+
 document.querySelectorAll('.tab').forEach(tabBtn=>{
-  tabBtn.addEventListener('click', ()=>{
-    const target = tabBtn.dataset.tab;
-    if(PROTECTED_TABS.includes(target) && !pinUnlocked){
-      pendingTabAfterPin = target;
-      openPinModal();
-      return;
-    }
-    activateTab(target);
-  });
+  tabBtn.addEventListener('click', ()=> goToTab(tabBtn.dataset.tab));
 });
+document.getElementById('btnGoStokMenipis').addEventListener('click', ()=> goToTab('stok'));
+document.getElementById('btnGoPengaturanPin').addEventListener('click', ()=> goToTab('pengaturan'));
 
 function activateTab(target){
   document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active', b.dataset.tab===target));
@@ -1464,6 +1539,7 @@ document.getElementById('btnSimpanPengaturan').addEventListener('click', simpanP
     return;
   }
   await initData();
+  updateKasirBanners();
   renderCart();
 })();
 </script>
