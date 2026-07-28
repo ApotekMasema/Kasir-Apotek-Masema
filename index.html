@@ -139,8 +139,18 @@
   .ci-subtotal{width:88px;text-align:right;font-family:var(--font-mono);font-size:12.5px;font-weight:700;}
   .ci-del{border:none;background:transparent;color:var(--danger);font-size:16px;padding:0 2px;}
 
+  .ci-custom-row{display:none;align-items:center;gap:6px;margin-top:5px;}
+  .ci-custom-row.show{display:flex;}
+  .ci-custom-row label{font-size:10.5px;color:var(--ink-soft);white-space:nowrap;}
+  .ci-custom-row input{width:100px;padding:4px 6px;font-size:12px;}
+  .ci-custom-diff{font-size:10px;color:var(--primary-dark);font-weight:700;margin-left:2px;}
+
   .total-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;font-family:var(--font-mono);}
   .total-row.grand{font-size:20px;font-weight:800;color:var(--primary-dark);border-top:2px solid var(--border);margin-top:6px;padding-top:12px;}
+  .total-row.custom{font-size:13px;color:var(--primary-dark);border-top:1px dashed var(--border);margin-top:4px;padding-top:8px;display:none;}
+  .total-row.custom.show{display:flex;}
+
+  .struk-choice-btns{display:flex;flex-direction:column;gap:8px;margin-top:6px;}
 
   .toggle-row{display:flex;align-items:center;gap:8px;margin:10px 0;}
   .toggle-row input[type=checkbox]{width:17px;height:17px;}
@@ -243,6 +253,12 @@
         </div>
 
         <div class="toggle-row">
+          <input type="checkbox" id="pakaiHargaCustom">
+          <label for="pakaiHargaCustom">Aktifkan Harga Custom (untuk struk pasien)</label>
+        </div>
+        <p class="section-hint" id="hargaCustomHint" style="display:none;margin-top:-6px;">Harga di kolom "Struk Pasien" hanya memengaruhi struk yang diberikan ke pasien. Laporan keuangan tetap memakai harga asli dari Stok Obat.</p>
+
+        <div class="toggle-row">
           <input type="checkbox" id="pakaiResep">
           <label for="pakaiResep">Pakai Resep Dokter</label>
         </div>
@@ -260,8 +276,12 @@
         </div>
 
         <div class="total-row grand">
-          <span>Total</span>
+          <span>Total (Asli / Laporan Keuangan)</span>
           <span id="cartTotal">Rp 0</span>
+        </div>
+        <div class="total-row custom" id="cartTotalCustomRow">
+          <span>Total Struk Pasien (Custom)</span>
+          <span id="cartTotalCustom">Rp 0</span>
         </div>
 
         <div class="field" style="margin-top:8px;">
@@ -492,6 +512,18 @@
   </div>
 </div>
 
+<div class="modal-overlay hidden" id="strukPilihanModal">
+  <div class="modal">
+    <h3>Transaksi Tersimpan ✓</h3>
+    <p>Transaksi tercatat di laporan keuangan memakai harga asli. Pilih struk yang ingin dicetak:</p>
+    <div class="struk-choice-btns">
+      <button class="btn btn-primary btn-block" id="btnCetakStrukAsli">🖨️ Cetak Struk Asli</button>
+      <button class="btn btn-block" id="btnCetakStrukCustom">🖨️ Cetak Struk Custom (untuk pasien)</button>
+    </div>
+    <button class="cancel" id="btnTutupStrukPilihan">Tutup</button>
+  </div>
+</div>
+
 <div class="modal-overlay hidden" id="pinModal">
   <div class="modal">
     <h3>Masukkan PIN Admin</h3>
@@ -653,21 +685,29 @@ function addToCart(obatId){
   if(existing){
     existing.qty += 1;
   } else {
-    cart.push({ obatId: obat.id, nama: obat.nama, hargaJual: obat.hargaJual, hargaBeli: obat.hargaBeli, satuan: obat.satuan, qty: 1 });
+    cart.push({ obatId: obat.id, nama: obat.nama, hargaJual: obat.hargaJual, hargaCustom: obat.hargaJual, hargaBeli: obat.hargaBeli, satuan: obat.satuan, qty: 1 });
   }
   renderCart();
 }
 
 function renderCart(){
   const wrap = document.getElementById('cartList');
+  const customOn = document.getElementById('pakaiHargaCustom').checked;
   if(cart.length === 0){
     wrap.innerHTML = '<div class="empty-state">Keranjang masih kosong.</div>';
   } else {
-    wrap.innerHTML = cart.map((c,idx)=>`
+    wrap.innerHTML = cart.map((c,idx)=>{
+      const diff = c.hargaCustom !== c.hargaJual;
+      return `
       <div class="cart-item" data-idx="${idx}">
         <div class="ci-info">
           <div class="ci-name">${escapeHtml(c.nama)}</div>
           <div class="ci-price">${rupiah(c.hargaJual)} / ${escapeHtml(c.satuan||'')}</div>
+          <div class="ci-custom-row ${customOn?'show':''}">
+            <label>Struk Pasien:</label>
+            <input type="number" class="ci-custom-input" data-idx="${idx}" value="${c.hargaCustom}" min="0">
+            ${diff?'<span class="ci-custom-diff">custom</span>':''}
+          </div>
         </div>
         <div class="qty-ctrl">
           <button class="qty-minus" data-idx="${idx}">-</button>
@@ -677,19 +717,31 @@ function renderCart(){
         <div class="ci-subtotal">${rupiah(c.hargaJual*c.qty)}</div>
         <button class="ci-del" data-idx="${idx}">✕</button>
       </div>
-    `).join('');
+    `;
+    }).join('');
   }
 
   wrap.querySelectorAll('.qty-minus').forEach(b=>b.addEventListener('click', e=>changeQty(e.target.dataset.idx, -1)));
   wrap.querySelectorAll('.qty-plus').forEach(b=>b.addEventListener('click', e=>changeQty(e.target.dataset.idx, 1)));
   wrap.querySelectorAll('.qty-input').forEach(inp=>inp.addEventListener('change', e=>setQty(e.target.dataset.idx, Number(e.target.value))));
+  wrap.querySelectorAll('.ci-custom-input').forEach(inp=>inp.addEventListener('change', e=>{
+    const idx = Number(e.target.dataset.idx);
+    let val = Number(e.target.value);
+    if(!val || val < 0) val = cart[idx].hargaJual;
+    cart[idx].hargaCustom = val;
+    renderCart();
+  }));
   wrap.querySelectorAll('.ci-del').forEach(b=>b.addEventListener('click', e=>{
     cart.splice(Number(e.target.dataset.idx),1);
     renderCart();
   }));
 
   const total = cart.reduce((s,c)=>s+c.hargaJual*c.qty, 0);
+  const totalCustom = cart.reduce((s,c)=>s+c.hargaCustom*c.qty, 0);
   document.getElementById('cartTotal').textContent = rupiah(total);
+  document.getElementById('cartTotalCustom').textContent = rupiah(totalCustom);
+  const anyDiff = cart.some(c=>c.hargaCustom !== c.hargaJual);
+  document.getElementById('cartTotalCustomRow').classList.toggle('show', customOn && anyDiff);
   updateKembalian();
 }
 
@@ -755,6 +807,10 @@ async function prosesBayar(){
     }
   }
 
+  const customOn = document.getElementById('pakaiHargaCustom').checked;
+  const totalCustom = cart.reduce((s,c)=>s+c.hargaCustom*c.qty, 0);
+  const hasCustom = customOn && cart.some(c=>c.hargaCustom !== c.hargaJual);
+
   const now = new Date();
   const id = crypto.randomUUID();
   const noStruk = `${dateKey(now).replace(/-/g,'')}-${String(Date.now()).slice(-5)}`;
@@ -763,6 +819,9 @@ async function prosesBayar(){
     items: cart.map(c=>({obatId:c.obatId, nama:c.nama, satuan:c.satuan||'', qty:c.qty, hargaJual:c.hargaJual, hargaBeli:c.hargaBeli, subtotal:c.hargaJual*c.qty})),
     total, totalHpp, metode, diterima: metode==='Tunai'?diterima:total, kembalian: metode==='Tunai'?(diterima-total):0,
     pakaiResep, dokter: pakaiResep?dokter:'', pasien: pakaiResep?pasien:'',
+    hasCustom,
+    totalCustom: hasCustom ? totalCustom : null,
+    itemsCustom: hasCustom ? cart.map(c=>({nama:c.nama, satuan:c.satuan||'', qty:c.qty, hargaCustom:c.hargaCustom, subtotal:c.hargaCustom*c.qty})) : null,
   };
 
   // update stok
@@ -778,7 +837,6 @@ async function prosesBayar(){
   await sSet('transaksi/' + trx.tanggal, existingTrx);
 
   toast(`Transaksi ${trx.noStruk} berhasil disimpan ✓`);
-  cetakStruk(trx);
 
   cart = [];
   document.getElementById('pakaiResep').checked = false;
@@ -786,10 +844,20 @@ async function prosesBayar(){
   document.getElementById('resepDokter').value='';
   document.getElementById('resepPasien').value='';
   document.getElementById('uangDiterima').value='';
+  document.getElementById('pakaiHargaCustom').checked = false;
+  document.getElementById('hargaCustomHint').style.display = 'none';
   renderCart();
   renderStokTable();
   renderStokSummary();
+
+  if(trx.hasCustom){
+    lastTrx = trx;
+    document.getElementById('strukPilihanModal').classList.remove('hidden');
+  } else {
+    cetakStruk(trx);
+  }
 }
+let lastTrx = null;
 
 function cetakStruk(trx){
   const el = document.getElementById('strukContent');
@@ -813,6 +881,35 @@ function cetakStruk(trx){
       <tr><td><b>TOTAL</b></td><td style="text-align:right;"><b>${rupiah(trx.total)}</b></td></tr>
       <tr><td>${trx.metode}</td><td style="text-align:right;">${rupiah(trx.diterima)}</td></tr>
       ${trx.metode==='Tunai' ? `<tr><td>Kembali</td><td style="text-align:right;">${rupiah(trx.kembalian)}</td></tr>` : ''}
+    </table>
+    <hr>
+    <div class="center">Terima kasih atas kunjungan Anda</div>
+  `;
+  document.body.classList.add('printing-struk');
+  window.print();
+  setTimeout(()=> document.body.classList.remove('printing-struk'), 500);
+}
+function cetakStrukCustom(trx){
+  if(!trx.hasCustom) return;
+  const el = document.getElementById('strukContent');
+  el.innerHTML = `
+    <h3>${escapeHtml(pengaturan.namaApotek||'Apotek Masema Medika')}</h3>
+    <div class="center">${escapeHtml(pengaturan.alamat||'')}</div>
+    <div class="center">${escapeHtml(pengaturan.telp||'')}</div>
+    <hr>
+    <div>No: ${trx.noStruk}</div>
+    <div>${fmtDateFull(parseDateInput(trx.tanggal))} ${trx.waktu}</div>
+    ${trx.pakaiResep ? `<div>Resep: ${escapeHtml(trx.dokter)} - Ps. ${escapeHtml(trx.pasien||'-')}</div>` : ''}
+    <hr>
+    <table>
+      ${trx.itemsCustom.map(it=>`
+        <tr><td colspan="2">${escapeHtml(it.nama)}</td></tr>
+        <tr><td>${it.qty} x ${rupiah(it.hargaCustom)}</td><td style="text-align:right;">${rupiah(it.subtotal)}</td></tr>
+      `).join('')}
+    </table>
+    <hr>
+    <table>
+      <tr><td><b>TOTAL</b></td><td style="text-align:right;"><b>${rupiah(trx.totalCustom)}</b></td></tr>
     </table>
     <hr>
     <div class="center">Terima kasih atas kunjungan Anda</div>
@@ -1224,6 +1321,16 @@ function checkPin(){
 document.getElementById('kasirSearch').addEventListener('input', e=>renderSearchResults(e.target.value.trim()));
 document.getElementById('pakaiResep').addEventListener('change', e=>{
   document.getElementById('resepFields').style.display = e.target.checked ? '' : 'none';
+});
+document.getElementById('pakaiHargaCustom').addEventListener('change', e=>{
+  document.getElementById('hargaCustomHint').style.display = e.target.checked ? '' : 'none';
+  renderCart();
+});
+document.getElementById('btnCetakStrukAsli').addEventListener('click', ()=>{ if(lastTrx) cetakStruk(lastTrx); });
+document.getElementById('btnCetakStrukCustom').addEventListener('click', ()=>{ if(lastTrx) cetakStrukCustom(lastTrx); });
+document.getElementById('btnTutupStrukPilihan').addEventListener('click', ()=>{
+  document.getElementById('strukPilihanModal').classList.add('hidden');
+  lastTrx = null;
 });
 document.getElementById('metodeBayar').addEventListener('change', updateKembalian);
 document.getElementById('uangDiterima').addEventListener('input', updateKembalian);
