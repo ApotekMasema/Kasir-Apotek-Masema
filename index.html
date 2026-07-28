@@ -509,6 +509,21 @@
         <button type="submit" class="btn btn-primary" style="align-self:flex-end;">Simpan PIN</button>
       </form>
       <p class="muted" style="margin-top:10px;">PIN default saat pertama kali dipakai adalah <b>1234</b>.</p>
+
+      <hr style="margin:16px 0;border:none;border-top:1px solid var(--border);">
+      <label style="font-weight:700;font-size:13px;display:block;margin-bottom:8px;">Pengaturan "Lupa PIN"</label>
+      <p class="muted" style="margin-bottom:10px;">Isi pertanyaan & jawaban keamanan ini sekarang, supaya kalau lupa PIN nanti, Anda bisa mengatur PIN baru sendiri tanpa perlu bantuan siapa-siapa.</p>
+      <form class="form-grid" id="recoveryForm">
+        <div class="field full">
+          <label>Pertanyaan Keamanan</label>
+          <input type="text" id="recoveryQuestion" placeholder="Contoh: Nama kecil pemilik apotek?">
+        </div>
+        <div class="field full">
+          <label>Jawaban Keamanan</label>
+          <input type="text" id="recoveryAnswer" placeholder="Jawaban (tidak case-sensitive)">
+        </div>
+        <button type="submit" class="btn" style="align-self:flex-end;">Simpan Pertanyaan Keamanan</button>
+      </form>
     </div>
 
     <h2>Backup Data</h2>
@@ -516,6 +531,11 @@
     <div class="card">
       <button class="btn btn-primary" id="btnUnduhBackup">📥 Unduh Backup Lengkap (JSON)</button>
       <p class="muted" style="margin-top:10px;">Catatan: PIN admin tidak ikut disertakan dalam file backup demi keamanan.</p>
+      <hr style="margin:16px 0;border:none;border-top:1px solid var(--border);">
+      <label style="font-weight:700;font-size:13px;display:block;margin-bottom:8px;">Pulihkan dari File Backup</label>
+      <p class="muted" style="margin-bottom:10px;">⚠️ Ini akan <b>menimpa semua data saat ini</b> (stok obat, transaksi, pengaturan) dengan isi file backup yang dipilih. Pastikan file-nya benar sebelum lanjut.</p>
+      <input type="file" id="fileRestoreBackup" accept=".json" style="display:none;">
+      <button class="btn btn-danger" id="btnPulihkanBackup">📤 Pulihkan dari File Backup</button>
     </div>
   </section>
 
@@ -587,7 +607,26 @@
     <input type="password" id="pinInput" maxlength="4" inputmode="numeric" placeholder="••••">
     <button class="btn btn-primary" id="pinSubmit">Buka</button>
     <br>
+    <button class="cancel" id="btnLupaPin" style="margin-top:4px;">Lupa PIN?</button>
     <button class="cancel" id="pinCancel">Batal</button>
+  </div>
+</div>
+
+<div class="modal-overlay hidden" id="recoveryModal">
+  <div class="modal">
+    <h3>Pemulihan PIN</h3>
+    <div id="recoveryStep1">
+      <p id="recoveryQuestionText">Pertanyaan keamanan belum diatur.</p>
+      <input type="text" id="recoveryAnswerInput" placeholder="Jawaban Anda">
+      <button class="btn btn-primary" id="btnCekJawaban">Cek Jawaban</button>
+    </div>
+    <div id="recoveryStep2" class="hidden">
+      <p>Jawaban benar ✓ Silakan atur PIN baru:</p>
+      <input type="password" id="pinBaruSetelahRecovery" maxlength="4" inputmode="numeric" placeholder="PIN baru (4 digit)">
+      <button class="btn btn-primary" id="btnSimpanPinRecovery">Simpan PIN Baru</button>
+    </div>
+    <br>
+    <button class="cancel" id="btnTutupRecovery">Batal</button>
   </div>
 </div>
 
@@ -634,6 +673,7 @@ const BULAN = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus
 let obatList = [];      // [{id,nama,kategori,satuan,kode,kadaluarsa,hargaBeli,hargaJual,stok,stokMin}]
 let cart = [];           // [{obatId,nama,hargaJual,hargaBeli,qty}]
 let adminPin = '1234';
+let adminRecovery = { question:'', answer:'' };
 let pinUnlocked = false;
 let pinCallback = null;
 let pendingTabAfterPin = null;
@@ -683,6 +723,9 @@ async function initData(){
   const pinRaw = await sGet('admin-pin');
   adminPin = pinRaw || '1234';
   if(!pinRaw) await sSet('admin-pin', adminPin);
+
+  const recoveryRaw = await sGet('admin-recovery');
+  adminRecovery = recoveryRaw || { question:'', answer:'' };
 
   const setRaw = await sGet('pengaturan');
   if(setRaw){
@@ -1439,6 +1482,8 @@ function fillPengaturanForm(){
   document.getElementById('setStrukWidth').value = pengaturan.strukWidth || '80';
   document.getElementById('setStrukWidthCustom').value = pengaturan.strukWidthCustom || '';
   document.getElementById('strukWidthCustomField').style.display = (pengaturan.strukWidth==='custom') ? '' : 'none';
+  document.getElementById('recoveryQuestion').value = adminRecovery.question||'';
+  document.getElementById('recoveryAnswer').value = '';
 }
 async function simpanPengaturan(){
   const strukWidth = document.getElementById('setStrukWidth').value || '80';
@@ -1473,6 +1518,16 @@ document.getElementById('pinForm').addEventListener('submit', async (e)=>{
   e.target.reset();
   toast('PIN admin diperbarui ✓');
   updateKasirBanners();
+});
+
+document.getElementById('recoveryForm').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const q = document.getElementById('recoveryQuestion').value.trim();
+  const a = document.getElementById('recoveryAnswer').value.trim();
+  if(!q || !a){ toast('Isi pertanyaan dan jawaban keamanan.', true); return; }
+  adminRecovery = { question:q, answer:a };
+  await sSet('admin-recovery', adminRecovery);
+  toast('Pertanyaan keamanan disimpan ✓');
 });
 
 /* =========================================================
@@ -1515,6 +1570,51 @@ async function unduhBackup(){
   toast('Backup berhasil diunduh ✓');
 }
 document.getElementById('btnUnduhBackup').addEventListener('click', unduhBackup);
+document.getElementById('btnPulihkanBackup').addEventListener('click', ()=>{
+  document.getElementById('fileRestoreBackup').value = '';
+  document.getElementById('fileRestoreBackup').click();
+});
+document.getElementById('fileRestoreBackup').addEventListener('change', async (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  let data;
+  try{
+    const text = await file.text();
+    data = JSON.parse(text);
+  }catch(err){
+    toast('File tidak valid atau bukan format JSON backup yang benar.', true);
+    return;
+  }
+  if(!data || typeof data !== 'object' || !Array.isArray(data.obat) || typeof data.transaksi !== 'object'){
+    toast('Struktur file backup tidak dikenali. Pastikan file ini hasil unduhan dari fitur Backup Data.', true);
+    return;
+  }
+  const jumlahObat = data.obat.length;
+  const jumlahHariTrx = Object.keys(data.transaksi||{}).length;
+  if(!confirm(`Pulihkan data dari file ini?\n\nObat: ${jumlahObat} item\nHari transaksi: ${jumlahHariTrx} hari\nDibuat: ${data.dibuat || '-'}\n\nSEMUA data stok, transaksi, dan pengaturan saat ini akan DITIMPA. PIN admin tidak akan berubah. Aksi ini tidak bisa dibatalkan.`)) return;
+
+  pinCallback = ()=>pulihkanBackup(data);
+  openPinModal('Masukkan PIN untuk memulihkan data dari file backup.');
+});
+
+async function pulihkanBackup(data){
+  toast('Memulihkan data, mohon tunggu...');
+  obatList = data.obat || [];
+  await saveObatList();
+
+  await sSet('transaksi', data.transaksi || {});
+
+  if(data.pengaturan && typeof data.pengaturan === 'object'){
+    pengaturan = { ...pengaturan, ...data.pengaturan };
+    await sSet('pengaturan', pengaturan);
+  }
+
+  renderStokTable();
+  renderStokSummary();
+  fillPengaturanForm();
+  if(document.getElementById('lapStart').value) renderLaporan();
+  toast('Data berhasil dipulihkan dari backup ✓');
+}
 document.getElementById('btnGoStokMenipis').addEventListener('click', ()=> goToTab('stok'));
 document.getElementById('btnGoKadaluarsa').addEventListener('click', ()=> goToTab('stok'));
 document.getElementById('btnGoPengaturanPin').addEventListener('click', ()=> goToTab('pengaturan'));
@@ -1574,9 +1674,53 @@ function checkPin(){
   }
 }
 
-/* =========================================================
-   EVENT BINDINGS
-   ========================================================= */
+document.getElementById('btnLupaPin').addEventListener('click', ()=>{
+  document.getElementById('pinModal').classList.add('hidden');
+  openRecoveryModal();
+});
+
+function openRecoveryModal(){
+  document.getElementById('recoveryModal').classList.remove('hidden');
+  document.getElementById('recoveryStep1').classList.remove('hidden');
+  document.getElementById('recoveryStep2').classList.add('hidden');
+  document.getElementById('recoveryAnswerInput').value = '';
+  document.getElementById('pinBaruSetelahRecovery').value = '';
+  if(adminRecovery.question){
+    document.getElementById('recoveryQuestionText').textContent = adminRecovery.question;
+    document.getElementById('recoveryAnswerInput').style.display = '';
+    document.getElementById('btnCekJawaban').style.display = '';
+  } else {
+    document.getElementById('recoveryQuestionText').textContent = 'Pertanyaan keamanan belum diatur sebelumnya. Fitur ini belum bisa dipakai — silakan hubungi pihak yang membuatkan aplikasi ini untuk reset PIN secara manual lewat Firebase Console.';
+    document.getElementById('recoveryAnswerInput').style.display = 'none';
+    document.getElementById('btnCekJawaban').style.display = 'none';
+  }
+}
+function closeRecoveryModal(){ document.getElementById('recoveryModal').classList.add('hidden'); }
+document.getElementById('btnTutupRecovery').addEventListener('click', closeRecoveryModal);
+
+document.getElementById('btnCekJawaban').addEventListener('click', ()=>{
+  const val = document.getElementById('recoveryAnswerInput').value.trim().toLowerCase();
+  if(val && val === (adminRecovery.answer||'').trim().toLowerCase()){
+    document.getElementById('recoveryStep1').classList.add('hidden');
+    document.getElementById('recoveryStep2').classList.remove('hidden');
+  } else {
+    toast('Jawaban tidak sesuai.', true);
+  }
+});
+
+document.getElementById('btnSimpanPinRecovery').addEventListener('click', async ()=>{
+  const val = document.getElementById('pinBaruSetelahRecovery').value.trim();
+  if(!/^\d{4}$/.test(val)){ toast('PIN harus 4 digit angka.', true); return; }
+  adminPin = val;
+  await sSet('admin-pin', adminPin);
+  pinUnlocked = true;
+  closeRecoveryModal();
+  toast('PIN berhasil direset ✓ Gunakan PIN baru Anda mulai sekarang.');
+  updateKasirBanners();
+  if(pendingTabAfterPin){ activateTab(pendingTabAfterPin); }
+});
+
+
 document.getElementById('kasirSearch').addEventListener('input', e=>renderSearchResults(e.target.value.trim()));
 document.getElementById('pakaiResep').addEventListener('change', e=>{
   document.getElementById('resepFields').style.display = e.target.checked ? '' : 'none';
