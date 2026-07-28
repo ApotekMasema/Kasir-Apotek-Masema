@@ -1,909 +1,1282 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="id">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Kasir Apotek</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Kasir — Apotek Masema Medika</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   :root{
-    --teal-900:#0b4a3f;
-    --teal-700:#0f7864;
-    --teal-500:#189d80;
-    --teal-100:#e3f3ee;
-    --paper:#fbfaf7;
-    --bg:#f4f6f5;
-    --ink:#1f2937;
-    --ink-soft:#5b6b66;
-    --line:#dde4e1;
-    --amber:#c2790f;
-    --amber-bg:#fbf0dd;
-    --red:#b3432f;
-    --red-bg:#fbe9e5;
-    --radius:10px;
-    --shadow:0 1px 2px rgba(15,40,33,.06), 0 4px 14px rgba(15,40,33,.05);
+    --bg:#FAF9F5;
+    --surface:#FFFFFF;
+    --ink:#1C2A26;
+    --ink-soft:#5B6B66;
+    --ink-faint:#93A19C;
+    --primary:#146356;
+    --primary-dark:#0E4A41;
+    --primary-soft:#E4F1EC;
+    --accent:#C2760C;
+    --accent-soft:#FBEEDC;
+    --danger:#B3261E;
+    --danger-soft:#FBEAE9;
+    --border:#E4E1D8;
+    --radius:14px;
+    --font-display:'Manrope',sans-serif;
+    --font-body:'Inter',sans-serif;
+    --font-mono:'JetBrains Mono',monospace;
+    --shadow:0 1px 2px rgba(28,42,38,.04), 0 8px 24px -12px rgba(28,42,38,.18);
   }
   *{box-sizing:border-box;}
-  body{margin:0;font-family:'Inter',sans-serif;background:var(--bg);color:var(--ink);}
-  h1,h2,h3,.brand,.nav-label{font-family:'Poppins',sans-serif;}
-  .app{display:flex;min-height:100vh;}
-
-  /* Sidebar */
-  .sidebar{width:220px;background:var(--teal-900);color:#eafbf5;display:flex;flex-direction:column;flex-shrink:0;}
-  .brand{padding:22px 20px 18px;font-size:18px;font-weight:700;display:flex;align-items:center;gap:10px;border-bottom:1px solid rgba(255,255,255,.12);}
-  .brand .cross{width:22px;height:22px;position:relative;flex-shrink:0;}
-  .brand .cross::before,.brand .cross::after{content:"";position:absolute;background:#7fe0c2;}
-  .brand .cross::before{left:9px;top:0;width:4px;height:22px;border-radius:2px;}
-  .brand .cross::after{left:0;top:9px;width:22px;height:4px;border-radius:2px;}
-  nav{padding:14px 10px;display:flex;flex-direction:column;gap:2px;}
-  .nav-btn{display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:8px;color:#cfe9df;background:transparent;border:none;text-align:left;font-size:14px;font-weight:500;cursor:pointer;font-family:'Inter',sans-serif;}
-  .nav-btn:hover{background:rgba(255,255,255,.07);color:#fff;}
-  .nav-btn.active{background:var(--teal-700);color:#fff;}
-  .nav-btn .dot{width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.6;}
-  .sidebar-foot{margin-top:auto;padding:16px 20px;font-size:11px;color:#8fbdad;border-top:1px solid rgba(255,255,255,.1);line-height:1.5;}
-
-  /* Main */
-  .main{flex:1;padding:26px 32px;overflow-x:hidden;}
-  .page{display:none;}
-  .page.active{display:block;}
-  .page-head{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:20px;flex-wrap:wrap;gap:12px;}
-  .page-head h1{font-size:21px;margin:0 0 4px;color:var(--teal-900);}
-  .page-head p{margin:0;color:var(--ink-soft);font-size:13px;}
-
-  .btn{border:none;border-radius:8px;padding:10px 16px;font-size:13.5px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;display:inline-flex;align-items:center;gap:6px;}
-  .btn-primary{background:var(--teal-700);color:#fff;}
-  .btn-primary:hover{background:var(--teal-900);}
-  .btn-outline{background:#fff;color:var(--teal-700);border:1px solid var(--teal-500);}
-  .btn-outline:hover{background:var(--teal-100);}
-  .btn-danger{background:#fff;color:var(--red);border:1px solid #e3b3a8;}
-  .btn-danger:hover{background:var(--red-bg);}
-  .btn-sm{padding:6px 10px;font-size:12px;border-radius:6px;}
-  .btn:disabled{opacity:.45;cursor:not-allowed;}
-
-  .card{background:#fff;border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);}
-  .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px;}
-  .stat{padding:16px 18px;}
-  .stat .label{font-size:12px;color:var(--ink-soft);margin-bottom:6px;}
-  .stat .value{font-size:22px;font-weight:700;color:var(--teal-900);font-family:'Poppins',sans-serif;}
-  .stat .sub{font-size:11.5px;color:var(--ink-soft);margin-top:4px;}
-
-  table{width:100%;border-collapse:collapse;font-size:13px;}
-  th{text-align:left;background:var(--teal-100);color:var(--teal-900);padding:9px 12px;font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.02em;}
-  td{padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:middle;}
-  tr:last-child td{border-bottom:none;}
-  .table-wrap{overflow-x:auto;}
-  .empty{padding:40px 20px;text-align:center;color:var(--ink-soft);}
-  .empty .big{font-size:14px;margin-bottom:12px;}
-
-  .badge{display:inline-block;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600;}
-  .badge-ok{background:#e2f2e8;color:#1f7a45;}
-  .badge-warn{background:var(--amber-bg);color:var(--amber);}
-  .badge-danger{background:var(--red-bg);color:var(--red);}
-  .badge-resep{background:#eae3fb;color:#5b3fae;}
-
-  input,select,textarea{font-family:'Inter',sans-serif;font-size:13.5px;padding:9px 11px;border:1px solid var(--line);border-radius:7px;background:#fff;color:var(--ink);width:100%;}
-  input:focus,select:focus,textarea:focus{outline:2px solid var(--teal-500);outline-offset:1px;border-color:var(--teal-500);}
-  label{font-size:12.5px;font-weight:600;color:var(--ink-soft);display:block;margin-bottom:5px;}
-  .field{margin-bottom:14px;}
-  .row-2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
-  .row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
-
-  /* Modal */
-  .overlay{position:fixed;inset:0;background:rgba(11,74,63,.35);display:none;align-items:center;justify-content:center;z-index:50;padding:20px;}
-  .overlay.open{display:flex;}
-  .modal{background:#fff;border-radius:12px;width:100%;max-width:480px;max-height:88vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.25);}
-  .modal-head{padding:18px 22px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;}
-  .modal-head h3{margin:0;font-size:16px;color:var(--teal-900);}
-  .modal-close{background:none;border:none;font-size:20px;cursor:pointer;color:var(--ink-soft);line-height:1;}
-  .modal-body{padding:20px 22px;}
-  .modal-foot{padding:14px 22px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:10px;}
-
-  /* Kasir layout */
-  .kasir-grid{display:grid;grid-template-columns:1.4fr 1fr;gap:18px;align-items:start;}
-  .product-list{max-height:60vh;overflow-y:auto;}
-  .product-row{display:flex;justify-content:space-between;align-items:center;padding:11px 14px;border-bottom:1px solid var(--line);cursor:pointer;}
-  .product-row:hover{background:var(--teal-100);}
-  .product-row:last-child{border-bottom:none;}
-  .product-row .name{font-weight:600;font-size:13.5px;}
-  .product-row .meta{font-size:11.5px;color:var(--ink-soft);margin-top:2px;}
-  .product-row .price{font-weight:600;color:var(--teal-700);font-size:13.5px;white-space:nowrap;margin-left:10px;}
-
-  .receipt{background:var(--paper);border:1px dashed #c8d3ce;border-radius:8px 8px 0 0;padding:18px;font-family:'IBM Plex Mono',monospace;font-size:12.5px;position:relative;}
-  .receipt::after{content:"";display:block;height:14px;margin:0 -1px -1px;background-image:radial-gradient(circle at 8px 7px, var(--bg) 7px, transparent 7.5px);background-size:16px 14px;background-position:left;background-repeat:repeat-x;background-color:var(--paper);border-radius:0 0 8px 8px;}
-  .receipt-head{text-align:center;border-bottom:1px dashed #c8d3ce;padding-bottom:10px;margin-bottom:10px;}
-  .receipt-head .name{font-weight:600;font-size:13.5px;letter-spacing:.03em;}
-  .receipt-head .sub{color:var(--ink-soft);font-size:11px;margin-top:2px;}
-  .receipt-item{display:flex;justify-content:space-between;margin-bottom:5px;gap:8px;}
-  .receipt-item .qty{color:var(--ink-soft);}
-  .receipt-empty{text-align:center;color:var(--ink-soft);padding:30px 10px;font-family:'Inter',sans-serif;font-size:12.5px;}
-  .receipt-total{border-top:1px dashed #c8d3ce;margin-top:10px;padding-top:10px;display:flex;justify-content:space-between;font-weight:700;font-size:14px;color:var(--teal-900);}
-  .qty-ctrl{display:flex;align-items:center;gap:6px;}
-  .qty-ctrl button{width:20px;height:20px;border-radius:5px;border:1px solid var(--line);background:#fff;cursor:pointer;font-family:'Inter',sans-serif;line-height:1;}
-  .cart-actions{padding:14px 4px 4px;display:flex;gap:8px;}
-  .cart-actions .btn{flex:1;justify-content:center;}
-  .resep-flag{background:var(--badge-resep,#eae3fb);color:#5b3fae;font-size:10px;padding:2px 6px;border-radius:20px;margin-left:6px;}
-
-  .search-bar{margin-bottom:12px;}
-  .low-stock-alert{background:var(--amber-bg);border:1px solid #edd6ac;color:var(--amber);border-radius:8px;padding:10px 14px;font-size:12.5px;margin-bottom:16px;display:flex;align-items:center;gap:8px;}
-  .import-note{background:var(--teal-100);border:1px solid #c9e6dc;color:var(--teal-900);border-radius:8px;padding:10px 14px;font-size:12px;line-height:1.6;margin-bottom:16px;}
-
-  .filters{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:flex-end;}
-  .filters .field{margin-bottom:0;min-width:150px;}
-
-  .toast{position:fixed;bottom:22px;right:22px;background:var(--teal-900);color:#fff;padding:12px 18px;border-radius:9px;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.2);z-index:100;opacity:0;transform:translateY(10px);transition:.25s;pointer-events:none;}
-  .toast.show{opacity:1;transform:translateY(0);}
-
-  .backup-box{max-width:560px;}
-  .backup-box .card{padding:20px 22px;margin-bottom:16px;}
-  .backup-box h3{margin:0 0 6px;font-size:14.5px;color:var(--teal-900);}
-  .backup-box p{margin:0 0 14px;font-size:12.5px;color:var(--ink-soft);line-height:1.6;}
-  .file-drop{border:1.5px dashed var(--teal-500);border-radius:9px;padding:20px;text-align:center;font-size:12.5px;color:var(--ink-soft);cursor:pointer;}
-  .file-drop:hover{background:var(--teal-100);}
-
-  @media(max-width:900px){
-    .kasir-grid{grid-template-columns:1fr;}
-    .grid-3{grid-template-columns:1fr;}
-    .row-2,.row-3{grid-template-columns:1fr;}
-    .app{flex-direction:column;}
-    .sidebar{width:100%;flex-direction:row;overflow-x:auto;}
-    nav{flex-direction:row;}
-    .sidebar-foot{display:none;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:var(--font-body);
+    -webkit-font-smoothing:antialiased;
+    min-height:100vh;
   }
+  button{font-family:inherit;cursor:pointer;}
+  input,select,textarea{font-family:inherit;}
+
+  /* ---------- Topbar ---------- */
+  .topbar{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:16px 20px;background:var(--surface);
+    border-bottom:1px solid var(--border);
+    position:sticky;top:0;z-index:20;
+    flex-wrap:wrap;gap:12px;
+  }
+  .brand{display:flex;align-items:center;gap:10px;font-family:var(--font-display);font-weight:800;font-size:17px;color:var(--primary-dark);}
+  .brand-mark{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:32px;height:32px;border-radius:9px;background:var(--primary);color:#fff;
+    font-size:17px;font-weight:800;flex:none;
+  }
+  .brand small{display:block;font-family:var(--font-body);font-weight:500;font-size:11.5px;color:var(--ink-soft);}
+  .tabs{display:flex;gap:6px;background:var(--bg);padding:4px;border-radius:11px;border:1px solid var(--border);flex-wrap:wrap;}
+  .tab{
+    border:none;background:transparent;padding:9px 14px;border-radius:8px;
+    font-weight:700;font-size:13px;color:var(--ink-soft);transition:.15s;white-space:nowrap;
+  }
+  .tab.active{background:var(--primary);color:#fff;}
+  .tab:not(.active):hover{color:var(--ink);background:var(--surface);}
+
+  main{max-width:1180px;margin:0 auto;padding:26px 20px 80px;}
+  .tab-panel{display:none;}
+  .tab-panel.active{display:block;animation:fade .25s ease;}
+  @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+  h2{font-family:var(--font-display);font-size:16px;margin:0 0 4px;color:var(--primary-dark);}
+  .section-hint{color:var(--ink-soft);font-size:13px;margin:0 0 16px;}
+
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:18px;box-shadow:var(--shadow);}
+
+  .field{display:flex;flex-direction:column;gap:4px;}
+  .field label{font-size:11.5px;font-weight:700;color:var(--ink-soft);}
+  input[type=text],input[type=number],input[type=password],input[type=date],input[type=month],select,textarea{
+    border:1px solid var(--border);border-radius:9px;padding:9px 11px;font-size:13.5px;background:var(--surface);color:var(--ink);
+  }
+  textarea{resize:vertical;}
+
+  .btn{
+    border:none;border-radius:9px;padding:10px 15px;font-weight:700;font-size:13px;
+    background:var(--surface);border:1px solid var(--border);color:var(--ink);
+  }
+  .btn:hover{border-color:var(--primary);color:var(--primary-dark);}
+  .btn-primary{background:var(--primary);color:#fff;border-color:var(--primary);}
+  .btn-primary:hover{background:var(--primary-dark);}
+  .btn-accent{background:var(--accent);color:#fff;border-color:var(--accent);}
+  .btn-accent:hover{background:#a2620a;}
+  .btn-danger{color:var(--danger);}
+  .btn-danger:hover{border-color:var(--danger);background:var(--danger-soft);}
+  .btn-sm{padding:6px 10px;font-size:12px;border-radius:7px;}
+  .btn-block{width:100%;}
+  .btn:disabled{opacity:.5;cursor:default;}
+
+  table{width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
+  thead th{
+    background:var(--primary-soft);color:var(--primary-dark);text-align:left;
+    font-size:11px;text-transform:uppercase;letter-spacing:.03em;padding:10px 12px;
+  }
+  tbody td{padding:10px 12px;font-size:13px;border-top:1px solid var(--border);vertical-align:middle;}
+  tbody tr:hover{background:var(--bg);}
+  td.num,th.num{text-align:right;font-family:var(--font-mono);}
+  tfoot td{padding:10px 12px;font-weight:800;border-top:2px solid var(--border);font-family:var(--font-mono);}
+  .muted{color:var(--ink-soft);font-size:12.5px;}
+  .row-low{background:var(--danger-soft) !important;}
+  .row-low:hover{background:var(--danger-soft) !important;}
+  .tag{display:inline-flex;align-items:center;font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:99px;}
+  .tag-low{background:var(--danger-soft);color:var(--danger);}
+  .tag-ok{background:var(--primary-soft);color:var(--primary-dark);}
+
+  .empty-state{border:1px dashed var(--border);border-radius:var(--radius);padding:34px;text-align:center;color:var(--ink-soft);}
+
+  /* ---------- Kasir layout ---------- */
+  .kasir-grid{display:grid;grid-template-columns:1.5fr 1fr;gap:18px;align-items:start;}
+  @media (max-width:900px){.kasir-grid{grid-template-columns:1fr;}}
+  .search-box{position:relative;margin-bottom:14px;}
+  .search-box input{width:100%;padding:12px 14px;font-size:14px;}
+  .search-results{border:1px solid var(--border);border-radius:var(--radius);max-height:360px;overflow-y:auto;background:var(--surface);}
+  .search-item{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border-top:1px solid var(--border);gap:10px;}
+  .search-item:first-child{border-top:none;}
+  .search-item:hover{background:var(--bg);}
+  .si-name{font-weight:700;font-size:13.5px;}
+  .si-sub{font-size:11.5px;color:var(--ink-soft);}
+  .si-price{font-family:var(--font-mono);font-size:13px;color:var(--primary-dark);font-weight:700;white-space:nowrap;}
+
+  .cart-card{position:sticky;top:90px;}
+  .cart-item{display:flex;align-items:center;gap:8px;padding:9px 0;border-top:1px solid var(--border);}
+  .cart-item:first-child{border-top:none;}
+  .ci-info{flex:1;min-width:0;}
+  .ci-name{font-weight:700;font-size:13px;}
+  .ci-price{font-size:11.5px;color:var(--ink-soft);font-family:var(--font-mono);}
+  .qty-ctrl{display:flex;align-items:center;gap:4px;}
+  .qty-ctrl button{width:24px;height:24px;border-radius:6px;border:1px solid var(--border);background:var(--surface);font-weight:700;padding:0;}
+  .qty-ctrl input{width:38px;text-align:center;padding:4px;font-size:12.5px;}
+  .ci-subtotal{width:88px;text-align:right;font-family:var(--font-mono);font-size:12.5px;font-weight:700;}
+  .ci-del{border:none;background:transparent;color:var(--danger);font-size:16px;padding:0 2px;}
+
+  .total-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;font-family:var(--font-mono);}
+  .total-row.grand{font-size:20px;font-weight:800;color:var(--primary-dark);border-top:2px solid var(--border);margin-top:6px;padding-top:12px;}
+
+  .toggle-row{display:flex;align-items:center;gap:8px;margin:10px 0;}
+  .toggle-row input[type=checkbox]{width:17px;height:17px;}
+  .toggle-row label{font-size:13px;font-weight:700;}
+
+  /* ---------- Modal / toast ---------- */
+  .modal-overlay{position:fixed;inset:0;background:rgba(20,30,27,.45);display:flex;align-items:center;justify-content:center;z-index:50;padding:20px;}
+  .modal-overlay.hidden{display:none;}
+  .modal{background:var(--surface);border-radius:16px;padding:24px;width:100%;max-width:340px;box-shadow:var(--shadow);text-align:center;}
+  .modal.wide{max-width:520px;text-align:left;}
+  .modal h3{font-family:var(--font-display);margin:0 0 6px;}
+  .modal p{font-size:13px;color:var(--ink-soft);margin:0 0 16px;}
+  .modal input{width:100%;text-align:center;letter-spacing:.3em;font-size:18px;padding:12px;margin-bottom:12px;}
+  .modal .btn-primary{width:100%;padding:11px;}
+  .modal .cancel{margin-top:10px;background:transparent;border:none;color:var(--ink-soft);font-size:12.5px;text-decoration:underline;}
+  .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .form-grid .full{grid-column:1/-1;}
+
+  .toast{
+    position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);
+    background:var(--ink);color:#fff;padding:12px 20px;border-radius:99px;font-size:13.5px;font-weight:600;
+    box-shadow:var(--shadow);z-index:60;opacity:0;transition:.25s;pointer-events:none;
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+  .toast.err{background:var(--danger);}
+
+  .summary-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px;}
+  .s-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;}
+  .s-card .k{font-size:11.5px;color:var(--ink-soft);font-weight:600;}
+  .s-card .v{font-family:var(--font-display);font-size:19px;font-weight:800;color:var(--primary-dark);margin-top:2px;}
+
+  .toolbar{display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:16px;}
+  .search-inline{flex:1;min-width:180px;}
+
+  #strukPrint{display:none;}
 
   @media print{
-    body *{visibility:hidden;}
-    #printArea, #printArea *{visibility:visible;}
-    #printArea{position:absolute;top:0;left:0;width:100%;}
-    .receipt{border:none;}
-    .receipt::after{display:none;}
+    body:not(.printing-struk) .topbar,
+    body:not(.printing-struk) .toolbar,
+    body:not(.printing-struk) .tab:not(.active){display:none !important;}
+    body.printing-struk main > *:not(#strukPrint){display:none !important;}
+    body.printing-struk .topbar{display:none !important;}
+    #strukPrint{display:block !important;}
+    body{background:#fff;}
+    main{padding:0;max-width:100%;}
+    .card,.emp-card{box-shadow:none;}
+  }
+  .struk-box{max-width:320px;margin:0 auto;font-family:var(--font-mono);font-size:12px;color:#000;}
+  .struk-box h3{text-align:center;margin:0 0 2px;font-family:var(--font-mono);}
+  .struk-box .center{text-align:center;}
+  .struk-box hr{border:none;border-top:1px dashed #000;margin:8px 0;}
+  .struk-box table{border:none;width:100%;}
+  .struk-box td{border:none;padding:2px 0;font-size:12px;}
+
+  @media (max-width:520px){
+    .topbar{padding:12px 14px;}
+    .form-grid{grid-template-columns:1fr;}
   }
 </style>
 </head>
 <body>
 
-<div class="app">
-  <aside class="sidebar">
-    <div class="brand"><span class="cross"></span> Kasir Apotek</div>
-    <nav>
-      <button class="nav-btn active" data-page="kasir"><span class="dot"></span>Kasir</button>
-      <button class="nav-btn" data-page="stok"><span class="dot"></span>Stok Obat</button>
-      <button class="nav-btn" data-page="resep"><span class="dot"></span>Resep Dokter</button>
-      <button class="nav-btn" data-page="laporan"><span class="dot"></span>Laporan Keuangan</button>
-      <button class="nav-btn" data-page="backup"><span class="dot"></span>Backup Data</button>
-    </nav>
-    <div class="sidebar-foot">Data tersimpan di perangkat ini saja (browser). Backup rutin lewat menu "Backup Data".</div>
-  </aside>
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark">✚</span>
+    <div>
+      Apotek Masema Medika
+      <small>Sistem Kasir & Manajemen Apotek</small>
+    </div>
+  </div>
+  <nav class="tabs">
+    <button class="tab active" data-tab="kasir">Kasir</button>
+    <button class="tab" data-tab="stok">Stok Obat</button>
+    <button class="tab" data-tab="resep">Resep Dokter</button>
+    <button class="tab" data-tab="laporan">Laporan Keuangan</button>
+    <button class="tab" data-tab="pengaturan">Pengaturan</button>
+  </nav>
+</header>
 
-  <main class="main">
+<main>
 
-    <!-- ===================== KASIR ===================== -->
-    <section class="page active" id="page-kasir">
-      <div class="page-head">
-        <div><h1>Kasir</h1><p>Cari obat, tambahkan ke keranjang, lalu selesaikan transaksi.</p></div>
-      </div>
-      <div id="lowStockBanner"></div>
-      <div class="kasir-grid">
-        <div class="card" style="padding:16px;">
-          <div class="search-bar"><input type="text" id="searchObat" placeholder="Cari nama obat..." /></div>
-          <div class="product-list" id="productList"></div>
+  <!-- ===== TAB KASIR ===== -->
+  <section class="tab-panel active" id="tab-kasir">
+    <div class="kasir-grid">
+      <div>
+        <h2>Cari Obat</h2>
+        <p class="section-hint">Ketik nama atau kode obat, klik untuk menambahkan ke keranjang.</p>
+        <div class="search-box">
+          <input type="text" id="kasirSearch" placeholder="Cari nama / kode obat...">
         </div>
-        <div class="card" style="padding:16px;">
-          <div id="printArea">
-            <div class="receipt" id="receiptBox">
-              <div class="receipt-head">
-                <div class="name">APOTEK</div>
-                <div class="sub" id="receiptDate"></div>
-              </div>
-              <div id="cartItems"></div>
-              <div class="receipt-total"><span>TOTAL</span><span id="cartTotal">Rp 0</span></div>
+        <div class="search-results" id="kasirSearchResults">
+          <div class="empty-state">Ketik untuk mencari obat.</div>
+        </div>
+      </div>
+
+      <div class="cart-card card">
+        <h2>Keranjang</h2>
+        <div id="cartList">
+          <div class="empty-state">Keranjang masih kosong.</div>
+        </div>
+
+        <div class="toggle-row">
+          <input type="checkbox" id="pakaiResep">
+          <label for="pakaiResep">Pakai Resep Dokter</label>
+        </div>
+        <div id="resepFields" style="display:none;">
+          <div class="form-grid" style="margin-bottom:8px;">
+            <div class="field">
+              <label>Nama Dokter</label>
+              <input type="text" id="resepDokter" placeholder="dr. ...">
+            </div>
+            <div class="field">
+              <label>Nama Pasien</label>
+              <input type="text" id="resepPasien" placeholder="Nama pasien">
             </div>
           </div>
-          <div class="cart-actions">
-            <button class="btn btn-outline" id="btnClearCart">Kosongkan</button>
-            <button class="btn btn-primary" id="btnCheckout" disabled>Selesaikan &amp; Cetak</button>
-          </div>
         </div>
-      </div>
-    </section>
 
-    <!-- ===================== STOK OBAT ===================== -->
-    <section class="page" id="page-stok">
-      <div class="page-head">
-        <div><h1>Stok Obat</h1><p>Data master obat: harga, stok, dan status resep.</p></div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          <button class="btn btn-outline" id="btnDownloadTemplate">Unduh Template Excel</button>
-          <button class="btn btn-outline" id="btnImportExcel">Import dari Excel</button>
-          <input type="file" id="obatFileInput" accept=".xlsx,.xls,.csv" style="display:none;">
-          <button class="btn btn-primary" id="btnAddObat">+ Tambah Obat</button>
+        <div class="total-row grand">
+          <span>Total</span>
+          <span id="cartTotal">Rp 0</span>
         </div>
-      </div>
-      <div class="import-note">
-        Format kolom Excel: <b>Nama Obat, Kategori, Satuan, Harga Beli, Harga Jual, Stok, Stok Minimum, Wajib Resep (Ya/Tidak)</b>.
-        Urutan kolom bebas asalkan judul kolomnya sama. Baris dengan Nama Obat sama akan MEMPERBARUI data yang sudah ada, bukan menduplikasi.
-      </div>
-      <div class="card table-wrap">
-        <table>
-          <thead><tr>
-            <th>Nama Obat</th><th>Kategori</th><th>Satuan</th><th>Harga Beli</th><th>Harga Jual</th>
-            <th>Stok</th><th>Stok Min.</th><th>Resep</th><th>Status</th><th></th>
-          </tr></thead>
-          <tbody id="obatTableBody"></tbody>
-        </table>
-        <div class="empty" id="obatEmpty" style="display:none;">
-          <div class="big">Belum ada data obat.</div>
-          <button class="btn btn-primary" id="btnAddObatEmpty">+ Tambah Obat Pertama</button>
+
+        <div class="field" style="margin-top:8px;">
+          <label>Metode Pembayaran</label>
+          <select id="metodeBayar">
+            <option value="Tunai">Tunai</option>
+            <option value="Debit">Debit</option>
+            <option value="QRIS">QRIS</option>
+          </select>
         </div>
-      </div>
-    </section>
-
-    <!-- ===================== RESEP DOKTER ===================== -->
-    <section class="page" id="page-resep">
-      <div class="page-head">
-        <div><h1>Resep Dokter</h1><p>Riwayat resep — otomatis tercatat saat obat wajib-resep terjual, atau tambah manual.</p></div>
-        <button class="btn btn-primary" id="btnAddResep">+ Catat Resep</button>
-      </div>
-      <div class="card table-wrap">
-        <table>
-          <thead><tr><th>Tanggal</th><th>Pasien</th><th>Dokter</th><th>No. Resep</th><th>Obat</th><th>Catatan</th></tr></thead>
-          <tbody id="resepTableBody"></tbody>
-        </table>
-        <div class="empty" id="resepEmpty" style="display:none;"><div class="big">Belum ada catatan resep.</div></div>
-      </div>
-    </section>
-
-    <!-- ===================== LAPORAN ===================== -->
-    <section class="page" id="page-laporan">
-      <div class="page-head">
-        <div><h1>Laporan Keuangan</h1><p>Ringkasan omzet, laba, dan riwayat transaksi.</p></div>
-      </div>
-      <div class="filters">
-        <div class="field"><label>Dari Tanggal</label><input type="date" id="filterFrom"></div>
-        <div class="field"><label>Sampai Tanggal</label><input type="date" id="filterTo"></div>
-        <button class="btn btn-outline" id="btnFilterLaporan">Terapkan</button>
-        <button class="btn btn-outline" id="btnResetLaporan">Reset</button>
-      </div>
-      <div class="grid-3">
-        <div class="card stat"><div class="label">Total Omzet</div><div class="value" id="statOmzet">Rp 0</div><div class="sub" id="statTrxCount">0 transaksi</div></div>
-        <div class="card stat"><div class="label">Total Laba Kotor</div><div class="value" id="statLaba">Rp 0</div><div class="sub">Harga jual − harga beli</div></div>
-        <div class="card stat"><div class="label">Item Terjual</div><div class="value" id="statItemTerjual">0</div><div class="sub">unit obat</div></div>
-      </div>
-      <div class="card table-wrap">
-        <table>
-          <thead><tr><th>Tanggal</th><th>No. Transaksi</th><th>Item</th><th>Total</th></tr></thead>
-          <tbody id="laporanTableBody"></tbody>
-        </table>
-        <div class="empty" id="laporanEmpty" style="display:none;"><div class="big">Belum ada transaksi pada rentang ini.</div></div>
-      </div>
-    </section>
-
-    <!-- ===================== BACKUP ===================== -->
-    <section class="page" id="page-backup">
-      <div class="page-head">
-        <div><h1>Backup Data</h1><p>Aplikasi ini tidak memakai server/cloud — data hanya tersimpan di browser perangkat ini.</p></div>
-      </div>
-      <div class="backup-box">
-        <div class="card">
-          <h3>Ekspor Data</h3>
-          <p>Unduh seluruh data (obat, transaksi, resep) sebagai 1 file cadangan. Lakukan ini secara rutin, terutama sebelum membersihkan cache browser atau mengganti perangkat.</p>
-          <button class="btn btn-primary" id="btnExport">Unduh Backup (.json)</button>
+        <div class="field" id="tunaiField" style="margin-top:8px;">
+          <label>Uang Diterima (Rp)</label>
+          <input type="number" id="uangDiterima" min="0" placeholder="0">
         </div>
-        <div class="card">
-          <h3>Pulihkan Data</h3>
-          <p>Pilih file backup (.json) untuk memulihkan data. Ini akan MENGGANTI seluruh data yang ada saat ini di perangkat ini.</p>
-          <div class="file-drop" id="fileDrop">Klik untuk pilih file backup .json</div>
-          <input type="file" id="fileInput" accept="application/json" style="display:none;">
+        <div class="total-row" id="kembalianRow" style="display:none;">
+          <span>Kembalian</span>
+          <span id="kembalianVal">Rp 0</span>
         </div>
-      </div>
-    </section>
 
-  </main>
-</div>
+        <button class="btn btn-primary btn-block" id="btnProsesBayar" style="margin-top:10px;">Proses & Cetak Struk</button>
+        <button class="btn btn-block" id="btnKosongkanKeranjang" style="margin-top:8px;">Kosongkan Keranjang</button>
+      </div>
+    </div>
+  </section>
 
-<!-- Modal: Tambah/Edit Obat -->
-<div class="overlay" id="modalObat">
-  <div class="modal">
-    <div class="modal-head"><h3 id="modalObatTitle">Tambah Obat</h3><button class="modal-close" data-close>&times;</button></div>
-    <div class="modal-body">
-      <input type="hidden" id="obatId">
-      <div class="field"><label>Nama Obat</label><input type="text" id="obatNama" placeholder="mis. Paracetamol 500mg"></div>
-      <div class="row-2">
-        <div class="field"><label>Kategori</label><input type="text" id="obatKategori" placeholder="mis. Analgesik"></div>
-        <div class="field"><label>Satuan</label><input type="text" id="obatSatuan" placeholder="mis. Strip / Botol / Tablet"></div>
+  <!-- ===== TAB STOK OBAT ===== -->
+  <section class="tab-panel" id="tab-stok">
+    <h2>Stok Obat</h2>
+    <p class="section-hint">Kelola daftar obat, harga, dan jumlah stok.</p>
+
+    <div class="toolbar">
+      <div class="field search-inline">
+        <label>Cari Obat</label>
+        <input type="text" id="stokSearch" placeholder="Cari nama / kategori / kode...">
       </div>
-      <div class="row-2">
-        <div class="field"><label>Harga Beli (Rp)</label><input type="number" id="obatHargaBeli" min="0"></div>
-        <div class="field"><label>Harga Jual (Rp)</label><input type="number" id="obatHargaJual" min="0"></div>
-      </div>
-      <div class="row-2">
-        <div class="field"><label>Stok Saat Ini</label><input type="number" id="obatStok" min="0"></div>
-        <div class="field"><label>Stok Minimum</label><input type="number" id="obatStokMin" min="0"></div>
+      <button class="btn btn-primary" id="btnTambahObat">+ Tambah Obat</button>
+      <button class="btn" id="btnImportExcel">⬆️ Import dari Excel</button>
+      <input type="file" id="fileImportExcel" accept=".xlsx,.xls,.csv" style="display:none;">
+    </div>
+
+    <div class="summary-cards" id="stokSummaryCards"></div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Nama Obat</th>
+          <th>Kategori</th>
+          <th>Satuan</th>
+          <th class="num">Harga Beli</th>
+          <th class="num">Harga Jual</th>
+          <th class="num">Stok</th>
+          <th>Kadaluarsa</th>
+          <th>Status</th>
+          <th>Aksi</th>
+        </tr>
+      </thead>
+      <tbody id="stokBody"></tbody>
+    </table>
+  </section>
+
+  <!-- ===== TAB RESEP ===== -->
+  <section class="tab-panel" id="tab-resep">
+    <h2>Riwayat Resep Dokter</h2>
+    <p class="section-hint">Daftar transaksi yang menggunakan resep dokter. Input resep dilakukan lewat tab Kasir (centang "Pakai Resep Dokter").</p>
+
+    <div class="toolbar">
+      <div class="field">
+        <label>Dari Tanggal</label>
+        <input type="date" id="resepStart">
       </div>
       <div class="field">
-        <label><input type="checkbox" id="obatResep" style="width:auto;margin-right:6px;">Wajib resep dokter</label>
+        <label>Sampai Tanggal</label>
+        <input type="date" id="resepEnd">
+      </div>
+      <button class="btn" id="btnResepBulanIni">Bulan Ini</button>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Tanggal</th>
+          <th>No. Struk</th>
+          <th>Dokter</th>
+          <th>Pasien</th>
+          <th>Obat</th>
+          <th class="num">Total</th>
+        </tr>
+      </thead>
+      <tbody id="resepBody"></tbody>
+    </table>
+  </section>
+
+  <!-- ===== TAB LAPORAN ===== -->
+  <section class="tab-panel" id="tab-laporan">
+    <h2>Laporan Keuangan</h2>
+    <p class="section-hint">Rekap penjualan, laba kotor, dan produk terlaris untuk rentang tanggal bebas.</p>
+
+    <div class="toolbar">
+      <div class="field">
+        <label>Dari Tanggal</label>
+        <input type="date" id="lapStart">
+      </div>
+      <div class="field">
+        <label>Sampai Tanggal</label>
+        <input type="date" id="lapEnd">
+      </div>
+      <button class="btn" id="btnLapBulanIni">Bulan Ini</button>
+      <button class="btn" id="btnLapPrint">🖨️ Cetak</button>
+      <button class="btn" id="btnLapCsv">⬇️ Unduh CSV</button>
+    </div>
+
+    <div class="summary-cards" id="lapSummaryCards"></div>
+
+    <h2 style="margin-top:22px;">Produk Terlaris</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Nama Obat</th>
+          <th class="num">Qty Terjual</th>
+          <th class="num">Total Penjualan</th>
+          <th class="num">Laba Kotor</th>
+        </tr>
+      </thead>
+      <tbody id="lapProdukBody"></tbody>
+    </table>
+
+    <h2 style="margin-top:22px;">Daftar Transaksi</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Tanggal</th>
+          <th>No. Struk</th>
+          <th>Metode</th>
+          <th class="num">Total</th>
+          <th class="num">HPP</th>
+          <th class="num">Laba Kotor</th>
+        </tr>
+      </thead>
+      <tbody id="lapTransBody"></tbody>
+    </table>
+  </section>
+
+  <!-- ===== TAB PENGATURAN ===== -->
+  <section class="tab-panel" id="tab-pengaturan">
+    <h2>Identitas Apotek (untuk struk)</h2>
+    <div class="card">
+      <div class="form-grid">
+        <div class="field full">
+          <label>Nama Apotek</label>
+          <input type="text" id="setNamaApotek" placeholder="Apotek Masema Medika">
+        </div>
+        <div class="field full">
+          <label>Alamat</label>
+          <input type="text" id="setAlamat" placeholder="Alamat apotek">
+        </div>
+        <div class="field">
+          <label>No. Telepon</label>
+          <input type="text" id="setTelp" placeholder="08xx...">
+        </div>
+        <div class="field">
+          <label>Stok Minimum (peringatan menipis)</label>
+          <input type="number" id="setStokMin" min="0" placeholder="10">
+        </div>
+      </div>
+      <button class="btn btn-primary" id="btnSimpanPengaturan" style="margin-top:12px;">Simpan Pengaturan</button>
+    </div>
+
+    <h2>Ubah PIN Admin</h2>
+    <p class="section-hint">PIN ini diminta setiap kali membuka tab Stok Obat, Laporan Keuangan, atau Pengaturan.</p>
+    <div class="card">
+      <form class="form-grid" id="pinForm">
+        <div class="field">
+          <label>PIN baru (4 digit)</label>
+          <input type="password" id="newPin" maxlength="4" inputmode="numeric" placeholder="••••" required>
+        </div>
+        <button type="submit" class="btn btn-primary" style="align-self:flex-end;">Simpan PIN</button>
+      </form>
+      <p class="muted" style="margin-top:10px;">PIN default saat pertama kali dipakai adalah <b>1234</b>.</p>
+    </div>
+  </section>
+
+</main>
+
+<!-- Modal tambah/edit obat -->
+<div class="modal-overlay hidden" id="obatModal">
+  <div class="modal wide">
+    <h3 id="obatModalTitle">Tambah Obat</h3>
+    <div class="form-grid">
+      <div class="field full">
+        <label>Nama Obat</label>
+        <input type="text" id="fNama" placeholder="Nama obat">
+      </div>
+      <div class="field">
+        <label>Kategori</label>
+        <input type="text" id="fKategori" placeholder="Bebas / Bebas Terbatas / Keras / dll">
+      </div>
+      <div class="field">
+        <label>Satuan</label>
+        <input type="text" id="fSatuan" placeholder="Strip / Botol / Pcs">
+      </div>
+      <div class="field">
+        <label>Kode / Barcode</label>
+        <input type="text" id="fKode" placeholder="(opsional)">
+      </div>
+      <div class="field">
+        <label>Kadaluarsa</label>
+        <input type="date" id="fKadaluarsa">
+      </div>
+      <div class="field">
+        <label>Harga Beli (Rp)</label>
+        <input type="number" id="fHargaBeli" min="0" placeholder="0">
+      </div>
+      <div class="field">
+        <label>Harga Jual (Rp)</label>
+        <input type="number" id="fHargaJual" min="0" placeholder="0">
+      </div>
+      <div class="field">
+        <label>Stok</label>
+        <input type="number" id="fStok" min="0" placeholder="0">
+      </div>
+      <div class="field">
+        <label>Stok Minimum</label>
+        <input type="number" id="fStokMin" min="0" placeholder="10">
       </div>
     </div>
-    <div class="modal-foot">
-      <button class="btn btn-outline" data-close>Batal</button>
-      <button class="btn btn-primary" id="btnSaveObat">Simpan</button>
-    </div>
+    <button class="btn btn-primary btn-block" id="btnSimpanObat" style="margin-top:14px;">Simpan</button>
+    <button class="cancel" id="btnBatalObat">Batal</button>
   </div>
 </div>
 
-<!-- Modal: Info Resep saat checkout -->
-<div class="overlay" id="modalResepCheckout">
+<div class="modal-overlay hidden" id="pinModal">
   <div class="modal">
-    <div class="modal-head"><h3>Data Resep Diperlukan</h3><button class="modal-close" data-close>&times;</button></div>
-    <div class="modal-body">
-      <p style="font-size:12.5px;color:var(--ink-soft);margin-top:0;">Keranjang berisi obat yang wajib resep. Lengkapi data berikut sebelum transaksi diselesaikan.</p>
-      <div class="field"><label>Nama Pasien</label><input type="text" id="rcNamaPasien"></div>
-      <div class="row-2">
-        <div class="field"><label>Nama Dokter</label><input type="text" id="rcNamaDokter"></div>
-        <div class="field"><label>No. Resep (opsional)</label><input type="text" id="rcNoResep"></div>
-      </div>
-      <div class="field"><label>Catatan (opsional)</label><textarea id="rcCatatan" rows="2"></textarea></div>
-    </div>
-    <div class="modal-foot">
-      <button class="btn btn-outline" data-close>Batal</button>
-      <button class="btn btn-primary" id="btnConfirmResepCheckout">Lanjutkan Transaksi</button>
-    </div>
-  </div>
-</div>
-
-<!-- Modal: Catat Resep manual -->
-<div class="overlay" id="modalResepManual">
-  <div class="modal">
-    <div class="modal-head"><h3>Catat Resep</h3><button class="modal-close" data-close>&times;</button></div>
-    <div class="modal-body">
-      <div class="field"><label>Nama Pasien</label><input type="text" id="mrNamaPasien"></div>
-      <div class="row-2">
-        <div class="field"><label>Nama Dokter</label><input type="text" id="mrNamaDokter"></div>
-        <div class="field"><label>No. Resep (opsional)</label><input type="text" id="mrNoResep"></div>
-      </div>
-      <div class="field"><label>Nama Obat</label><input type="text" id="mrObat" placeholder="mis. Amoxicillin 500mg"></div>
-      <div class="field"><label>Catatan (opsional)</label><textarea id="mrCatatan" rows="2"></textarea></div>
-    </div>
-    <div class="modal-foot">
-      <button class="btn btn-outline" data-close>Batal</button>
-      <button class="btn btn-primary" id="btnSaveResepManual">Simpan</button>
-    </div>
+    <h3>Masukkan PIN Admin</h3>
+    <p>Diperlukan untuk mengakses halaman ini.</p>
+    <input type="password" id="pinInput" maxlength="4" inputmode="numeric" placeholder="••••">
+    <button class="btn btn-primary" id="pinSubmit">Buka</button>
+    <br>
+    <button class="cancel" id="pinCancel">Batal</button>
   </div>
 </div>
 
 <div class="toast" id="toast"></div>
 
+<div class="modal-overlay hidden" id="setupWarning">
+  <div class="modal" style="max-width:420px;text-align:left;">
+    <h3 style="text-align:center;">⚠️ Belum Terhubung ke Database</h3>
+    <p style="text-align:center;">Aplikasi ini butuh <b>Firebase Database URL</b> supaya data kasir bisa tersimpan &amp; sinkron di semua perangkat.</p>
+    <p style="font-size:12.5px;line-height:1.6;">
+      Caranya:<br>
+      1. Buat project Firebase baru (terpisah dari aplikasi Absensi), aktifkan Realtime Database.<br>
+      2. Buka file <code>index.html</code> ini dengan editor teks (Notepad / GitHub).<br>
+      3. Cari baris <code>const FIREBASE_DB_URL = "TEMPEL_DATABASE_URL_FIREBASE_DI_SINI";</code><br>
+      4. Ganti bagian dalam tanda kutip dengan Database URL dari Firebase Anda.<br>
+      5. Simpan &amp; upload ulang ke GitHub.
+    </p>
+    <p class="muted" style="text-align:center;">Gunakan project Firebase baru khusus untuk data kasir (jangan pakai yang sama dengan aplikasi Absensi).</p>
+  </div>
+</div>
+
+<!-- Area cetak struk -->
+<div id="strukPrint">
+  <div class="struk-box" id="strukContent"></div>
+</div>
+
 <script>
-/* ================= DATA LAYER (localStorage) ================= */
-const STORE_KEY = "apotekKasirData_v1";
-function loadData(){
-  const raw = localStorage.getItem(STORE_KEY);
-  if(!raw){
-    return { obat: [], transaksi: [], resep: [] };
-  }
+/* =========================================================
+   KASIR APOTEK MASEMA MEDIKA — Versi GitHub Pages + Firebase
+   Data disimpan di Firebase Realtime Database lewat REST API.
+   WAJIB isi FIREBASE_DB_URL di bawah ini dulu (project baru,
+   terpisah dari aplikasi Absensi).
+   ========================================================= */
+
+// >>> GANTI BARIS DI BAWAH INI dengan Database URL Firebase Anda <<<
+const FIREBASE_DB_URL = "https://kasir-apotek-masema-default-rtdb.asia-southeast1.firebasedatabase.app";
+
+const DB_URL = FIREBASE_DB_URL.replace(/\/$/, '');
+const DB_CONFIGURED = DB_URL && !DB_URL.includes('TEMPEL_');
+
+const HARI = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+const BULAN = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+
+let obatList = [];      // [{id,nama,kategori,satuan,kode,kadaluarsa,hargaBeli,hargaJual,stok,stokMin}]
+let cart = [];           // [{obatId,nama,hargaJual,hargaBeli,qty}]
+let adminPin = '1234';
+let pinUnlocked = false;
+let pendingTabAfterPin = null;
+let pengaturan = { namaApotek:'Apotek Masema Medika', alamat:'', telp:'', stokMinDefault:10 };
+
+/* ---------------- storage helpers (Firebase REST) ---------------- */
+async function sGet(path){
   try{
-    const parsed = JSON.parse(raw);
-    return {
-      obat: parsed.obat || [],
-      transaksi: parsed.transaksi || [],
-      resep: parsed.resep || []
-    };
-  }catch(e){
-    console.error("Gagal membaca data, memulai data kosong.", e);
-    return { obat: [], transaksi: [], resep: [] };
+    const res = await fetch(`${DB_URL}/${path}.json`, { cache:'no-store' });
+    if(!res.ok) return null;
+    return await res.json();
+  }catch(e){ console.error('Gagal mengambil', path, e); return null; }
+}
+async function sSet(path, valueObj){
+  try{
+    const res = await fetch(`${DB_URL}/${path}.json`, {
+      method:'PUT',
+      headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify(valueObj),
+    });
+    return res.ok;
+  }catch(e){ console.error('Gagal menyimpan', path, e); return false; }
+}
+
+function pad(n){ return String(n).padStart(2,'0'); }
+function dateKey(d){ return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
+function parseDateInput(s){ return new Date(s + 'T00:00:00'); }
+function timeStr(d){ return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`; }
+function rupiah(n){ return 'Rp ' + Math.round(n||0).toLocaleString('id-ID'); }
+function escapeHtml(s){
+  return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function toast(msg, isErr){
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.toggle('err', !!isErr);
+  el.classList.add('show');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(()=>el.classList.remove('show'), 2600);
+}
+
+/* ---------------- init ---------------- */
+async function initData(){
+  const obatRaw = await sGet('obat-list');
+  obatList = obatRaw ? Object.values(obatRaw) : [];
+
+  const pinRaw = await sGet('admin-pin');
+  adminPin = pinRaw || '1234';
+  if(!pinRaw) await sSet('admin-pin', adminPin);
+
+  const setRaw = await sGet('pengaturan');
+  if(setRaw){
+    pengaturan = Object.assign(pengaturan, setRaw);
+  } else {
+    await sSet('pengaturan', pengaturan);
   }
 }
-function saveData(){
-  localStorage.setItem(STORE_KEY, JSON.stringify(DATA));
-}
-let DATA = loadData();
-let cart = []; // {obatId, nama, hargaJual, hargaBeli, qty, perluResep}
 
-function uid(prefix){ return prefix + "-" + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
-function rupiah(n){ n = Number(n)||0; return "Rp " + n.toLocaleString("id-ID"); }
-function todayStr(){ return new Date().toISOString().slice(0,10); }
-function fmtTanggal(iso){
-  const d = new Date(iso);
-  return d.toLocaleDateString("id-ID", {day:"2-digit", month:"short", year:"numeric"}) + " " +
-         d.toLocaleTimeString("id-ID", {hour:"2-digit", minute:"2-digit"});
-}
-function showToast(msg){
-  const t = document.getElementById("toast");
-  t.textContent = msg;
-  t.classList.add("show");
-  clearTimeout(t._timer);
-  t._timer = setTimeout(()=>t.classList.remove("show"), 2200);
+async function saveObatList(){
+  const obj = {};
+  obatList.forEach(o=> obj[o.id] = o);
+  await sSet('obat-list', obj);
 }
 
-/* ================= NAVIGATION ================= */
-document.querySelectorAll(".nav-btn").forEach(btn=>{
-  btn.addEventListener("click", ()=>{
-    document.querySelectorAll(".nav-btn").forEach(b=>b.classList.remove("active"));
-    document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
-    btn.classList.add("active");
-    document.getElementById("page-"+btn.dataset.page).classList.add("active");
-    if(btn.dataset.page === "stok") renderStokTable();
-    if(btn.dataset.page === "resep") renderResepTable();
-    if(btn.dataset.page === "laporan") renderLaporan();
-    if(btn.dataset.page === "kasir") renderProductList();
-  });
-});
-
-/* ================= MODAL HELPERS ================= */
-function openModal(id){ document.getElementById(id).classList.add("open"); }
-function closeModal(id){ document.getElementById(id).classList.remove("open"); }
-document.querySelectorAll("[data-close]").forEach(el=>{
-  el.addEventListener("click", (e)=>{
-    e.target.closest(".overlay").classList.remove("open");
-  });
-});
-document.querySelectorAll(".overlay").forEach(ov=>{
-  ov.addEventListener("click",(e)=>{ if(e.target === ov) ov.classList.remove("open"); });
-});
-
-/* ================= STOK OBAT ================= */
-function statusBadge(o){
-  if(o.stok <= 0) return '<span class="badge badge-danger">Habis</span>';
-  if(o.stok <= o.stokMin) return '<span class="badge badge-warn">Menipis</span>';
-  return '<span class="badge badge-ok">Aman</span>';
-}
-function renderStokTable(){
-  const tbody = document.getElementById("obatTableBody");
-  const empty = document.getElementById("obatEmpty");
-  if(DATA.obat.length === 0){
-    tbody.innerHTML = ""; empty.style.display = "block"; return;
-  }
-  empty.style.display = "none";
-  tbody.innerHTML = DATA.obat.map(o=>`
-    <tr>
-      <td>${o.nama}</td>
-      <td>${o.kategori||"-"}</td>
-      <td>${o.satuan||"-"}</td>
-      <td>${rupiah(o.hargaBeli)}</td>
-      <td>${rupiah(o.hargaJual)}</td>
-      <td>${o.stok}</td>
-      <td>${o.stokMin}</td>
-      <td>${o.perluResep ? '<span class="badge badge-resep">Resep</span>' : '-'}</td>
-      <td>${statusBadge(o)}</td>
-      <td>
-        <button class="btn btn-outline btn-sm" onclick="editObat('${o.id}')">Ubah</button>
-        <button class="btn btn-danger btn-sm" onclick="deleteObat('${o.id}')">Hapus</button>
-      </td>
-    </tr>
-  `).join("");
-}
-function resetObatForm(){
-  document.getElementById("obatId").value = "";
-  document.getElementById("obatNama").value = "";
-  document.getElementById("obatKategori").value = "";
-  document.getElementById("obatSatuan").value = "";
-  document.getElementById("obatHargaBeli").value = "";
-  document.getElementById("obatHargaJual").value = "";
-  document.getElementById("obatStok").value = "";
-  document.getElementById("obatStokMin").value = "";
-  document.getElementById("obatResep").checked = false;
-}
-function openAddObat(){
-  resetObatForm();
-  document.getElementById("modalObatTitle").textContent = "Tambah Obat";
-  openModal("modalObat");
-}
-document.getElementById("btnAddObat").addEventListener("click", openAddObat);
-document.getElementById("btnAddObatEmpty").addEventListener("click", openAddObat);
-
-function editObat(id){
-  const o = DATA.obat.find(x=>x.id===id);
-  if(!o) return;
-  document.getElementById("obatId").value = o.id;
-  document.getElementById("obatNama").value = o.nama;
-  document.getElementById("obatKategori").value = o.kategori||"";
-  document.getElementById("obatSatuan").value = o.satuan||"";
-  document.getElementById("obatHargaBeli").value = o.hargaBeli;
-  document.getElementById("obatHargaJual").value = o.hargaJual;
-  document.getElementById("obatStok").value = o.stok;
-  document.getElementById("obatStokMin").value = o.stokMin;
-  document.getElementById("obatResep").checked = !!o.perluResep;
-  document.getElementById("modalObatTitle").textContent = "Ubah Obat";
-  openModal("modalObat");
-}
-function deleteObat(id){
-  if(!confirm("Hapus obat ini dari daftar stok? Riwayat transaksi lama tidak akan berubah.")) return;
-  DATA.obat = DATA.obat.filter(o=>o.id!==id);
-  saveData(); renderStokTable(); renderProductList();
-  showToast("Obat dihapus.");
-}
-document.getElementById("btnSaveObat").addEventListener("click", ()=>{
-  const nama = document.getElementById("obatNama").value.trim();
-  if(!nama){ showToast("Nama obat wajib diisi."); return; }
-  const id = document.getElementById("obatId").value;
-  const payload = {
-    nama,
-    kategori: document.getElementById("obatKategori").value.trim(),
-    satuan: document.getElementById("obatSatuan").value.trim(),
-    hargaBeli: Number(document.getElementById("obatHargaBeli").value)||0,
-    hargaJual: Number(document.getElementById("obatHargaJual").value)||0,
-    stok: Number(document.getElementById("obatStok").value)||0,
-    stokMin: Number(document.getElementById("obatStokMin").value)||0,
-    perluResep: document.getElementById("obatResep").checked
-  };
-  if(id){
-    const o = DATA.obat.find(x=>x.id===id);
-    Object.assign(o, payload);
-  }else{
-    DATA.obat.push({ id: uid("obat"), ...payload });
-  }
-  saveData();
-  closeModal("modalObat");
-  renderStokTable();
-  renderProductList();
-  showToast("Data obat disimpan.");
-});
-
-/* ================= IMPORT / TEMPLATE EXCEL ================= */
-document.getElementById("btnDownloadTemplate").addEventListener("click", ()=>{
-  const headers = ["Nama Obat","Kategori","Satuan","Harga Beli","Harga Jual","Stok","Stok Minimum","Wajib Resep"];
-  const example = ["Paracetamol 500mg","Analgesik","Strip","8000","15000","50","10","Tidak"];
-  const ws = XLSX.utils.aoa_to_sheet([headers, example]);
-  ws["!cols"] = headers.map(h=>({wch: Math.max(14, h.length+2)}));
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Obat");
-  XLSX.writeFile(wb, "template-import-obat.xlsx");
-  showToast("Template diunduh.");
-});
-
-function normalizeHeaderKey(s){
-  return String(s||"").trim().toLowerCase().replace(/[^a-z0-9]/g,"");
-}
-const HEADER_MAP = {
-  namaobat: "nama", nama: "nama",
-  kategori: "kategori",
-  satuan: "satuan",
-  hargabeli: "hargaBeli",
-  hargajual: "hargaJual",
-  stok: "stok", stoksaatini: "stok",
-  stokminimum: "stokMin", stokmin: "stokMin",
-  wajibresep: "perluResep", resep: "perluResep"
-};
-function parseBoolResep(v){
-  const s = String(v||"").trim().toLowerCase();
-  return ["ya","yes","true","1","y"].includes(s);
-}
-document.getElementById("btnImportExcel").addEventListener("click", ()=>{
-  document.getElementById("obatFileInput").click();
-});
-document.getElementById("obatFileInput").addEventListener("change", (e)=>{
-  const file = e.target.files[0];
-  if(!file) return;
-  const reader = new FileReader();
-  reader.onload = (ev)=>{
-    try{
-      const wb = XLSX.read(ev.target.result, {type:"array"});
-      const sheet = wb.Sheets[wb.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json(sheet, {defval:""});
-      if(rows.length === 0){ showToast("File kosong atau format tidak dikenali."); return; }
-
-      let added = 0, updated = 0, skipped = 0;
-      rows.forEach(row=>{
-        const mapped = {};
-        Object.keys(row).forEach(k=>{
-          const key = HEADER_MAP[normalizeHeaderKey(k)];
-          if(key) mapped[key] = row[k];
-        });
-        const nama = String(mapped.nama||"").trim();
-        if(!nama){ skipped++; return; }
-        const payload = {
-          nama,
-          kategori: String(mapped.kategori||"").trim(),
-          satuan: String(mapped.satuan||"").trim(),
-          hargaBeli: Number(mapped.hargaBeli)||0,
-          hargaJual: Number(mapped.hargaJual)||0,
-          stok: Number(mapped.stok)||0,
-          stokMin: Number(mapped.stokMin)||0,
-          perluResep: parseBoolResep(mapped.perluResep)
-        };
-        const existing = DATA.obat.find(o=>o.nama.toLowerCase() === nama.toLowerCase());
-        if(existing){
-          Object.assign(existing, payload);
-          updated++;
-        }else{
-          DATA.obat.push({ id: uid("obat"), ...payload });
-          added++;
-        }
-      });
-      saveData();
-      renderStokTable();
-      renderProductList();
-      showToast(`Import selesai: ${added} ditambahkan, ${updated} diperbarui${skipped?`, ${skipped} dilewati (nama kosong)`:""}.`);
-    }catch(err){
-      console.error(err);
-      showToast("Gagal membaca file. Pastikan formatnya .xlsx/.xls/.csv yang valid.");
-    }
-  };
-  reader.readAsArrayBuffer(file);
-  e.target.value = "";
-});
-
-/* ================= KASIR / POS ================= */
-function renderLowStockBanner(){
-  const low = DATA.obat.filter(o=>o.stok <= o.stokMin);
-  const box = document.getElementById("lowStockBanner");
-  if(low.length===0){ box.innerHTML=""; return; }
-  box.innerHTML = `<div class="low-stock-alert">⚠ ${low.length} obat stoknya menipis/habis — cek menu Stok Obat.</div>`;
-}
-function renderProductList(){
-  renderLowStockBanner();
-  const q = (document.getElementById("searchObat").value||"").toLowerCase();
-  const list = document.getElementById("productList");
-  const items = DATA.obat.filter(o=>o.nama.toLowerCase().includes(q));
-  if(DATA.obat.length===0){
-    list.innerHTML = `<div class="empty"><div class="big">Belum ada obat di stok.</div>Tambahkan dulu lewat menu "Stok Obat".</div>`;
+/* =========================================================
+   TAB KASIR
+   ========================================================= */
+function renderSearchResults(query){
+  const wrap = document.getElementById('kasirSearchResults');
+  if(!query){
+    wrap.innerHTML = '<div class="empty-state">Ketik untuk mencari obat.</div>';
     return;
   }
-  if(items.length===0){
-    list.innerHTML = `<div class="empty">Tidak ditemukan.</div>`;
+  const q = query.toLowerCase();
+  const results = obatList.filter(o =>
+    (o.nama||'').toLowerCase().includes(q) || (o.kode||'').toLowerCase().includes(q)
+  ).slice(0, 30);
+
+  if(results.length === 0){
+    wrap.innerHTML = '<div class="empty-state">Obat tidak ditemukan.</div>';
     return;
   }
-  list.innerHTML = items.map(o=>`
-    <div class="product-row" onclick="addToCart('${o.id}')">
+  wrap.innerHTML = results.map(o=>`
+    <div class="search-item" data-id="${o.id}">
       <div>
-        <div class="name">${o.nama}${o.perluResep?'<span class="resep-flag">Resep</span>':''}</div>
-        <div class="meta">Stok: ${o.stok} ${o.satuan||""} ${o.stok<=o.stokMin?'· <span style="color:var(--amber)">menipis</span>':''}</div>
+        <div class="si-name">${escapeHtml(o.nama)}</div>
+        <div class="si-sub">Stok: ${o.stok} ${escapeHtml(o.satuan||'')} ${o.stok<=(o.stokMin||pengaturan.stokMinDefault) ? '<span class="tag tag-low">Menipis</span>' : ''}</div>
       </div>
-      <div class="price">${rupiah(o.hargaJual)}</div>
+      <div class="si-price">${rupiah(o.hargaJual)}</div>
     </div>
-  `).join("");
+  `).join('');
+  wrap.querySelectorAll('.search-item').forEach(el=>{
+    el.addEventListener('click', ()=> addToCart(el.dataset.id));
+  });
 }
-document.getElementById("searchObat").addEventListener("input", renderProductList);
 
 function addToCart(obatId){
-  const o = DATA.obat.find(x=>x.id===obatId);
-  if(!o) return;
-  if(o.stok <= 0){ showToast("Stok obat ini habis."); return; }
+  const obat = obatList.find(o=>o.id===obatId);
+  if(!obat) return;
   const existing = cart.find(c=>c.obatId===obatId);
+  const currentQty = existing ? existing.qty : 0;
+  if(currentQty + 1 > obat.stok){
+    toast(`Stok ${obat.nama} tidak cukup (sisa ${obat.stok}).`, true);
+    return;
+  }
   if(existing){
-    if(existing.qty + 1 > o.stok){ showToast("Jumlah melebihi stok tersedia."); return; }
     existing.qty += 1;
-  }else{
-    cart.push({ obatId: o.id, nama: o.nama, hargaJual: o.hargaJual, hargaBeli: o.hargaBeli, qty: 1, perluResep: o.perluResep });
+  } else {
+    cart.push({ obatId: obat.id, nama: obat.nama, hargaJual: obat.hargaJual, hargaBeli: obat.hargaBeli, satuan: obat.satuan, qty: 1 });
   }
   renderCart();
 }
-function changeQty(obatId, delta){
-  const item = cart.find(c=>c.obatId===obatId);
-  const o = DATA.obat.find(x=>x.id===obatId);
-  if(!item) return;
+
+function renderCart(){
+  const wrap = document.getElementById('cartList');
+  if(cart.length === 0){
+    wrap.innerHTML = '<div class="empty-state">Keranjang masih kosong.</div>';
+  } else {
+    wrap.innerHTML = cart.map((c,idx)=>`
+      <div class="cart-item" data-idx="${idx}">
+        <div class="ci-info">
+          <div class="ci-name">${escapeHtml(c.nama)}</div>
+          <div class="ci-price">${rupiah(c.hargaJual)} / ${escapeHtml(c.satuan||'')}</div>
+        </div>
+        <div class="qty-ctrl">
+          <button class="qty-minus" data-idx="${idx}">-</button>
+          <input type="number" class="qty-input" data-idx="${idx}" value="${c.qty}" min="1">
+          <button class="qty-plus" data-idx="${idx}">+</button>
+        </div>
+        <div class="ci-subtotal">${rupiah(c.hargaJual*c.qty)}</div>
+        <button class="ci-del" data-idx="${idx}">✕</button>
+      </div>
+    `).join('');
+  }
+
+  wrap.querySelectorAll('.qty-minus').forEach(b=>b.addEventListener('click', e=>changeQty(e.target.dataset.idx, -1)));
+  wrap.querySelectorAll('.qty-plus').forEach(b=>b.addEventListener('click', e=>changeQty(e.target.dataset.idx, 1)));
+  wrap.querySelectorAll('.qty-input').forEach(inp=>inp.addEventListener('change', e=>setQty(e.target.dataset.idx, Number(e.target.value))));
+  wrap.querySelectorAll('.ci-del').forEach(b=>b.addEventListener('click', e=>{
+    cart.splice(Number(e.target.dataset.idx),1);
+    renderCart();
+  }));
+
+  const total = cart.reduce((s,c)=>s+c.hargaJual*c.qty, 0);
+  document.getElementById('cartTotal').textContent = rupiah(total);
+  updateKembalian();
+}
+
+function changeQty(idx, delta){
+  idx = Number(idx);
+  const item = cart[idx];
+  const obat = obatList.find(o=>o.id===item.obatId);
   const newQty = item.qty + delta;
-  if(newQty <= 0){ cart = cart.filter(c=>c.obatId!==obatId); renderCart(); return; }
-  if(o && newQty > o.stok){ showToast("Jumlah melebihi stok tersedia."); return; }
+  if(newQty < 1){ cart.splice(idx,1); renderCart(); return; }
+  if(obat && newQty > obat.stok){ toast(`Stok ${item.nama} tidak cukup (sisa ${obat.stok}).`, true); return; }
   item.qty = newQty;
   renderCart();
 }
-function renderCart(){
-  const box = document.getElementById("cartItems");
-  const totalEl = document.getElementById("cartTotal");
-  const checkoutBtn = document.getElementById("btnCheckout");
-  if(cart.length===0){
-    box.innerHTML = `<div class="receipt-empty">Keranjang masih kosong.<br>Klik obat di sebelah kiri untuk menambahkan.</div>`;
-    totalEl.textContent = rupiah(0);
-    checkoutBtn.disabled = true;
-    document.getElementById("receiptDate").textContent = "";
+function setQty(idx, qty){
+  idx = Number(idx);
+  const item = cart[idx];
+  const obat = obatList.find(o=>o.id===item.obatId);
+  if(!qty || qty < 1) qty = 1;
+  if(obat && qty > obat.stok){ toast(`Stok ${item.nama} tidak cukup (sisa ${obat.stok}).`, true); qty = obat.stok; }
+  item.qty = qty;
+  renderCart();
+}
+
+function updateKembalian(){
+  const metode = document.getElementById('metodeBayar').value;
+  const tunaiField = document.getElementById('tunaiField');
+  const kembalianRow = document.getElementById('kembalianRow');
+  if(metode !== 'Tunai'){
+    tunaiField.style.display='none';
+    kembalianRow.style.display='none';
     return;
   }
-  document.getElementById("receiptDate").textContent = fmtTanggal(new Date().toISOString());
-  let total = 0;
-  box.innerHTML = cart.map(c=>{
-    total += c.hargaJual * c.qty;
-    return `
-      <div class="receipt-item">
-        <div>${c.nama}${c.perluResep?' <span class="resep-flag">R</span>':''}
-          <div class="qty-ctrl" style="margin-top:3px;">
-            <button onclick="changeQty('${c.obatId}',-1)">−</button>
-            <span class="qty">${c.qty}</span>
-            <button onclick="changeQty('${c.obatId}',1)">+</button>
-          </div>
-        </div>
-        <div>${rupiah(c.hargaJual * c.qty)}</div>
-      </div>`;
-  }).join("");
-  totalEl.textContent = rupiah(total);
-  checkoutBtn.disabled = false;
+  tunaiField.style.display='';
+  const total = cart.reduce((s,c)=>s+c.hargaJual*c.qty, 0);
+  const diterima = Number(document.getElementById('uangDiterima').value)||0;
+  const kembalian = diterima - total;
+  kembalianRow.style.display = diterima>0 ? '' : 'none';
+  document.getElementById('kembalianVal').textContent = rupiah(kembalian);
+  document.getElementById('kembalianVal').style.color = kembalian<0 ? 'var(--danger)' : 'var(--primary-dark)';
 }
-document.getElementById("btnClearCart").addEventListener("click", ()=>{
-  if(cart.length===0) return;
-  if(!confirm("Kosongkan keranjang?")) return;
-  cart = []; renderCart();
-});
 
-let pendingResepInfo = null;
-document.getElementById("btnCheckout").addEventListener("click", ()=>{
-  const needResep = cart.some(c=>c.perluResep);
-  if(needResep){
-    document.getElementById("rcNamaPasien").value = "";
-    document.getElementById("rcNamaDokter").value = "";
-    document.getElementById("rcNoResep").value = "";
-    document.getElementById("rcCatatan").value = "";
-    openModal("modalResepCheckout");
-  }else{
-    finalizeCheckout(null);
-  }
-});
-document.getElementById("btnConfirmResepCheckout").addEventListener("click", ()=>{
-  const namaPasien = document.getElementById("rcNamaPasien").value.trim();
-  const namaDokter = document.getElementById("rcNamaDokter").value.trim();
-  if(!namaPasien || !namaDokter){ showToast("Nama pasien & dokter wajib diisi."); return; }
-  const info = {
-    namaPasien, namaDokter,
-    noResep: document.getElementById("rcNoResep").value.trim(),
-    catatan: document.getElementById("rcCatatan").value.trim()
-  };
-  closeModal("modalResepCheckout");
-  finalizeCheckout(info);
-});
+async function prosesBayar(){
+  if(cart.length===0){ toast('Keranjang masih kosong.', true); return; }
+  const pakaiResep = document.getElementById('pakaiResep').checked;
+  const dokter = document.getElementById('resepDokter').value.trim();
+  const pasien = document.getElementById('resepPasien').value.trim();
+  const metode = document.getElementById('metodeBayar').value;
+  const total = cart.reduce((s,c)=>s+c.hargaJual*c.qty, 0);
+  const totalHpp = cart.reduce((s,c)=>s+c.hargaBeli*c.qty, 0);
+  const diterima = Number(document.getElementById('uangDiterima').value)||0;
 
-function finalizeCheckout(resepInfo){
-  // validasi ulang stok
+  if(pakaiResep && !dokter){ toast('Isi nama dokter untuk transaksi resep.', true); return; }
+  if(metode==='Tunai' && diterima < total){ toast('Uang diterima kurang dari total.', true); return; }
+
+  // Cek ulang stok terbaru sebelum simpan (jaga-jaga ada transaksi dari perangkat lain)
+  const latestObatRaw = await sGet('obat-list');
+  const latestObat = latestObatRaw ? Object.values(latestObatRaw) : obatList;
   for(const c of cart){
-    const o = DATA.obat.find(x=>x.id===c.obatId);
-    if(!o || c.qty > o.stok){ showToast(`Stok "${c.nama}" tidak mencukupi.`); return; }
+    const o = latestObat.find(x=>x.id===c.obatId);
+    if(!o || o.stok < c.qty){
+      toast(`Stok ${c.nama} sudah berubah / tidak cukup. Silakan cek ulang keranjang.`, true);
+      return;
+    }
   }
-  const total = cart.reduce((s,c)=>s + c.hargaJual*c.qty, 0);
+
+  const now = new Date();
+  const id = crypto.randomUUID();
+  const noStruk = `${dateKey(now).replace(/-/g,'')}-${String(Date.now()).slice(-5)}`;
   const trx = {
-    id: uid("trx"),
-    tanggal: new Date().toISOString(),
-    items: cart.map(c=>({obatId:c.obatId, nama:c.nama, qty:c.qty, hargaJual:c.hargaJual, hargaBeli:c.hargaBeli})),
-    total
+    id, noStruk, waktu: timeStr(now), tanggal: dateKey(now),
+    items: cart.map(c=>({obatId:c.obatId, nama:c.nama, satuan:c.satuan||'', qty:c.qty, hargaJual:c.hargaJual, hargaBeli:c.hargaBeli, subtotal:c.hargaJual*c.qty})),
+    total, totalHpp, metode, diterima: metode==='Tunai'?diterima:total, kembalian: metode==='Tunai'?(diterima-total):0,
+    pakaiResep, dokter: pakaiResep?dokter:'', pasien: pakaiResep?pasien:'',
   };
-  // kurangi stok
+
+  // update stok
   cart.forEach(c=>{
-    const o = DATA.obat.find(x=>x.id===c.obatId);
+    const o = latestObat.find(x=>x.id===c.obatId);
     if(o) o.stok -= c.qty;
   });
-  DATA.transaksi.push(trx);
-  if(resepInfo){
-    DATA.resep.push({
-      id: uid("resep"),
-      tanggal: new Date().toISOString(),
-      namaPasien: resepInfo.namaPasien,
-      namaDokter: resepInfo.namaDokter,
-      noResep: resepInfo.noResep,
-      catatan: resepInfo.catatan,
-      obat: cart.filter(c=>c.perluResep).map(c=>c.nama).join(", "),
-      trxId: trx.id
-    });
-  }
-  saveData();
-  window.print();
+  obatList = latestObat;
+  await saveObatList();
+
+  const existingTrx = await sGet('transaksi/' + trx.tanggal) || {};
+  existingTrx[id] = trx;
+  await sSet('transaksi/' + trx.tanggal, existingTrx);
+
+  toast(`Transaksi ${trx.noStruk} berhasil disimpan ✓`);
+  cetakStruk(trx);
+
   cart = [];
+  document.getElementById('pakaiResep').checked = false;
+  document.getElementById('resepFields').style.display='none';
+  document.getElementById('resepDokter').value='';
+  document.getElementById('resepPasien').value='';
+  document.getElementById('uangDiterima').value='';
   renderCart();
   renderStokTable();
-  renderProductList();
-  showToast("Transaksi selesai & tersimpan.");
+  renderStokSummary();
 }
 
-/* ================= RESEP DOKTER ================= */
-function renderResepTable(){
-  const tbody = document.getElementById("resepTableBody");
-  const empty = document.getElementById("resepEmpty");
-  const list = [...DATA.resep].sort((a,b)=> new Date(b.tanggal)-new Date(a.tanggal));
-  if(list.length===0){ tbody.innerHTML=""; empty.style.display="block"; return; }
-  empty.style.display="none";
-  tbody.innerHTML = list.map(r=>`
-    <tr>
-      <td>${fmtTanggal(r.tanggal)}</td>
-      <td>${r.namaPasien}</td>
-      <td>${r.namaDokter}</td>
-      <td>${r.noResep||"-"}</td>
-      <td>${r.obat||"-"}</td>
-      <td>${r.catatan||"-"}</td>
-    </tr>
-  `).join("");
+function cetakStruk(trx){
+  const el = document.getElementById('strukContent');
+  el.innerHTML = `
+    <h3>${escapeHtml(pengaturan.namaApotek||'Apotek Masema Medika')}</h3>
+    <div class="center">${escapeHtml(pengaturan.alamat||'')}</div>
+    <div class="center">${escapeHtml(pengaturan.telp||'')}</div>
+    <hr>
+    <div>No: ${trx.noStruk}</div>
+    <div>${fmtDateFull(parseDateInput(trx.tanggal))} ${trx.waktu}</div>
+    ${trx.pakaiResep ? `<div>Resep: ${escapeHtml(trx.dokter)} - Ps. ${escapeHtml(trx.pasien||'-')}</div>` : ''}
+    <hr>
+    <table>
+      ${trx.items.map(it=>`
+        <tr><td colspan="2">${escapeHtml(it.nama)}</td></tr>
+        <tr><td>${it.qty} x ${rupiah(it.hargaJual)}</td><td style="text-align:right;">${rupiah(it.subtotal)}</td></tr>
+      `).join('')}
+    </table>
+    <hr>
+    <table>
+      <tr><td><b>TOTAL</b></td><td style="text-align:right;"><b>${rupiah(trx.total)}</b></td></tr>
+      <tr><td>${trx.metode}</td><td style="text-align:right;">${rupiah(trx.diterima)}</td></tr>
+      ${trx.metode==='Tunai' ? `<tr><td>Kembali</td><td style="text-align:right;">${rupiah(trx.kembalian)}</td></tr>` : ''}
+    </table>
+    <hr>
+    <div class="center">Terima kasih atas kunjungan Anda</div>
+  `;
+  document.body.classList.add('printing-struk');
+  window.print();
+  setTimeout(()=> document.body.classList.remove('printing-struk'), 500);
 }
-document.getElementById("btnAddResep").addEventListener("click", ()=>{
-  document.getElementById("mrNamaPasien").value = "";
-  document.getElementById("mrNamaDokter").value = "";
-  document.getElementById("mrNoResep").value = "";
-  document.getElementById("mrObat").value = "";
-  document.getElementById("mrCatatan").value = "";
-  openModal("modalResepManual");
-});
-document.getElementById("btnSaveResepManual").addEventListener("click", ()=>{
-  const namaPasien = document.getElementById("mrNamaPasien").value.trim();
-  const namaDokter = document.getElementById("mrNamaDokter").value.trim();
-  if(!namaPasien || !namaDokter){ showToast("Nama pasien & dokter wajib diisi."); return; }
-  DATA.resep.push({
-    id: uid("resep"),
-    tanggal: new Date().toISOString(),
-    namaPasien, namaDokter,
-    noResep: document.getElementById("mrNoResep").value.trim(),
-    obat: document.getElementById("mrObat").value.trim(),
-    catatan: document.getElementById("mrCatatan").value.trim(),
-    trxId: null
+function fmtDateFull(d){ return `${d.getDate()} ${BULAN[d.getMonth()]} ${d.getFullYear()}`; }
+
+/* =========================================================
+   TAB STOK OBAT
+   ========================================================= */
+function renderStokSummary(){
+  const totalObat = obatList.length;
+  const totalStok = obatList.reduce((s,o)=>s+Number(o.stok||0),0);
+  const nilaiStok = obatList.reduce((s,o)=>s+Number(o.stok||0)*Number(o.hargaBeli||0),0);
+  const stokMenipis = obatList.filter(o=>Number(o.stok||0) <= Number(o.stokMin||pengaturan.stokMinDefault)).length;
+  document.getElementById('stokSummaryCards').innerHTML = `
+    <div class="s-card"><div class="k">Jumlah Jenis Obat</div><div class="v">${totalObat}</div></div>
+    <div class="s-card"><div class="k">Total Unit Stok</div><div class="v">${totalStok}</div></div>
+    <div class="s-card"><div class="k">Nilai Stok (Harga Beli)</div><div class="v" style="font-size:15px;">${rupiah(nilaiStok)}</div></div>
+    <div class="s-card"><div class="k">Stok Menipis</div><div class="v" style="color:${stokMenipis>0?'#B3261E':'#0E4A41'};">${stokMenipis}</div></div>
+  `;
+}
+
+function renderStokTable(){
+  const q = (document.getElementById('stokSearch').value||'').toLowerCase();
+  const body = document.getElementById('stokBody');
+  const list = obatList.filter(o=>
+    !q || (o.nama||'').toLowerCase().includes(q) || (o.kategori||'').toLowerCase().includes(q) || (o.kode||'').toLowerCase().includes(q)
+  ).sort((a,b)=>(a.nama||'').localeCompare(b.nama||''));
+
+  if(list.length===0){
+    body.innerHTML = `<tr><td colspan="9" class="muted" style="padding:20px;text-align:center;">Belum ada data obat.</td></tr>`;
+    return;
+  }
+  body.innerHTML = list.map(o=>{
+    const low = Number(o.stok||0) <= Number(o.stokMin||pengaturan.stokMinDefault);
+    return `
+    <tr class="${low?'row-low':''}" data-id="${o.id}">
+      <td>${escapeHtml(o.nama)}</td>
+      <td>${escapeHtml(o.kategori||'-')}</td>
+      <td>${escapeHtml(o.satuan||'-')}</td>
+      <td class="num">${rupiah(o.hargaBeli)}</td>
+      <td class="num">${rupiah(o.hargaJual)}</td>
+      <td class="num">${o.stok}</td>
+      <td>${o.kadaluarsa || '-'}</td>
+      <td>${low ? '<span class="tag tag-low">Menipis</span>' : '<span class="tag tag-ok">Aman</span>'}</td>
+      <td>
+        <button class="btn btn-sm edit-obat" data-id="${o.id}">Edit</button>
+        <button class="btn btn-sm btn-danger del-obat" data-id="${o.id}">Hapus</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  body.querySelectorAll('.edit-obat').forEach(b=>b.addEventListener('click', e=>openObatModal(e.target.dataset.id)));
+  body.querySelectorAll('.del-obat').forEach(b=>b.addEventListener('click', async e=>{
+    const id = e.target.dataset.id;
+    const o = obatList.find(x=>x.id===id);
+    if(!confirm(`Hapus obat "${o.nama}"? Riwayat transaksi lama tidak akan terhapus.`)) return;
+    obatList = obatList.filter(x=>x.id!==id);
+    await saveObatList();
+    renderStokTable();
+    renderStokSummary();
+    toast('Obat dihapus.');
+  }));
+}
+
+let editingObatId = null;
+function openObatModal(id){
+  editingObatId = id || null;
+  document.getElementById('obatModalTitle').textContent = id ? 'Edit Obat' : 'Tambah Obat';
+  const o = id ? obatList.find(x=>x.id===id) : null;
+  document.getElementById('fNama').value = o ? o.nama : '';
+  document.getElementById('fKategori').value = o ? (o.kategori||'') : '';
+  document.getElementById('fSatuan').value = o ? (o.satuan||'') : '';
+  document.getElementById('fKode').value = o ? (o.kode||'') : '';
+  document.getElementById('fKadaluarsa').value = o ? (o.kadaluarsa||'') : '';
+  document.getElementById('fHargaBeli').value = o ? o.hargaBeli : '';
+  document.getElementById('fHargaJual').value = o ? o.hargaJual : '';
+  document.getElementById('fStok').value = o ? o.stok : '';
+  document.getElementById('fStokMin').value = o ? (o.stokMin!=null?o.stokMin:pengaturan.stokMinDefault) : pengaturan.stokMinDefault;
+  document.getElementById('obatModal').classList.remove('hidden');
+}
+function closeObatModal(){ document.getElementById('obatModal').classList.add('hidden'); }
+
+async function simpanObat(){
+  const nama = document.getElementById('fNama').value.trim();
+  if(!nama){ toast('Nama obat wajib diisi.', true); return; }
+  const data = {
+    id: editingObatId || crypto.randomUUID(),
+    nama,
+    kategori: document.getElementById('fKategori').value.trim(),
+    satuan: document.getElementById('fSatuan').value.trim(),
+    kode: document.getElementById('fKode').value.trim(),
+    kadaluarsa: document.getElementById('fKadaluarsa').value,
+    hargaBeli: Number(document.getElementById('fHargaBeli').value)||0,
+    hargaJual: Number(document.getElementById('fHargaJual').value)||0,
+    stok: Number(document.getElementById('fStok').value)||0,
+    stokMin: Number(document.getElementById('fStokMin').value)||0,
+  };
+  if(editingObatId){
+    const idx = obatList.findIndex(x=>x.id===editingObatId);
+    obatList[idx] = data;
+  } else {
+    obatList.push(data);
+  }
+  await saveObatList();
+  closeObatModal();
+  renderStokTable();
+  renderStokSummary();
+  toast('Data obat disimpan ✓');
+}
+
+/* ---- Import Excel ---- */
+function normalizeHeader(h){ return String(h||'').trim().toLowerCase(); }
+async function handleImportFile(file){
+  const buf = await file.arrayBuffer();
+  const wb = XLSX.read(buf, { type:'array', cellDates:true });
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(ws, { defval:'' });
+  if(rows.length===0){ toast('File kosong atau format tidak dikenali.', true); return; }
+
+  const colMap = {};
+  Object.keys(rows[0]).forEach(k=>{
+    const nk = normalizeHeader(k);
+    if(nk.includes('nama')) colMap.nama = k;
+    else if(nk.includes('kategori')) colMap.kategori = k;
+    else if(nk.includes('satuan')) colMap.satuan = k;
+    else if(nk.includes('kode') || nk.includes('barcode')) colMap.kode = k;
+    else if(nk.includes('beli')) colMap.hargaBeli = k;
+    else if(nk.includes('jual')) colMap.hargaJual = k;
+    else if(nk.includes('kadaluarsa') || nk.includes('exp')) colMap.kadaluarsa = k;
+    else if(nk.includes('stok') && nk.includes('min')) colMap.stokMin = k;
+    else if(nk.includes('stok')) colMap.stok = k;
   });
-  saveData();
-  closeModal("modalResepManual");
-  renderResepTable();
-  showToast("Resep dicatat.");
+  if(!colMap.nama){ toast('Kolom "Nama" tidak ditemukan di file.', true); return; }
+
+  let ditambah = 0, diperbarui = 0;
+  rows.forEach(row=>{
+    const nama = String(row[colMap.nama]||'').trim();
+    if(!nama) return;
+    const kode = colMap.kode ? String(row[colMap.kode]||'').trim() : '';
+    let existing = obatList.find(o => (kode && o.kode===kode) || o.nama.toLowerCase()===nama.toLowerCase());
+    let kadaluarsaVal = '';
+    if(colMap.kadaluarsa && row[colMap.kadaluarsa]){
+      const v = row[colMap.kadaluarsa];
+      if(v instanceof Date) kadaluarsaVal = dateKey(v);
+      else kadaluarsaVal = String(v);
+    }
+    const data = {
+      id: existing ? existing.id : crypto.randomUUID(),
+      nama,
+      kategori: colMap.kategori ? String(row[colMap.kategori]||'').trim() : (existing?existing.kategori:''),
+      satuan: colMap.satuan ? String(row[colMap.satuan]||'').trim() : (existing?existing.satuan:''),
+      kode,
+      kadaluarsa: kadaluarsaVal || (existing?existing.kadaluarsa:''),
+      hargaBeli: colMap.hargaBeli ? Number(row[colMap.hargaBeli])||0 : (existing?existing.hargaBeli:0),
+      hargaJual: colMap.hargaJual ? Number(row[colMap.hargaJual])||0 : (existing?existing.hargaJual:0),
+      stok: colMap.stok ? Number(row[colMap.stok])||0 : (existing?existing.stok:0),
+      stokMin: colMap.stokMin ? Number(row[colMap.stokMin])||0 : (existing?existing.stokMin:pengaturan.stokMinDefault),
+    };
+    if(existing){
+      const idx = obatList.findIndex(o=>o.id===existing.id);
+      obatList[idx] = data;
+      diperbarui++;
+    } else {
+      obatList.push(data);
+      ditambah++;
+    }
+  });
+
+  await saveObatList();
+  renderStokTable();
+  renderStokSummary();
+  toast(`Import selesai: ${ditambah} obat ditambahkan, ${diperbarui} diperbarui ✓`);
+}
+
+/* =========================================================
+   TAB RESEP
+   ========================================================= */
+async function renderResep(){
+  const startVal = document.getElementById('resepStart').value;
+  const endVal = document.getElementById('resepEnd').value;
+  if(!startVal || !endVal) return;
+  const body = document.getElementById('resepBody');
+  body.innerHTML = `<tr><td colspan="6" class="muted">Memuat data...</td></tr>`;
+
+  const start = parseDateInput(startVal);
+  const end = parseDateInput(endVal);
+  const rows = [];
+  const cur = new Date(start);
+  while(cur <= end){
+    const ds = dateKey(cur);
+    const raw = await sGet('transaksi/' + ds);
+    if(raw){
+      Object.values(raw).forEach(trx=>{
+        if(trx.pakaiResep) rows.push(trx);
+      });
+    }
+    cur.setDate(cur.getDate()+1);
+  }
+
+  if(rows.length===0){
+    body.innerHTML = `<tr><td colspan="6" class="muted" style="padding:20px;text-align:center;">Tidak ada transaksi resep pada periode ini.</td></tr>`;
+    return;
+  }
+  body.innerHTML = rows.map(r=>`
+    <tr>
+      <td>${fmtDateFull(parseDateInput(r.tanggal))}</td>
+      <td>${r.noStruk}</td>
+      <td>${escapeHtml(r.dokter)}</td>
+      <td>${escapeHtml(r.pasien||'-')}</td>
+      <td>${r.items.map(it=>escapeHtml(it.nama)+' ('+it.qty+')').join(', ')}</td>
+      <td class="num">${rupiah(r.total)}</td>
+    </tr>
+  `).join('');
+}
+
+/* =========================================================
+   TAB LAPORAN
+   ========================================================= */
+let lapCache = { rows: [], produk: {}, range: '' };
+
+async function buildLaporan(startStr, endStr){
+  const start = parseDateInput(startStr);
+  const end = parseDateInput(endStr);
+  const rows = [];
+  const produk = {};
+
+  const cur = new Date(start);
+  while(cur <= end){
+    const ds = dateKey(cur);
+    const raw = await sGet('transaksi/' + ds);
+    if(raw){
+      Object.values(raw).forEach(trx=>{
+        rows.push(trx);
+        trx.items.forEach(it=>{
+          if(!produk[it.nama]) produk[it.nama] = { qty:0, total:0, laba:0 };
+          produk[it.nama].qty += it.qty;
+          produk[it.nama].total += it.subtotal;
+          produk[it.nama].laba += (it.hargaJual - it.hargaBeli) * it.qty;
+        });
+      });
+    }
+    cur.setDate(cur.getDate()+1);
+  }
+  rows.sort((a,b)=> (a.tanggal+a.waktu).localeCompare(b.tanggal+b.waktu));
+  return { rows, produk };
+}
+
+async function renderLaporan(){
+  const startVal = document.getElementById('lapStart').value;
+  const endVal = document.getElementById('lapEnd').value;
+  if(!startVal || !endVal) return;
+  if(startVal > endVal){ toast('Tanggal "Dari" tidak boleh lebih besar dari "Sampai".', true); return; }
+
+  document.getElementById('lapTransBody').innerHTML = `<tr><td colspan="6" class="muted">Menghitung laporan...</td></tr>`;
+  document.getElementById('lapProdukBody').innerHTML = '';
+  const { rows, produk } = await buildLaporan(startVal, endVal);
+
+  const totalPenjualan = rows.reduce((s,r)=>s+r.total,0);
+  const totalHpp = rows.reduce((s,r)=>s+r.totalHpp,0);
+  const labaKotor = totalPenjualan - totalHpp;
+  const jumlahTrx = rows.length;
+
+  document.getElementById('lapSummaryCards').innerHTML = `
+    <div class="s-card"><div class="k">Total Penjualan</div><div class="v">${rupiah(totalPenjualan)}</div></div>
+    <div class="s-card"><div class="k">Total HPP</div><div class="v">${rupiah(totalHpp)}</div></div>
+    <div class="s-card"><div class="k">Laba Kotor</div><div class="v" style="color:${labaKotor>=0?'#0E4A41':'#B3261E'};">${rupiah(labaKotor)}</div></div>
+    <div class="s-card"><div class="k">Jumlah Transaksi</div><div class="v">${jumlahTrx}</div></div>
+  `;
+
+  const produkArr = Object.entries(produk).map(([nama,v])=>({nama,...v})).sort((a,b)=>b.total-a.total);
+  document.getElementById('lapProdukBody').innerHTML = produkArr.length ? produkArr.map(p=>`
+    <tr>
+      <td>${escapeHtml(p.nama)}</td>
+      <td class="num">${p.qty}</td>
+      <td class="num">${rupiah(p.total)}</td>
+      <td class="num">${rupiah(p.laba)}</td>
+    </tr>`).join('') : `<tr><td colspan="4" class="muted" style="padding:14px;text-align:center;">Tidak ada data.</td></tr>`;
+
+  document.getElementById('lapTransBody').innerHTML = rows.length ? rows.map(r=>`
+    <tr>
+      <td>${fmtDateFull(parseDateInput(r.tanggal))} ${r.waktu}</td>
+      <td>${r.noStruk}</td>
+      <td>${r.metode}${r.pakaiResep?' (Resep)':''}</td>
+      <td class="num">${rupiah(r.total)}</td>
+      <td class="num">${rupiah(r.totalHpp)}</td>
+      <td class="num">${rupiah(r.total-r.totalHpp)}</td>
+    </tr>`).join('') : `<tr><td colspan="6" class="muted" style="padding:14px;text-align:center;">Tidak ada transaksi.</td></tr>`;
+
+  lapCache = { rows, produk: produkArr, range: `${startVal}_sd_${endVal}` };
+}
+
+function exportLapCsv(){
+  if(!lapCache.rows.length){ toast('Tidak ada data untuk diunduh.', true); return; }
+  let csv = 'Tanggal,Waktu,No Struk,Metode,Total,HPP,Laba Kotor\n';
+  lapCache.rows.forEach(r=>{
+    csv += `${r.tanggal},${r.waktu},${r.noStruk},${r.metode},${r.total},${r.totalHpp},${r.total-r.totalHpp}\n`;
+  });
+  const blob = new Blob([csv], { type:'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `Laporan-Keuangan-${lapCache.range}.csv`;
+  a.click();
+}
+
+/* =========================================================
+   TAB PENGATURAN
+   ========================================================= */
+function fillPengaturanForm(){
+  document.getElementById('setNamaApotek').value = pengaturan.namaApotek||'';
+  document.getElementById('setAlamat').value = pengaturan.alamat||'';
+  document.getElementById('setTelp').value = pengaturan.telp||'';
+  document.getElementById('setStokMin').value = pengaturan.stokMinDefault!=null ? pengaturan.stokMinDefault : 10;
+}
+async function simpanPengaturan(){
+  pengaturan = {
+    namaApotek: document.getElementById('setNamaApotek').value.trim(),
+    alamat: document.getElementById('setAlamat').value.trim(),
+    telp: document.getElementById('setTelp').value.trim(),
+    stokMinDefault: Number(document.getElementById('setStokMin').value)||0,
+  };
+  await sSet('pengaturan', pengaturan);
+  toast('Pengaturan disimpan ✓');
+  renderStokTable();
+  renderStokSummary();
+}
+
+document.getElementById('pinForm').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const val = document.getElementById('newPin').value.trim();
+  if(!/^\d{4}$/.test(val)){ toast('PIN harus 4 digit angka.', true); return; }
+  adminPin = val;
+  await sSet('admin-pin', adminPin);
+  e.target.reset();
+  toast('PIN admin diperbarui ✓');
 });
 
-/* ================= LAPORAN KEUANGAN ================= */
-function renderLaporan(){
-  const from = document.getElementById("filterFrom").value;
-  const to = document.getElementById("filterTo").value;
-  let list = [...DATA.transaksi];
-  if(from) list = list.filter(t=> t.tanggal.slice(0,10) >= from);
-  if(to) list = list.filter(t=> t.tanggal.slice(0,10) <= to);
-  list.sort((a,b)=> new Date(b.tanggal)-new Date(a.tanggal));
+/* =========================================================
+   TABS + PIN GATE
+   ========================================================= */
+const PROTECTED_TABS = ['stok','laporan','pengaturan'];
 
-  const omzet = list.reduce((s,t)=>s+t.total,0);
-  const laba = list.reduce((s,t)=> s + t.items.reduce((si,it)=> si + (it.hargaJual-it.hargaBeli)*it.qty, 0), 0);
-  const itemCount = list.reduce((s,t)=> s + t.items.reduce((si,it)=>si+it.qty,0), 0);
+document.querySelectorAll('.tab').forEach(tabBtn=>{
+  tabBtn.addEventListener('click', ()=>{
+    const target = tabBtn.dataset.tab;
+    if(PROTECTED_TABS.includes(target) && !pinUnlocked){
+      pendingTabAfterPin = target;
+      openPinModal();
+      return;
+    }
+    activateTab(target);
+  });
+});
 
-  document.getElementById("statOmzet").textContent = rupiah(omzet);
-  document.getElementById("statTrxCount").textContent = list.length + " transaksi";
-  document.getElementById("statLaba").textContent = rupiah(laba);
-  document.getElementById("statItemTerjual").textContent = itemCount;
+function activateTab(target){
+  document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active', b.dataset.tab===target));
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.toggle('active', p.id==='tab-'+target));
 
-  const tbody = document.getElementById("laporanTableBody");
-  const empty = document.getElementById("laporanEmpty");
-  if(list.length===0){ tbody.innerHTML=""; empty.style.display="block"; return; }
-  empty.style.display="none";
-  tbody.innerHTML = list.map(t=>`
-    <tr>
-      <td>${fmtTanggal(t.tanggal)}</td>
-      <td>${t.id}</td>
-      <td>${t.items.map(i=>`${i.nama} x${i.qty}`).join(", ")}</td>
-      <td>${rupiah(t.total)}</td>
-    </tr>
-  `).join("");
+  if(target === 'stok'){ renderStokTable(); renderStokSummary(); }
+  if(target === 'resep'){
+    if(!document.getElementById('resepStart').value){
+      const now = new Date();
+      const first = new Date(now.getFullYear(), now.getMonth(), 1);
+      document.getElementById('resepStart').value = dateKey(first);
+      document.getElementById('resepEnd').value = dateKey(now);
+    }
+    renderResep();
+  }
+  if(target === 'laporan'){
+    if(!document.getElementById('lapStart').value){
+      const now = new Date();
+      const first = new Date(now.getFullYear(), now.getMonth(), 1);
+      const last = new Date(now.getFullYear(), now.getMonth()+1, 0);
+      document.getElementById('lapStart').value = dateKey(first);
+      document.getElementById('lapEnd').value = dateKey(last);
+    }
+    renderLaporan();
+  }
+  if(target === 'pengaturan'){ fillPengaturanForm(); }
 }
-document.getElementById("btnFilterLaporan").addEventListener("click", renderLaporan);
-document.getElementById("btnResetLaporan").addEventListener("click", ()=>{
-  document.getElementById("filterFrom").value = "";
-  document.getElementById("filterTo").value = "";
+
+function openPinModal(){
+  document.getElementById('pinModal').classList.remove('hidden');
+  document.getElementById('pinInput').value = '';
+  document.getElementById('pinInput').focus();
+}
+function closePinModal(){ document.getElementById('pinModal').classList.add('hidden'); }
+document.getElementById('pinCancel').addEventListener('click', closePinModal);
+document.getElementById('pinSubmit').addEventListener('click', checkPin);
+document.getElementById('pinInput').addEventListener('keydown', (e)=>{ if(e.key==='Enter') checkPin(); });
+function checkPin(){
+  const val = document.getElementById('pinInput').value.trim();
+  if(val === adminPin){
+    pinUnlocked = true;
+    closePinModal();
+    activateTab(pendingTabAfterPin);
+  } else {
+    toast('PIN salah.', true);
+  }
+}
+
+/* =========================================================
+   EVENT BINDINGS
+   ========================================================= */
+document.getElementById('kasirSearch').addEventListener('input', e=>renderSearchResults(e.target.value.trim()));
+document.getElementById('pakaiResep').addEventListener('change', e=>{
+  document.getElementById('resepFields').style.display = e.target.checked ? '' : 'none';
+});
+document.getElementById('metodeBayar').addEventListener('change', updateKembalian);
+document.getElementById('uangDiterima').addEventListener('input', updateKembalian);
+document.getElementById('btnProsesBayar').addEventListener('click', prosesBayar);
+document.getElementById('btnKosongkanKeranjang').addEventListener('click', ()=>{
+  if(cart.length===0) return;
+  if(confirm('Kosongkan keranjang?')){ cart = []; renderCart(); }
+});
+
+document.getElementById('stokSearch').addEventListener('input', renderStokTable);
+document.getElementById('btnTambahObat').addEventListener('click', ()=>openObatModal(null));
+document.getElementById('btnBatalObat').addEventListener('click', closeObatModal);
+document.getElementById('btnSimpanObat').addEventListener('click', simpanObat);
+document.getElementById('btnImportExcel').addEventListener('click', ()=>document.getElementById('fileImportExcel').click());
+document.getElementById('fileImportExcel').addEventListener('change', e=>{
+  if(e.target.files[0]) handleImportFile(e.target.files[0]);
+  e.target.value = '';
+});
+
+document.getElementById('resepStart').addEventListener('change', renderResep);
+document.getElementById('resepEnd').addEventListener('change', renderResep);
+document.getElementById('btnResepBulanIni').addEventListener('click', ()=>{
+  const now = new Date();
+  const first = new Date(now.getFullYear(), now.getMonth(), 1);
+  document.getElementById('resepStart').value = dateKey(first);
+  document.getElementById('resepEnd').value = dateKey(now);
+  renderResep();
+});
+
+document.getElementById('lapStart').addEventListener('change', renderLaporan);
+document.getElementById('lapEnd').addEventListener('change', renderLaporan);
+document.getElementById('btnLapBulanIni').addEventListener('click', ()=>{
+  const now = new Date();
+  const first = new Date(now.getFullYear(), now.getMonth(), 1);
+  const last = new Date(now.getFullYear(), now.getMonth()+1, 0);
+  document.getElementById('lapStart').value = dateKey(first);
+  document.getElementById('lapEnd').value = dateKey(last);
   renderLaporan();
 });
+document.getElementById('btnLapCsv').addEventListener('click', exportLapCsv);
+document.getElementById('btnLapPrint').addEventListener('click', ()=>window.print());
 
-/* ================= BACKUP / RESTORE ================= */
-document.getElementById("btnExport").addEventListener("click", ()=>{
-  const blob = new Blob([JSON.stringify(DATA, null, 2)], {type:"application/json"});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `backup-kasir-apotek-${todayStr()}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
-  showToast("Backup diunduh.");
-});
-document.getElementById("fileDrop").addEventListener("click", ()=> document.getElementById("fileInput").click());
-document.getElementById("fileInput").addEventListener("change", (e)=>{
-  const file = e.target.files[0];
-  if(!file) return;
-  const reader = new FileReader();
-  reader.onload = ()=>{
-    try{
-      const parsed = JSON.parse(reader.result);
-      if(!parsed || !Array.isArray(parsed.obat) || !Array.isArray(parsed.transaksi) || !Array.isArray(parsed.resep)){
-        showToast("Format file backup tidak dikenali."); return;
-      }
-      if(!confirm("Ini akan mengganti seluruh data saat ini di perangkat ini. Lanjutkan?")) return;
-      DATA = parsed;
-      saveData();
-      renderStokTable(); renderProductList(); renderResepTable(); renderLaporan();
-      showToast("Data berhasil dipulihkan.");
-    }catch(err){
-      showToast("Gagal membaca file. Pastikan file .json valid.");
-    }
-  };
-  reader.readAsText(file);
-  e.target.value = "";
-});
+document.getElementById('btnSimpanPengaturan').addEventListener('click', simpanPengaturan);
 
-/* ================= INIT ================= */
-renderProductList();
-renderCart();
-renderStokTable();
-renderResepTable();
-renderLaporan();
+/* ---------------- boot ---------------- */
+(async function boot(){
+  if(!DB_CONFIGURED){
+    document.getElementById('setupWarning').classList.remove('hidden');
+    return;
+  }
+  await initData();
+  renderCart();
+})();
 </script>
 </body>
 </html>
