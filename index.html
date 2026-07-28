@@ -540,7 +540,7 @@
 <div class="modal-overlay hidden" id="pinModal">
   <div class="modal">
     <h3>Masukkan PIN Admin</h3>
-    <p>Diperlukan untuk mengakses halaman ini.</p>
+    <p id="pinModalText">Diperlukan untuk mengakses halaman ini.</p>
     <input type="password" id="pinInput" maxlength="4" inputmode="numeric" placeholder="••••">
     <button class="btn btn-primary" id="pinSubmit">Buka</button>
     <br>
@@ -592,6 +592,7 @@ let obatList = [];      // [{id,nama,kategori,satuan,kode,kadaluarsa,hargaBeli,h
 let cart = [];           // [{obatId,nama,hargaJual,hargaBeli,qty}]
 let adminPin = '1234';
 let pinUnlocked = false;
+let pinCallback = null;
 let pendingTabAfterPin = null;
 let pengaturan = { namaApotek:'Apotek Masema Medika', alamat:'', telp:'', stokMinDefault:10 };
 
@@ -986,16 +987,23 @@ function renderStokTable(){
     </tr>`;
   }).join('');
 
-  body.querySelectorAll('.edit-obat').forEach(b=>b.addEventListener('click', e=>openObatModal(e.target.dataset.id)));
-  body.querySelectorAll('.del-obat').forEach(b=>b.addEventListener('click', async e=>{
+  body.querySelectorAll('.edit-obat').forEach(b=>b.addEventListener('click', e=>{
     const id = e.target.dataset.id;
-    const o = obatList.find(x=>x.id===id);
-    if(!confirm(`Hapus obat "${o.nama}"? Riwayat transaksi lama tidak akan terhapus.`)) return;
-    obatList = obatList.filter(x=>x.id!==id);
-    await saveObatList();
-    renderStokTable();
-    renderStokSummary();
-    toast('Obat dihapus.');
+    pinCallback = ()=>openObatModal(id);
+    openPinModal('Masukkan PIN untuk mengedit data & stok obat ini.');
+  }));
+  body.querySelectorAll('.del-obat').forEach(b=>b.addEventListener('click', e=>{
+    const id = e.target.dataset.id;
+    pinCallback = async ()=>{
+      const o = obatList.find(x=>x.id===id);
+      if(!o || !confirm(`Hapus obat "${o.nama}"? Riwayat transaksi lama tidak akan terhapus.`)) return;
+      obatList = obatList.filter(x=>x.id!==id);
+      await saveObatList();
+      renderStokTable();
+      renderStokSummary();
+      toast('Obat dihapus.');
+    };
+    openPinModal('Masukkan PIN untuk menghapus obat ini.');
   }));
 }
 
@@ -1354,12 +1362,13 @@ function activateTab(target){
   if(target === 'pengaturan'){ fillPengaturanForm(); }
 }
 
-function openPinModal(){
+function openPinModal(message){
   document.getElementById('pinModal').classList.remove('hidden');
+  document.getElementById('pinModalText').textContent = message || 'Diperlukan untuk mengakses halaman ini.';
   document.getElementById('pinInput').value = '';
   document.getElementById('pinInput').focus();
 }
-function closePinModal(){ document.getElementById('pinModal').classList.add('hidden'); }
+function closePinModal(){ document.getElementById('pinModal').classList.add('hidden'); pinCallback = null; }
 document.getElementById('pinCancel').addEventListener('click', closePinModal);
 document.getElementById('pinSubmit').addEventListener('click', checkPin);
 document.getElementById('pinInput').addEventListener('keydown', (e)=>{ if(e.key==='Enter') checkPin(); });
@@ -1367,8 +1376,15 @@ function checkPin(){
   const val = document.getElementById('pinInput').value.trim();
   if(val === adminPin){
     pinUnlocked = true;
-    closePinModal();
-    activateTab(pendingTabAfterPin);
+    document.getElementById('pinModal').classList.add('hidden');
+    document.getElementById('pinInput').value = '';
+    if(pinCallback){
+      const cb = pinCallback;
+      pinCallback = null;
+      cb();
+    } else if(pendingTabAfterPin){
+      activateTab(pendingTabAfterPin);
+    }
   } else {
     toast('PIN salah.', true);
   }
