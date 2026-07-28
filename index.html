@@ -454,6 +454,10 @@
           <label>Stok Minimum (peringatan menipis)</label>
           <input type="number" id="setStokMin" min="0" placeholder="10">
         </div>
+        <div class="field full">
+          <label>Pesan Penutup Struk</label>
+          <input type="text" id="setPesanStruk" placeholder="Terima kasih atas kunjungan Anda">
+        </div>
       </div>
       <button class="btn btn-primary" id="btnSimpanPengaturan" style="margin-top:12px;">Simpan Pengaturan</button>
     </div>
@@ -899,7 +903,7 @@ function cetakStruk(trx){
       ${trx.metode==='Tunai' ? `<tr><td>Kembali</td><td style="text-align:right;">${rupiah(trx.kembalian)}</td></tr>` : ''}
     </table>
     <hr>
-    <div class="center">Terima kasih atas kunjungan Anda</div>
+    <div class="center">${escapeHtml(pengaturan.pesanStruk||'Terima kasih atas kunjungan Anda')}</div>
   `;
   document.body.classList.add('printing-struk');
   window.print();
@@ -928,7 +932,7 @@ function cetakStrukCustom(trx){
       <tr><td><b>TOTAL</b></td><td style="text-align:right;"><b>${rupiah(trx.totalCustom)}</b></td></tr>
     </table>
     <hr>
-    <div class="center">Terima kasih atas kunjungan Anda</div>
+    <div class="center">${escapeHtml(pengaturan.pesanStruk||'Terima kasih atas kunjungan Anda')}</div>
   `;
   document.body.classList.add('printing-struk');
   window.print();
@@ -1280,6 +1284,7 @@ function fillPengaturanForm(){
   document.getElementById('setAlamat').value = pengaturan.alamat||'';
   document.getElementById('setTelp').value = pengaturan.telp||'';
   document.getElementById('setStokMin').value = pengaturan.stokMinDefault!=null ? pengaturan.stokMinDefault : 10;
+  document.getElementById('setPesanStruk').value = pengaturan.pesanStruk||'Terima kasih atas kunjungan Anda';
 }
 async function simpanPengaturan(){
   pengaturan = {
@@ -1287,6 +1292,7 @@ async function simpanPengaturan(){
     alamat: document.getElementById('setAlamat').value.trim(),
     telp: document.getElementById('setTelp').value.trim(),
     stokMinDefault: Number(document.getElementById('setStokMin').value)||0,
+    pesanStruk: document.getElementById('setPesanStruk').value.trim() || 'Terima kasih atas kunjungan Anda',
   };
   await sSet('pengaturan', pengaturan);
   toast('Pengaturan disimpan ✓');
