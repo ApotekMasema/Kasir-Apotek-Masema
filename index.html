@@ -223,6 +223,9 @@
     .form-grid{grid-template-columns:1fr;}
   }
 </style>
+<style id="printPageSizeStyle">
+  @media print { @page { size: 80mm auto; margin: 0; } }
+</style>
 </head>
 <body>
 
@@ -1112,6 +1115,8 @@ function applyStrukSize(el){
   el.className = 'struk-box';
   el.style.maxWidth = mm + 'mm';
   el.style.fontSize = mm <= 46 ? '9.5px' : (mm <= 60 ? '10.5px' : '12px');
+  const pageStyle = document.getElementById('printPageSizeStyle');
+  if(pageStyle) pageStyle.textContent = `@media print { @page { size: ${mm}mm auto; margin: 0; } }`;
 }
 
 function buildStrukHeader(trx, cfg){
