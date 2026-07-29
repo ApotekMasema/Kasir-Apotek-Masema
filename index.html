@@ -56,6 +56,8 @@
     font-size:17px;font-weight:800;flex:none;
   }
   .brand small{display:block;font-family:var(--font-body);font-weight:500;font-size:11.5px;color:var(--ink-soft);}
+  .kasir-session{display:flex;align-items:center;gap:10px;font-size:12.5px;font-weight:700;color:var(--ink-soft);}
+  .kasir-session .name{color:var(--primary-dark);}
   .tabs{display:flex;gap:6px;background:var(--bg);padding:4px;border-radius:11px;border:1px solid var(--border);flex-wrap:wrap;}
   .tab{
     border:none;background:transparent;padding:9px 14px;border-radius:8px;
@@ -239,6 +241,10 @@
     <button class="tab" data-tab="laporan">Laporan Keuangan</button>
     <button class="tab" data-tab="pengaturan">Pengaturan</button>
   </nav>
+  <div class="kasir-session" id="kasirSessionBadge" style="display:none;">
+    <span class="name" id="kasirSessionName"></span>
+    <button class="btn btn-sm" id="btnGantiKasir">Ganti Kasir</button>
+  </div>
 </header>
 
 <main>
@@ -273,8 +279,7 @@
         <h2>Keranjang</h2>
         <div class="field" style="margin-bottom:10px;">
           <label>Kasir Bertugas</label>
-          <input type="text" id="namaKasirBertugas" list="kasirNamesList" placeholder="Ketik nama Anda...">
-          <datalist id="kasirNamesList"></datalist>
+          <div id="kasirBertugasDisplay" style="font-weight:700;font-size:13.5px;padding:9px 0;color:var(--primary-dark);">-</div>
         </div>
         <div id="cartList">
           <div class="empty-state">Keranjang masih kosong.</div>
@@ -538,6 +543,26 @@
       </form>
     </div>
 
+    <h2>Akun Kasir (Login)</h2>
+    <p class="section-hint">Kelola nama & PIN setiap kasir. Kasir wajib login pakai akun ini sebelum bisa memakai aplikasi, agar otomatis tercatat siapa yang bertugas di setiap transaksi.</p>
+    <div class="card">
+      <div class="form-grid">
+        <div class="field">
+          <label>Nama Kasir Baru</label>
+          <input type="text" id="fAkunKasirNama" placeholder="Nama kasir">
+        </div>
+        <div class="field">
+          <label>PIN Kasir (4 digit)</label>
+          <input type="password" id="fAkunKasirPin" maxlength="4" inputmode="numeric" placeholder="••••">
+        </div>
+      </div>
+      <button class="btn btn-primary" id="btnTambahAkunKasir" style="margin-top:10px;">+ Tambah Akun Kasir</button>
+      <table style="margin-top:14px;">
+        <thead><tr><th>Nama</th><th>PIN</th><th>Aksi</th></tr></thead>
+        <tbody id="akunKasirBody"></tbody>
+      </table>
+    </div>
+
     <h2>Backup Data</h2>
     <p class="section-hint">Unduh seluruh data (stok obat, riwayat transaksi, pengaturan) sebagai file cadangan. Simpan file ini di HP/laptop/Google Drive secara berkala (mis. tiap minggu), untuk jaga-jaga kalau data bermasalah.</p>
     <div class="card">
@@ -609,6 +634,25 @@
       <button class="btn btn-block" id="btnCetakStrukCustom">🖨️ Cetak Struk Custom (untuk pasien)</button>
     </div>
     <button class="cancel" id="btnTutupStrukPilihan">Tutup</button>
+  </div>
+</div>
+
+<div class="modal-overlay hidden" id="loginGateModal">
+  <div class="modal">
+    <h3>✚ Login Kasir</h3>
+    <p class="section-hint" id="loginGateHint">Pilih nama Anda dan masukkan PIN untuk mulai bertugas.</p>
+    <div class="field" style="text-align:left;margin-bottom:10px;">
+      <label>Nama Kasir</label>
+      <select id="loginKasirNama"></select>
+    </div>
+    <div class="field" style="text-align:left;margin-bottom:12px;">
+      <label>PIN Kasir</label>
+      <input type="password" id="loginKasirPin" maxlength="4" inputmode="numeric" placeholder="••••">
+    </div>
+    <button class="btn btn-primary btn-block" id="btnLoginKasir">Masuk</button>
+    <p class="muted" style="margin-top:14px;">
+      <button id="btnLoginSebagaiAdmin" style="background:none;border:none;color:var(--primary);font-weight:700;cursor:pointer;font-size:12.5px;">Masuk sebagai Admin (kelola akun kasir) →</button>
+    </p>
   </div>
 </div>
 
@@ -721,6 +765,8 @@ let pinUnlocked = false;
 let pinCallback = null;
 let pendingTabAfterPin = null;
 let pengaturan = { namaApotek:'Apotek Masema Medika', alamat:'', telp:'', stokMinDefault:10 };
+let kasirAkunList = [];      // [{id,nama,pin}]
+let currentKasirNama = null; // nama kasir yang sedang login (atau 'Admin')
 
 /* ---------------- storage helpers (Firebase REST) ---------------- */
 async function sGet(path){
@@ -776,6 +822,9 @@ async function initData(){
   } else {
     await sSet('pengaturan', pengaturan);
   }
+
+  const akunRaw = await sGet('kasir-akun');
+  kasirAkunList = akunRaw ? Object.values(akunRaw) : [];
 }
 
 async function saveObatList(){
@@ -940,8 +989,8 @@ function updateKembalian(){
 
 async function prosesBayar(){
   if(cart.length===0){ toast('Keranjang masih kosong.', true); return; }
-  const namaKasir = document.getElementById('namaKasirBertugas').value.trim();
-  if(!namaKasir){ toast('Isi nama kasir bertugas terlebih dahulu.', true); return; }
+  if(!currentKasirNama){ toast('Sesi kasir tidak ditemukan. Silakan login ulang.', true); openLoginGate(); return; }
+  const namaKasir = currentKasirNama;
   const pakaiResep = document.getElementById('pakaiResep').checked;
   const dokter = document.getElementById('resepDokter').value.trim();
   const pasien = document.getElementById('resepPasien').value.trim();
@@ -995,7 +1044,6 @@ async function prosesBayar(){
   await sSet('transaksi/' + trx.tanggal, existingTrx);
 
   toast(`Transaksi ${trx.noStruk} berhasil disimpan ✓`);
-  await simpanNamaKasirBaru(namaKasir);
 
   cart = [];
   document.getElementById('pakaiResep').checked = false;
@@ -1408,19 +1456,98 @@ async function buildLaporan(startStr, endStr){
   return { rows, produk };
 }
 
-function refreshKasirDatalist(){
-  const dl = document.getElementById('kasirNamesList');
-  dl.innerHTML = (pengaturan.daftarKasir||[]).map(n=>`<option value="${escapeHtml(n)}">`).join('');
+/* ---------------- akun kasir (login) ---------------- */
+async function saveKasirAkunList(){
+  const obj = {};
+  kasirAkunList.forEach(a=> obj[a.id] = a);
+  await sSet('kasir-akun', obj);
 }
-async function simpanNamaKasirBaru(nama){
-  localStorage.setItem('lastKasirName', nama);
-  if(!pengaturan.daftarKasir) pengaturan.daftarKasir = [];
-  if(!pengaturan.daftarKasir.includes(nama)){
-    pengaturan.daftarKasir.push(nama);
-    await sSet('pengaturan', pengaturan);
-  }
-  refreshKasirDatalist();
+function renderAkunKasirTable(){
+  const body = document.getElementById('akunKasirBody');
+  if(!body) return;
+  body.innerHTML = kasirAkunList.length ? kasirAkunList.map(a=>`
+    <tr>
+      <td>${escapeHtml(a.nama)}</td>
+      <td class="num">${'•'.repeat((a.pin||'').length)}</td>
+      <td><button class="btn btn-sm btn-danger" data-id="${a.id}">Hapus</button></td>
+    </tr>`).join('') : `<tr><td colspan="3" class="muted" style="padding:14px;text-align:center;">Belum ada akun kasir. Tambahkan minimal satu agar kasir bisa login.</td></tr>`;
+  body.querySelectorAll('button[data-id]').forEach(b=>{
+    b.addEventListener('click', ()=> hapusAkunKasir(b.dataset.id));
+  });
 }
+async function hapusAkunKasir(id){
+  const akun = kasirAkunList.find(a=>a.id===id);
+  if(!akun) return;
+  if(!confirm(`Hapus akun kasir "${akun.nama}"?`)) return;
+  kasirAkunList = kasirAkunList.filter(a=>a.id!==id);
+  await saveKasirAkunList();
+  renderAkunKasirTable();
+  refreshLoginKasirOptions();
+  toast('Akun kasir dihapus ✓');
+}
+document.getElementById('btnTambahAkunKasir').addEventListener('click', async ()=>{
+  const nama = document.getElementById('fAkunKasirNama').value.trim();
+  const pin = document.getElementById('fAkunKasirPin').value.trim();
+  if(!nama){ toast('Isi nama kasir.', true); return; }
+  if(!/^\d{4}$/.test(pin)){ toast('PIN harus 4 digit angka.', true); return; }
+  if(kasirAkunList.some(a=>a.nama.toLowerCase()===nama.toLowerCase())){ toast('Nama kasir sudah terdaftar.', true); return; }
+  kasirAkunList.push({ id: crypto.randomUUID(), nama, pin });
+  await saveKasirAkunList();
+  document.getElementById('fAkunKasirNama').value='';
+  document.getElementById('fAkunKasirPin').value='';
+  renderAkunKasirTable();
+  refreshLoginKasirOptions();
+  toast('Akun kasir ditambahkan ✓');
+});
+
+/* ---------------- login gate ---------------- */
+function refreshLoginKasirOptions(){
+  const sel = document.getElementById('loginKasirNama');
+  if(!sel) return;
+  sel.innerHTML = kasirAkunList.length
+    ? kasirAkunList.map(a=>`<option value="${a.id}">${escapeHtml(a.nama)}</option>`).join('')
+    : `<option value="">(belum ada akun kasir)</option>`;
+}
+function openLoginGate(){
+  refreshLoginKasirOptions();
+  document.getElementById('loginKasirPin').value = '';
+  document.getElementById('loginGateModal').classList.remove('hidden');
+}
+function loginSukses(nama){
+  currentKasirNama = nama;
+  sessionStorage.setItem('kasirLoginNama', nama);
+  document.getElementById('loginGateModal').classList.add('hidden');
+  document.getElementById('kasirBertugasDisplay').textContent = nama;
+  document.getElementById('kasirSessionBadge').style.display = '';
+  document.getElementById('kasirSessionName').textContent = '👤 ' + nama;
+}
+document.getElementById('btnLoginKasir').addEventListener('click', ()=>{
+  const id = document.getElementById('loginKasirNama').value;
+  const pin = document.getElementById('loginKasirPin').value.trim();
+  const akun = kasirAkunList.find(a=>a.id===id);
+  if(!akun){ toast('Pilih nama kasir terlebih dahulu (hubungi admin bila belum ada akun).', true); return; }
+  if(pin !== akun.pin){ toast('PIN salah.', true); return; }
+  loginSukses(akun.nama);
+});
+document.getElementById('loginKasirPin').addEventListener('keydown', e=>{ if(e.key==='Enter') document.getElementById('btnLoginKasir').click(); });
+document.getElementById('btnLoginSebagaiAdmin').addEventListener('click', ()=>{
+  pinCallback = ()=>{
+    loginSukses('Admin');
+    goToTab('pengaturan');
+  };
+  document.getElementById('loginGateModal').classList.add('hidden');
+  openPinModal('Masukkan PIN Admin untuk masuk & kelola akun kasir.');
+});
+document.getElementById('btnGantiKasir').addEventListener('click', ()=>{
+  if(!confirm('Ganti kasir bertugas? Anda akan diminta login ulang.')) return;
+  sessionStorage.removeItem('kasirLoginNama');
+  currentKasirNama = null;
+  pinUnlocked = false;
+  document.getElementById('kasirSessionBadge').style.display = 'none';
+  document.getElementById('kasirBertugasDisplay').textContent = '-';
+  activateTab('kasir');
+  openLoginGate();
+});
 
 function renderTrendChart(rowsAktif, startVal, endVal){
   const start = parseDateInput(startVal);
@@ -1611,6 +1738,7 @@ function fillPengaturanForm(){
   document.getElementById('strukWidthCustomField').style.display = (pengaturan.strukWidth==='custom') ? '' : 'none';
   document.getElementById('recoveryQuestion').value = adminRecovery.question||'';
   document.getElementById('recoveryAnswer').value = '';
+  renderAkunKasirTable();
 }
 async function simpanPengaturan(){
   const strukWidth = document.getElementById('setStrukWidth').value || '80';
@@ -1780,7 +1908,10 @@ function openPinModal(message){
   document.getElementById('pinInput').focus();
 }
 function closePinModal(){ document.getElementById('pinModal').classList.add('hidden'); pinCallback = null; }
-document.getElementById('pinCancel').addEventListener('click', closePinModal);
+document.getElementById('pinCancel').addEventListener('click', ()=>{
+  closePinModal();
+  if(!currentKasirNama) openLoginGate();
+});
 document.getElementById('pinSubmit').addEventListener('click', checkPin);
 document.getElementById('pinInput').addEventListener('keydown', (e)=>{ if(e.key==='Enter') checkPin(); });
 function checkPin(){
@@ -1971,8 +2102,19 @@ document.getElementById('btnSimpanPengaturan').addEventListener('click', simpanP
   }
   await initData();
   updateKasirBanners();
-  refreshKasirDatalist();
-  document.getElementById('namaKasirBertugas').value = localStorage.getItem('lastKasirName') || '';
+  renderAkunKasirTable();
+
+  const savedNama = sessionStorage.getItem('kasirLoginNama');
+  if(savedNama && (savedNama === 'Admin' || kasirAkunList.some(a=>a.nama===savedNama))){
+    document.getElementById('kasirBertugasDisplay').textContent = savedNama;
+    document.getElementById('kasirSessionBadge').style.display = '';
+    document.getElementById('kasirSessionName').textContent = '👤 ' + savedNama;
+    currentKasirNama = savedNama;
+  } else {
+    sessionStorage.removeItem('kasirLoginNama');
+    openLoginGate();
+  }
+
   renderCart();
 })();
 </script>
