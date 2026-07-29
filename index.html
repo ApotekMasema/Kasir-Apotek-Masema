@@ -276,6 +276,28 @@
         <div class="search-results" id="kasirSearchResults">
           <div class="empty-state">Ketik untuk mencari obat.</div>
         </div>
+
+        <div style="margin-top:16px;">
+          <button type="button" class="btn btn-block" id="btnToggleTambahCustom">+ Tambah Item Custom (manual, di luar stok)</button>
+          <div id="formTambahCustomItem" style="display:none;margin-top:10px;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:10px;">
+            <div class="form-grid">
+              <div class="field">
+                <label>Nama Item</label>
+                <input type="text" id="fCustomItemNama" placeholder="Contoh: Konsultasi / Alkes lain">
+              </div>
+              <div class="field">
+                <label>Harga (Rp)</label>
+                <input type="number" id="fCustomItemHarga" min="0" placeholder="0">
+              </div>
+              <div class="field">
+                <label>Qty</label>
+                <input type="number" id="fCustomItemQty" min="1" value="1">
+              </div>
+            </div>
+            <button class="btn btn-primary" id="btnTambahCustomItem" style="margin-top:8px;">Tambahkan ke Keranjang</button>
+            <p class="section-hint" style="margin-top:6px;margin-bottom:0;">Item ini hanya muncul di Struk Pasien (custom) dan tidak memengaruhi stok maupun laporan keuangan.</p>
+          </div>
+        </div>
       </div>
 
       <div class="cart-card card">
@@ -925,6 +947,29 @@ function addToCart(obatId){
   renderCart();
 }
 
+function addCustomItemToCart(nama, harga, qty){
+  cart.push({ obatId: null, isCustom: true, nama, hargaJual: 0, hargaCustom: harga, hargaBeli: 0, satuan: '', qty });
+  document.getElementById('pakaiHargaCustom').checked = true;
+  document.getElementById('hargaCustomHint').style.display = '';
+  renderCart();
+}
+document.getElementById('btnToggleTambahCustom').addEventListener('click', ()=>{
+  const box = document.getElementById('formTambahCustomItem');
+  box.style.display = box.style.display === 'none' ? '' : 'none';
+});
+document.getElementById('btnTambahCustomItem').addEventListener('click', ()=>{
+  const nama = document.getElementById('fCustomItemNama').value.trim();
+  const harga = Number(document.getElementById('fCustomItemHarga').value)||0;
+  const qty = Math.max(1, Number(document.getElementById('fCustomItemQty').value)||1);
+  if(!nama){ toast('Isi nama item custom.', true); return; }
+  if(harga <= 0){ toast('Isi harga item custom.', true); return; }
+  addCustomItemToCart(nama, harga, qty);
+  document.getElementById('fCustomItemNama').value = '';
+  document.getElementById('fCustomItemHarga').value = '';
+  document.getElementById('fCustomItemQty').value = '1';
+  toast('Item custom ditambahkan ke keranjang ✓');
+});
+
 function renderCart(){
   const wrap = document.getElementById('cartList');
   const customOn = document.getElementById('pakaiHargaCustom').checked;
@@ -933,6 +978,26 @@ function renderCart(){
   } else {
     wrap.innerHTML = cart.map((c,idx)=>{
       const diff = c.hargaCustom !== c.hargaJual;
+      if(c.isCustom){
+        return `
+        <div class="cart-item" data-idx="${idx}">
+          <div class="ci-info">
+            <div class="ci-name">${escapeHtml(c.nama)} <span class="tag" style="background:var(--accent-soft);color:var(--accent);">Custom</span></div>
+            <div class="ci-price">Tidak ada di stok - tidak memengaruhi laporan</div>
+            <div class="ci-custom-row show">
+              <label>Struk Pasien:</label>
+              <input type="number" class="ci-custom-input" data-idx="${idx}" value="${c.hargaCustom}" min="0">
+            </div>
+          </div>
+          <div class="qty-ctrl">
+            <button class="qty-minus" data-idx="${idx}">-</button>
+            <input type="number" class="qty-input" data-idx="${idx}" value="${c.qty}" min="1">
+            <button class="qty-plus" data-idx="${idx}">+</button>
+          </div>
+          <div class="ci-subtotal">Rp 0</div>
+          <button class="ci-del" data-idx="${idx}">✕</button>
+        </div>`;
+      }
       return `
       <div class="cart-item" data-idx="${idx}">
         <div class="ci-info">
@@ -1037,6 +1102,7 @@ async function prosesBayar(){
   const latestObatRaw = await sGet('obat-list');
   const latestObat = latestObatRaw ? Object.values(latestObatRaw) : obatList;
   for(const c of cart){
+    if(c.isCustom) continue;
     const o = latestObat.find(x=>x.id===c.obatId);
     if(!o || o.stok < c.qty){
       toast(`Stok ${c.nama} sudah berubah / tidak cukup. Silakan cek ulang keranjang.`, true);
@@ -1046,14 +1112,14 @@ async function prosesBayar(){
 
   const customOn = document.getElementById('pakaiHargaCustom').checked;
   const totalCustom = cart.reduce((s,c)=>s+c.hargaCustom*c.qty, 0);
-  const hasCustom = customOn && cart.some(c=>c.hargaCustom !== c.hargaJual);
+  const hasCustom = (customOn && cart.some(c=>c.hargaCustom !== c.hargaJual)) || cart.some(c=>c.isCustom);
 
   const now = new Date();
   const id = crypto.randomUUID();
   const noStruk = `${dateKey(now).replace(/-/g,'')}-${String(Date.now()).slice(-5)}`;
   const trx = {
     id, noStruk, waktu: timeStr(now), tanggal: dateKey(now),
-    items: cart.map(c=>({obatId:c.obatId, nama:c.nama, satuan:c.satuan||'', qty:c.qty, hargaJual:c.hargaJual, hargaBeli:c.hargaBeli, subtotal:c.hargaJual*c.qty})),
+    items: cart.filter(c=>!c.isCustom).map(c=>({obatId:c.obatId, nama:c.nama, satuan:c.satuan||'', qty:c.qty, hargaJual:c.hargaJual, hargaBeli:c.hargaBeli, subtotal:c.hargaJual*c.qty})),
     total, totalHpp, metode, diterima: metode==='Tunai'?diterima:total, kembalian: metode==='Tunai'?(diterima-total):0,
     pakaiResep, dokter: pakaiResep?dokter:'', pasien: pakaiResep?pasien:'',
     kasir: namaKasir,
@@ -1062,8 +1128,9 @@ async function prosesBayar(){
     itemsCustom: hasCustom ? cart.map(c=>({nama:c.nama, satuan:c.satuan||'', qty:c.qty, hargaCustom:c.hargaCustom, subtotal:c.hargaCustom*c.qty})) : null,
   };
 
-  // update stok
+  // update stok (item custom otomatis dilewati karena obatId null / tidak ditemukan)
   cart.forEach(c=>{
+    if(c.isCustom) return;
     const o = latestObat.find(x=>x.id===c.obatId);
     if(o) o.stok -= c.qty;
   });
