@@ -239,6 +239,7 @@
   </div>
   <nav class="tabs">
     <button class="tab active" data-tab="kasir">Kasir</button>
+    <button class="tab" data-tab="riwayat">Riwayat Transaksi</button>
     <button class="tab" data-tab="stok">Stok Obat</button>
     <button class="tab" data-tab="resep">Resep Dokter</button>
     <button class="tab" data-tab="laporan">Laporan Keuangan</button>
@@ -363,6 +364,45 @@
         <button class="btn btn-block" id="btnKosongkanKeranjang" style="margin-top:8px;">Kosongkan Keranjang</button>
       </div>
     </div>
+  </section>
+
+  <!-- ===== TAB RIWAYAT TRANSAKSI ===== -->
+  <section class="tab-panel" id="tab-riwayat">
+    <h2>Riwayat Transaksi</h2>
+    <p class="section-hint">Lihat semua transaksi, cetak ulang struk kapan saja. Membatalkan transaksi tetap memerlukan PIN Admin.</p>
+
+    <div class="toolbar">
+      <div class="field">
+        <label>Dari Tanggal</label>
+        <input type="date" id="riwayatStart">
+      </div>
+      <div class="field">
+        <label>Sampai Tanggal</label>
+        <input type="date" id="riwayatEnd">
+      </div>
+      <button class="btn" id="btnRiwayatHariIni">Hari Ini</button>
+      <button class="btn" id="btnRiwayat7Hari">7 Hari Terakhir</button>
+    </div>
+
+    <div class="toolbar" style="margin-bottom:10px;">
+      <div class="field search-inline">
+        <label>Cari No. Transaksi</label>
+        <input type="text" id="riwayatSearch" placeholder="Ketik No. Struk...">
+      </div>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Tanggal</th>
+          <th>No. Struk</th>
+          <th>Kasir</th>
+          <th>Metode</th>
+          <th class="num">Total</th>
+          <th>Aksi</th>
+        </tr>
+      </thead>
+      <tbody id="riwayatTransBody"></tbody>
+    </table>
   </section>
 
   <!-- ===== TAB STOK OBAT ===== -->
@@ -1823,8 +1863,8 @@ function wireLapTransActions(){
   });
 }
 
-function reprintTrx(noStruk){
-  const trx = lapCache.rows.find(r=>r.noStruk===noStruk);
+function reprintTrxFrom(rows, noStruk){
+  const trx = rows.find(r=>r.noStruk===noStruk);
   if(!trx){ toast('Transaksi tidak ditemukan.', true); return; }
   if(trx.hasCustom){
     showStrukPilihan(trx, true);
@@ -1832,10 +1872,9 @@ function reprintTrx(noStruk){
     cetakStruk(trx);
   }
 }
+function reprintTrx(noStruk){ reprintTrxFrom(lapCache.rows, noStruk); }
 
-async function batalkanTrx(noStruk){
-  const trx = lapCache.rows.find(r=>r.noStruk===noStruk);
-  if(!trx){ toast('Transaksi tidak ditemukan.', true); return; }
+async function batalkanTrxCore(trx, onDone){
   if(trx.dibatalkan){ toast('Transaksi ini sudah dibatalkan sebelumnya.', true); return; }
   if(!confirm(`Batalkan transaksi ${trx.noStruk}?\n\nStok obat yang terjual di transaksi ini akan otomatis dikembalikan. Aksi ini tidak bisa dibatalkan.`)) return;
 
@@ -1854,8 +1893,87 @@ async function batalkanTrx(noStruk){
   toast(`Transaksi ${trx.noStruk} dibatalkan, stok telah dikembalikan ✓`);
   renderStokTable();
   renderStokSummary();
-  renderLaporan();
+  if(onDone) onDone();
 }
+async function batalkanTrx(noStruk){
+  const trx = lapCache.rows.find(r=>r.noStruk===noStruk);
+  if(!trx){ toast('Transaksi tidak ditemukan.', true); return; }
+  await batalkanTrxCore(trx, ()=>renderLaporan());
+}
+async function batalkanTrxRiwayat(noStruk){
+  const trx = riwayatCache.rows.find(r=>r.noStruk===noStruk);
+  if(!trx){ toast('Transaksi tidak ditemukan.', true); return; }
+  await batalkanTrxCore(trx, ()=>renderRiwayat());
+}
+
+let riwayatCache = { rows: [] };
+function buildRiwayatRows(rows){
+  return rows.map(r=>{
+    const isVoid = !!r.dibatalkan;
+    return `
+    <tr class="${isVoid?'row-void':''}">
+      <td>${fmtDateFull(parseDateInput(r.tanggal))} ${r.waktu}</td>
+      <td>${r.noStruk} ${isVoid?'<span class="tag tag-low">Dibatalkan</span>':''}</td>
+      <td>${escapeHtml(r.kasir||'-')}</td>
+      <td>${r.metode}${r.pakaiResep?' (Resep)':''}</td>
+      <td class="num">${rupiah(r.total)}</td>
+      <td>
+        <button class="btn btn-riwayat-reprint" data-nostruk="${r.noStruk}">🖨️ Cetak Ulang</button>
+        ${!isVoid ? `<button class="btn btn-sm btn-danger btn-riwayat-batalkan" data-nostruk="${r.noStruk}">🚫 Batalkan</button>` : ''}
+      </td>
+    </tr>`;
+  }).join('');
+}
+function wireRiwayatActions(){
+  document.querySelectorAll('.btn-riwayat-reprint').forEach(b=>{
+    b.addEventListener('click', e=>reprintTrxFrom(riwayatCache.rows, e.target.dataset.nostruk));
+  });
+  document.querySelectorAll('.btn-riwayat-batalkan').forEach(b=>{
+    b.addEventListener('click', e=>{
+      const noStruk = e.target.dataset.nostruk;
+      pinCallback = ()=>batalkanTrxRiwayat(noStruk);
+      openPinModal('Masukkan PIN Admin untuk membatalkan transaksi ini.');
+    });
+  });
+}
+async function renderRiwayat(){
+  const startVal = document.getElementById('riwayatStart').value;
+  const endVal = document.getElementById('riwayatEnd').value;
+  if(!startVal || !endVal) return;
+  if(startVal > endVal){ toast('Tanggal "Dari" tidak boleh lebih besar dari "Sampai".', true); return; }
+
+  document.getElementById('riwayatTransBody').innerHTML = `<tr><td colspan="6" class="muted">Memuat riwayat...</td></tr>`;
+  const { rows } = await buildLaporan(startVal, endVal);
+  document.getElementById('riwayatTransBody').innerHTML = rows.length ? buildRiwayatRows(rows) : `<tr><td colspan="6" class="muted" style="padding:14px;text-align:center;">Tidak ada transaksi.</td></tr>`;
+  riwayatCache = { rows };
+  wireRiwayatActions();
+  const searchInput = document.getElementById('riwayatSearch');
+  if(searchInput) searchInput.value = '';
+}
+function filterRiwayat(query){
+  query = query.trim().toLowerCase();
+  const body = document.getElementById('riwayatTransBody');
+  if(!query){ body.innerHTML = buildRiwayatRows(riwayatCache.rows); wireRiwayatActions(); return; }
+  const filtered = riwayatCache.rows.filter(r=>r.noStruk.toLowerCase().includes(query));
+  body.innerHTML = filtered.length ? buildRiwayatRows(filtered) : `<tr><td colspan="6" class="muted" style="padding:14px;text-align:center;">Tidak ditemukan.</td></tr>`;
+  wireRiwayatActions();
+}
+document.getElementById('riwayatSearch').addEventListener('input', e=>filterRiwayat(e.target.value));
+document.getElementById('riwayatStart').addEventListener('change', renderRiwayat);
+document.getElementById('riwayatEnd').addEventListener('change', renderRiwayat);
+document.getElementById('btnRiwayatHariIni').addEventListener('click', ()=>{
+  const today = dateKey(new Date());
+  document.getElementById('riwayatStart').value = today;
+  document.getElementById('riwayatEnd').value = today;
+  renderRiwayat();
+});
+document.getElementById('btnRiwayat7Hari').addEventListener('click', ()=>{
+  const now = new Date();
+  const week = new Date(now); week.setDate(now.getDate()-6);
+  document.getElementById('riwayatStart').value = dateKey(week);
+  document.getElementById('riwayatEnd').value = dateKey(now);
+  renderRiwayat();
+});
 
 function filterLapTrans(query){
   const q = query.trim().toLowerCase();
@@ -2046,6 +2164,15 @@ function activateTab(target){
   document.querySelectorAll('.tab-panel').forEach(p=>p.classList.toggle('active', p.id==='tab-'+target));
 
   if(target === 'stok'){ renderStokTable(); renderStokSummary(); }
+  if(target === 'riwayat'){
+    if(!document.getElementById('riwayatStart').value){
+      const now = new Date();
+      const week = new Date(now); week.setDate(now.getDate()-6);
+      document.getElementById('riwayatStart').value = dateKey(week);
+      document.getElementById('riwayatEnd').value = dateKey(now);
+    }
+    renderRiwayat();
+  }
   if(target === 'resep'){
     if(!document.getElementById('resepStart').value){
       const now = new Date();
