@@ -1249,7 +1249,7 @@ function cetakStruk(trx){
   el.innerHTML = `
     ${buildStrukHeader(trx)}
     <table>
-      ${trx.items.map(it=>`
+      ${(trx.items||[]).map(it=>`
         <tr><td colspan="2">${escapeHtml(it.nama)}</td></tr>
         <tr><td>${it.qty} x ${rupiah(it.hargaJual)}</td><td style="text-align:right;">${rupiah(it.subtotal)}</td></tr>
       `).join('')}
@@ -1274,7 +1274,7 @@ function cetakStrukCustom(trx){
   el.innerHTML = `
     ${buildStrukHeader(trx)}
     <table>
-      ${trx.itemsCustom.map(it=>`
+      ${(trx.itemsCustom||[]).map(it=>`
         <tr><td colspan="2">${escapeHtml(it.nama)}</td></tr>
         <tr><td>${it.qty} x ${rupiah(it.hargaCustom)}</td><td style="text-align:right;">${rupiah(it.subtotal)}</td></tr>
       `).join('')}
@@ -1619,7 +1619,7 @@ async function renderResep(){
       <td>${r.noStruk}</td>
       <td>${escapeHtml(r.dokter)}</td>
       <td>${escapeHtml(r.pasien||'-')}</td>
-      <td>${r.items.map(it=>escapeHtml(it.nama)+' ('+it.qty+')').join(', ')}</td>
+      <td>${(r.items||[]).map(it=>escapeHtml(it.nama)+' ('+it.qty+')').join(', ')}</td>
       <td class="num">${rupiah(r.total)}</td>
     </tr>
   `).join('');
@@ -1650,7 +1650,7 @@ async function buildLaporan(startStr, endStr){
       Object.values(raw).forEach(trx=>{
         rows.push(trx);
         if(trx.dibatalkan) return;
-        trx.items.forEach(it=>{
+        (trx.items||[]).forEach(it=>{
           if(!produk[it.nama]) produk[it.nama] = { qty:0, total:0, laba:0 };
           produk[it.nama].qty += it.qty;
           produk[it.nama].total += it.subtotal;
@@ -1810,8 +1810,8 @@ async function renderLaporan(){
     const rowsAktif = rows.filter(r=>!r.dibatalkan);
     renderTrendChart(rowsAktif, startVal, endVal);
 
-    const totalPenjualan = rowsAktif.reduce((s,r)=>s+r.total,0);
-    const totalHpp = rowsAktif.reduce((s,r)=>s+r.totalHpp,0);
+    const totalPenjualan = rowsAktif.reduce((s,r)=>s+(r.total||0),0);
+    const totalHpp = rowsAktif.reduce((s,r)=>s+(r.totalHpp||0),0);
     const labaKotor = totalPenjualan - totalHpp;
     const jumlahTrx = rowsAktif.length;
 
@@ -1856,10 +1856,10 @@ function buildLapTransRows(rows){
       <td>${fmtDateFull(parseDateInput(r.tanggal))} ${r.waktu}</td>
       <td>${r.noStruk} ${isVoid?'<span class="tag tag-low">Dibatalkan</span>':''}</td>
       <td>${escapeHtml(r.kasir||'-')}</td>
-      <td>${r.metode}${r.pakaiResep?' (Resep)':''}</td>
+      <td>${r.metode||'-'}${r.pakaiResep?' (Resep)':''}</td>
       <td class="num">${rupiah(r.total)}</td>
       <td class="num">${rupiah(r.totalHpp)}</td>
-      <td class="num">${rupiah(r.total-r.totalHpp)}</td>
+      <td class="num">${rupiah((r.total||0)-(r.totalHpp||0))}</td>
       <td>
         <button class="btn btn-reprint" data-nostruk="${r.noStruk}">🖨️ Cetak Ulang</button>
         ${!isVoid ? `<button class="btn btn-sm btn-danger btn-batalkan" data-nostruk="${r.noStruk}">🚫 Batalkan</button>` : ''}
@@ -1896,7 +1896,7 @@ async function batalkanTrxCore(trx, onDone){
   if(trx.dibatalkan){ toast('Transaksi ini sudah dibatalkan sebelumnya.', true); return; }
   if(!confirm(`Batalkan transaksi ${trx.noStruk}?\n\nStok obat yang terjual di transaksi ini akan otomatis dikembalikan. Aksi ini tidak bisa dibatalkan.`)) return;
 
-  trx.items.forEach(it=>{
+  (trx.items||[]).forEach(it=>{
     const o = obatList.find(x=>x.id===it.obatId);
     if(o) o.stok = Number(o.stok||0) + Number(it.qty||0);
   });
@@ -1933,7 +1933,7 @@ function buildRiwayatRows(rows){
       <td>${fmtDateFull(parseDateInput(r.tanggal))} ${r.waktu}</td>
       <td>${r.noStruk} ${isVoid?'<span class="tag tag-low">Dibatalkan</span>':''}</td>
       <td>${escapeHtml(r.kasir||'-')}</td>
-      <td>${r.metode}${r.pakaiResep?' (Resep)':''}</td>
+      <td>${r.metode||'-'}${r.pakaiResep?' (Resep)':''}</td>
       <td class="num">${rupiah(r.total)}</td>
       <td>
         <button class="btn btn-riwayat-reprint" data-nostruk="${r.noStruk}">🖨️ Cetak Ulang</button>
@@ -2020,7 +2020,7 @@ function exportLapCsv(){
   if(!lapCache.rows.length){ toast('Tidak ada data untuk diunduh.', true); return; }
   let csv = 'Tanggal,Waktu,No Struk,Kasir,Metode,Total,HPP,Laba Kotor,Status\n';
   lapCache.rows.forEach(r=>{
-    csv += `${r.tanggal},${r.waktu},${r.noStruk},${r.kasir||'-'},${r.metode},${r.total},${r.totalHpp},${r.total-r.totalHpp},${r.dibatalkan?'Dibatalkan':'Aktif'}\n`;
+    csv += `${r.tanggal},${r.waktu},${r.noStruk},${r.kasir||'-'},${r.metode},${r.total||0},${r.totalHpp||0},${(r.total||0)-(r.totalHpp||0)},${r.dibatalkan?'Dibatalkan':'Aktif'}\n`;
   });
   const blob = new Blob([csv], { type:'text/csv;charset=utf-8;' });
   const a = document.createElement('a');
