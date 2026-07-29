@@ -511,8 +511,25 @@
           <label>Lebar Custom (mm)</label>
           <input type="number" id="setStrukWidthCustom" min="20" max="120" placeholder="contoh: 70">
         </div>
+        <div class="field full">
+          <label>Baris Tambahan di Struk (opsional, mis. NPWP / Instagram)</label>
+          <input type="text" id="setHeaderTambahan" placeholder="Contoh: @apotekmasema">
+        </div>
+      </div>
+      <div class="toggle-row">
+        <input type="checkbox" id="setTampilkanAlamat">
+        <label for="setTampilkanAlamat">Tampilkan Alamat di struk</label>
+      </div>
+      <div class="toggle-row">
+        <input type="checkbox" id="setTampilkanTelp">
+        <label for="setTampilkanTelp">Tampilkan No. Telepon di struk</label>
+      </div>
+      <div class="toggle-row">
+        <input type="checkbox" id="setTampilkanKasir">
+        <label for="setTampilkanKasir">Tampilkan nama kasir bertugas di struk</label>
       </div>
       <button class="btn btn-primary" id="btnSimpanPengaturan" style="margin-top:12px;">Simpan Pengaturan</button>
+      <button class="btn" id="btnPratinjauStruk" style="margin-top:8px;">👁️ Pratinjau Struk</button>
     </div>
 
     <h2>Ubah PIN Admin</h2>
@@ -634,6 +651,17 @@
       <button class="btn btn-block" id="btnCetakStrukCustom">🖨️ Cetak Struk Custom (untuk pasien)</button>
     </div>
     <button class="cancel" id="btnTutupStrukPilihan">Tutup</button>
+  </div>
+</div>
+
+<div class="modal-overlay hidden" id="strukPreviewModal">
+  <div class="modal" style="max-width:380px;">
+    <h3>Pratinjau Struk</h3>
+    <p class="section-hint">Contoh tampilan struk dengan pengaturan saat ini (data di bawah hanya contoh).</p>
+    <div style="background:#fff;border:1px solid var(--border);border-radius:10px;padding:12px;max-height:60vh;overflow-y:auto;">
+      <div class="struk-box" id="strukPreviewContent"></div>
+    </div>
+    <button class="cancel" id="btnTutupStrukPreview">Tutup</button>
   </div>
 </div>
 
@@ -764,7 +792,7 @@ let adminRecovery = { question:'', answer:'' };
 let pinUnlocked = false;
 let pinCallback = null;
 let pendingTabAfterPin = null;
-let pengaturan = { namaApotek:'Apotek Masema Medika', alamat:'', telp:'', stokMinDefault:10 };
+let pengaturan = { namaApotek:'Apotek Masema Medika', alamat:'', telp:'', stokMinDefault:10, tampilkanAlamat:true, tampilkanTelp:true, tampilkanKasir:true, headerTambahan:'' };
 let kasirAkunList = [];      // [{id,nama,pin}]
 let currentKasirNama = null; // nama kasir yang sedang login (atau 'Admin')
 
@@ -1086,18 +1114,25 @@ function applyStrukSize(el){
   el.style.fontSize = mm <= 46 ? '9.5px' : (mm <= 60 ? '10.5px' : '12px');
 }
 
+function buildStrukHeader(trx, cfg){
+  cfg = cfg || pengaturan;
+  return `
+    <h3>${escapeHtml(cfg.namaApotek||'Apotek Masema Medika')}</h3>
+    ${cfg.tampilkanAlamat !== false && cfg.alamat ? `<div class="center">${escapeHtml(cfg.alamat)}</div>` : ''}
+    ${cfg.tampilkanTelp !== false && cfg.telp ? `<div class="center">${escapeHtml(cfg.telp)}</div>` : ''}
+    ${cfg.headerTambahan ? `<div class="center">${escapeHtml(cfg.headerTambahan)}</div>` : ''}
+    <hr>
+    <div>No: ${trx.noStruk}</div>
+    <div>${fmtDateFull(parseDateInput(trx.tanggal))} ${trx.waktu}</div>
+    ${cfg.tampilkanKasir !== false && trx.kasir ? `<div>Kasir: ${escapeHtml(trx.kasir)}</div>` : ''}
+    ${trx.pakaiResep ? `<div>Resep: ${escapeHtml(trx.dokter)} - Ps. ${escapeHtml(trx.pasien||'-')}</div>` : ''}
+    <hr>`;
+}
 function cetakStruk(trx){
   const el = document.getElementById('strukContent');
   applyStrukSize(el);
   el.innerHTML = `
-    <h3>${escapeHtml(pengaturan.namaApotek||'Apotek Masema Medika')}</h3>
-    <div class="center">${escapeHtml(pengaturan.alamat||'')}</div>
-    <div class="center">${escapeHtml(pengaturan.telp||'')}</div>
-    <hr>
-    <div>No: ${trx.noStruk}</div>
-    <div>${fmtDateFull(parseDateInput(trx.tanggal))} ${trx.waktu}</div>
-    ${trx.pakaiResep ? `<div>Resep: ${escapeHtml(trx.dokter)} - Ps. ${escapeHtml(trx.pasien||'-')}</div>` : ''}
-    <hr>
+    ${buildStrukHeader(trx)}
     <table>
       ${trx.items.map(it=>`
         <tr><td colspan="2">${escapeHtml(it.nama)}</td></tr>
@@ -1122,14 +1157,7 @@ function cetakStrukCustom(trx){
   const el = document.getElementById('strukContent');
   applyStrukSize(el);
   el.innerHTML = `
-    <h3>${escapeHtml(pengaturan.namaApotek||'Apotek Masema Medika')}</h3>
-    <div class="center">${escapeHtml(pengaturan.alamat||'')}</div>
-    <div class="center">${escapeHtml(pengaturan.telp||'')}</div>
-    <hr>
-    <div>No: ${trx.noStruk}</div>
-    <div>${fmtDateFull(parseDateInput(trx.tanggal))} ${trx.waktu}</div>
-    ${trx.pakaiResep ? `<div>Resep: ${escapeHtml(trx.dokter)} - Ps. ${escapeHtml(trx.pasien||'-')}</div>` : ''}
-    <hr>
+    ${buildStrukHeader(trx)}
     <table>
       ${trx.itemsCustom.map(it=>`
         <tr><td colspan="2">${escapeHtml(it.nama)}</td></tr>
@@ -1148,6 +1176,65 @@ function cetakStrukCustom(trx){
   setTimeout(()=> document.body.classList.remove('printing-struk'), 500);
 }
 function fmtDateFull(d){ return `${d.getDate()} ${BULAN[d.getMonth()]} ${d.getFullYear()}`; }
+
+function pratinjauStruk(cfg){
+  const now = new Date();
+  const contoh = {
+    noStruk: '20260729-00001',
+    tanggal: dateKey(now),
+    waktu: timeStr(now),
+    kasir: currentKasirNama || 'Siti',
+    pakaiResep: false,
+    items: [
+      { nama:'Paracetamol 500mg', qty:2, hargaJual:5000, subtotal:10000 },
+      { nama:'Vitamin C 1000mg', qty:1, hargaJual:15000, subtotal:15000 },
+    ],
+    total: 25000, metode:'Tunai', diterima:30000, kembalian:5000,
+  };
+  const el = document.getElementById('strukPreviewContent');
+  el.className = 'struk-box';
+  const mm = cfg.strukWidth === 'custom'
+    ? (Number(cfg.strukWidthCustom) > 0 ? Number(cfg.strukWidthCustom) : 80)
+    : (Number(cfg.strukWidth) || 80);
+  el.style.maxWidth = mm + 'mm';
+  el.style.fontSize = mm <= 46 ? '9.5px' : (mm <= 60 ? '10.5px' : '12px');
+  el.innerHTML = `
+    ${buildStrukHeader(contoh, cfg)}
+    <table>
+      ${contoh.items.map(it=>`
+        <tr><td colspan="2">${escapeHtml(it.nama)}</td></tr>
+        <tr><td>${it.qty} x ${rupiah(it.hargaJual)}</td><td style="text-align:right;">${rupiah(it.subtotal)}</td></tr>
+      `).join('')}
+    </table>
+    <hr>
+    <table>
+      <tr><td><b>TOTAL</b></td><td style="text-align:right;"><b>${rupiah(contoh.total)}</b></td></tr>
+      <tr><td>${contoh.metode}</td><td style="text-align:right;">${rupiah(contoh.diterima)}</td></tr>
+      <tr><td>Kembali</td><td style="text-align:right;">${rupiah(contoh.kembalian)}</td></tr>
+    </table>
+    <hr>
+    <div class="center">${escapeHtml(cfg.pesanStruk||'Terima kasih atas kunjungan Anda')}</div>
+  `;
+  document.getElementById('strukPreviewModal').classList.remove('hidden');
+}
+document.getElementById('btnPratinjauStruk').addEventListener('click', ()=>{
+  const cfg = {
+    namaApotek: document.getElementById('setNamaApotek').value.trim() || pengaturan.namaApotek,
+    alamat: document.getElementById('setAlamat').value.trim(),
+    telp: document.getElementById('setTelp').value.trim(),
+    pesanStruk: document.getElementById('setPesanStruk').value.trim() || 'Terima kasih atas kunjungan Anda',
+    headerTambahan: document.getElementById('setHeaderTambahan').value.trim(),
+    tampilkanAlamat: document.getElementById('setTampilkanAlamat').checked,
+    tampilkanTelp: document.getElementById('setTampilkanTelp').checked,
+    tampilkanKasir: document.getElementById('setTampilkanKasir').checked,
+    strukWidth: document.getElementById('setStrukWidth').value || '80',
+    strukWidthCustom: Number(document.getElementById('setStrukWidthCustom').value) || 0,
+  };
+  pratinjauStruk(cfg);
+});
+document.getElementById('btnTutupStrukPreview').addEventListener('click', ()=>{
+  document.getElementById('strukPreviewModal').classList.add('hidden');
+});
 
 /* =========================================================
    TAB STOK OBAT
@@ -1736,6 +1823,10 @@ function fillPengaturanForm(){
   document.getElementById('setStrukWidth').value = pengaturan.strukWidth || '80';
   document.getElementById('setStrukWidthCustom').value = pengaturan.strukWidthCustom || '';
   document.getElementById('strukWidthCustomField').style.display = (pengaturan.strukWidth==='custom') ? '' : 'none';
+  document.getElementById('setHeaderTambahan').value = pengaturan.headerTambahan||'';
+  document.getElementById('setTampilkanAlamat').checked = pengaturan.tampilkanAlamat !== false;
+  document.getElementById('setTampilkanTelp').checked = pengaturan.tampilkanTelp !== false;
+  document.getElementById('setTampilkanKasir').checked = pengaturan.tampilkanKasir !== false;
   document.getElementById('recoveryQuestion').value = adminRecovery.question||'';
   document.getElementById('recoveryAnswer').value = '';
   renderAkunKasirTable();
@@ -1754,6 +1845,10 @@ async function simpanPengaturan(){
     stokMinDefault: Number(document.getElementById('setStokMin').value)||0,
     pesanStruk: document.getElementById('setPesanStruk').value.trim() || 'Terima kasih atas kunjungan Anda',
     strukWidth, strukWidthCustom,
+    headerTambahan: document.getElementById('setHeaderTambahan').value.trim(),
+    tampilkanAlamat: document.getElementById('setTampilkanAlamat').checked,
+    tampilkanTelp: document.getElementById('setTampilkanTelp').checked,
+    tampilkanKasir: document.getElementById('setTampilkanKasir').checked,
   };
   await sSet('pengaturan', pengaturan);
   toast('Pengaturan disimpan ✓');
