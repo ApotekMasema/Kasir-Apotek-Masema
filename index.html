@@ -864,7 +864,10 @@ let currentKasirNama = null; // nama kasir yang sedang login (atau 'Admin')
 /* ---------------- storage helpers (Firebase REST) ---------------- */
 async function sGet(path){
   try{
-    const res = await fetch(`${DB_URL}/${path}.json`, { cache:'no-store' });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(()=>controller.abort(), 15000);
+    const res = await fetch(`${DB_URL}/${path}.json`, { cache:'no-store', signal: controller.signal });
+    clearTimeout(timeoutId);
     if(!res.ok) return null;
     return await res.json();
   }catch(e){ console.error('Gagal mengambil', path, e); return null; }
@@ -1802,37 +1805,47 @@ async function renderLaporan(){
 
   document.getElementById('lapTransBody').innerHTML = `<tr><td colspan="8" class="muted">Menghitung laporan...</td></tr>`;
   document.getElementById('lapProdukBody').innerHTML = '';
-  const { rows, produk } = await buildLaporan(startVal, endVal);
-  const rowsAktif = rows.filter(r=>!r.dibatalkan);
-  renderTrendChart(rowsAktif, startVal, endVal);
+  try{
+    const { rows, produk } = await buildLaporan(startVal, endVal);
+    const rowsAktif = rows.filter(r=>!r.dibatalkan);
+    renderTrendChart(rowsAktif, startVal, endVal);
 
-  const totalPenjualan = rowsAktif.reduce((s,r)=>s+r.total,0);
-  const totalHpp = rowsAktif.reduce((s,r)=>s+r.totalHpp,0);
-  const labaKotor = totalPenjualan - totalHpp;
-  const jumlahTrx = rowsAktif.length;
+    const totalPenjualan = rowsAktif.reduce((s,r)=>s+r.total,0);
+    const totalHpp = rowsAktif.reduce((s,r)=>s+r.totalHpp,0);
+    const labaKotor = totalPenjualan - totalHpp;
+    const jumlahTrx = rowsAktif.length;
 
-  document.getElementById('lapSummaryCards').innerHTML = `
-    <div class="s-card"><div class="k">Total Penjualan</div><div class="v">${rupiah(totalPenjualan)}</div></div>
-    <div class="s-card"><div class="k">Total HPP</div><div class="v">${rupiah(totalHpp)}</div></div>
-    <div class="s-card"><div class="k">Laba Kotor</div><div class="v" style="color:${labaKotor>=0?'#0E4A41':'#B3261E'};">${rupiah(labaKotor)}</div></div>
-    <div class="s-card"><div class="k">Jumlah Transaksi</div><div class="v">${jumlahTrx}</div></div>
-  `;
+    document.getElementById('lapSummaryCards').innerHTML = `
+      <div class="s-card"><div class="k">Total Penjualan</div><div class="v">${rupiah(totalPenjualan)}</div></div>
+      <div class="s-card"><div class="k">Total HPP</div><div class="v">${rupiah(totalHpp)}</div></div>
+      <div class="s-card"><div class="k">Laba Kotor</div><div class="v" style="color:${labaKotor>=0?'#0E4A41':'#B3261E'};">${rupiah(labaKotor)}</div></div>
+      <div class="s-card"><div class="k">Jumlah Transaksi</div><div class="v">${jumlahTrx}</div></div>
+    `;
 
-  const produkArr = Object.entries(produk).map(([nama,v])=>({nama,...v})).sort((a,b)=>b.total-a.total);
-  document.getElementById('lapProdukBody').innerHTML = produkArr.length ? produkArr.map(p=>`
-    <tr>
-      <td>${escapeHtml(p.nama)}</td>
-      <td class="num">${p.qty}</td>
-      <td class="num">${rupiah(p.total)}</td>
-      <td class="num">${rupiah(p.laba)}</td>
-    </tr>`).join('') : `<tr><td colspan="4" class="muted" style="padding:14px;text-align:center;">Tidak ada data.</td></tr>`;
+    const produkArr = Object.entries(produk).map(([nama,v])=>({nama,...v})).sort((a,b)=>b.total-a.total);
+    document.getElementById('lapProdukBody').innerHTML = produkArr.length ? produkArr.map(p=>`
+      <tr>
+        <td>${escapeHtml(p.nama)}</td>
+        <td class="num">${p.qty}</td>
+        <td class="num">${rupiah(p.total)}</td>
+        <td class="num">${rupiah(p.laba)}</td>
+      </tr>`).join('') : `<tr><td colspan="4" class="muted" style="padding:14px;text-align:center;">Tidak ada data.</td></tr>`;
 
-  document.getElementById('lapTransBody').innerHTML = rows.length ? buildLapTransRows(rows) : `<tr><td colspan="8" class="muted" style="padding:14px;text-align:center;">Tidak ada transaksi.</td></tr>`;
+    document.getElementById('lapTransBody').innerHTML = rows.length ? buildLapTransRows(rows) : `<tr><td colspan="8" class="muted" style="padding:14px;text-align:center;">Tidak ada transaksi.</td></tr>`;
 
-  lapCache = { rows, produk: produkArr, range: `${startVal}_sd_${endVal}` };
-  wireLapTransActions();
-  const searchInput = document.getElementById('lapTransSearch');
-  if(searchInput) searchInput.value = '';
+    lapCache = { rows, produk: produkArr, range: `${startVal}_sd_${endVal}` };
+    wireLapTransActions();
+    const searchInput = document.getElementById('lapTransSearch');
+    if(searchInput) searchInput.value = '';
+  }catch(e){
+    console.error('Gagal memuat laporan', e);
+    document.getElementById('lapTransBody').innerHTML = `<tr><td colspan="8" style="padding:14px;text-align:center;">
+      <span style="color:var(--danger);">Gagal memuat laporan. Cek koneksi internet Anda.</span><br>
+      <button class="btn btn-sm" id="btnRetryLaporan" style="margin-top:8px;">🔄 Coba Lagi</button>
+    </td></tr>`;
+    const retryBtn = document.getElementById('btnRetryLaporan');
+    if(retryBtn) retryBtn.addEventListener('click', renderLaporan);
+  }
 }
 
 function buildLapTransRows(rows){
@@ -1948,10 +1961,20 @@ async function renderRiwayat(){
   if(startVal > endVal){ toast('Tanggal "Dari" tidak boleh lebih besar dari "Sampai".', true); return; }
 
   document.getElementById('riwayatTransBody').innerHTML = `<tr><td colspan="6" class="muted">Memuat riwayat...</td></tr>`;
-  const { rows } = await buildLaporan(startVal, endVal);
-  document.getElementById('riwayatTransBody').innerHTML = rows.length ? buildRiwayatRows(rows) : `<tr><td colspan="6" class="muted" style="padding:14px;text-align:center;">Tidak ada transaksi.</td></tr>`;
-  riwayatCache = { rows };
-  wireRiwayatActions();
+  try{
+    const { rows } = await buildLaporan(startVal, endVal);
+    document.getElementById('riwayatTransBody').innerHTML = rows.length ? buildRiwayatRows(rows) : `<tr><td colspan="6" class="muted" style="padding:14px;text-align:center;">Tidak ada transaksi.</td></tr>`;
+    riwayatCache = { rows };
+    wireRiwayatActions();
+  }catch(e){
+    console.error('Gagal memuat riwayat', e);
+    document.getElementById('riwayatTransBody').innerHTML = `<tr><td colspan="6" style="padding:14px;text-align:center;">
+      <span style="color:var(--danger);">Gagal memuat riwayat. Cek koneksi internet Anda.</span><br>
+      <button class="btn btn-sm" id="btnRetryRiwayat" style="margin-top:8px;">🔄 Coba Lagi</button>
+    </td></tr>`;
+    const retryBtn = document.getElementById('btnRetryRiwayat');
+    if(retryBtn) retryBtn.addEventListener('click', renderRiwayat);
+  }
   const searchInput = document.getElementById('riwayatSearch');
   if(searchInput) searchInput.value = '';
 }
