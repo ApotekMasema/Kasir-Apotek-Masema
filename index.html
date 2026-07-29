@@ -1633,10 +1633,16 @@ async function buildLaporan(startStr, endStr){
   const rows = [];
   const produk = {};
 
+  const dateKeys = [];
   const cur = new Date(start);
   while(cur <= end){
-    const ds = dateKey(cur);
-    const raw = await sGet('transaksi/' + ds);
+    dateKeys.push(dateKey(cur));
+    cur.setDate(cur.getDate()+1);
+  }
+
+  const rawResults = await Promise.all(dateKeys.map(ds => sGet('transaksi/' + ds)));
+
+  rawResults.forEach(raw=>{
     if(raw){
       Object.values(raw).forEach(trx=>{
         rows.push(trx);
@@ -1649,8 +1655,7 @@ async function buildLaporan(startStr, endStr){
         });
       });
     }
-    cur.setDate(cur.getDate()+1);
-  }
+  });
   rows.sort((a,b)=> (a.tanggal+a.waktu).localeCompare(b.tanggal+b.waktu));
   return { rows, produk };
 }
