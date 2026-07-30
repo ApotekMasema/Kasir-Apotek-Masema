@@ -1900,8 +1900,9 @@ async function renderRiwayat(){
   document.getElementById('riwayatTransBody').innerHTML = `<tr><td colspan="6" class="muted">Memuat riwayat...</td></tr>`;
   try{
     const { rows } = await buildLaporan(startVal, endVal);
-    document.getElementById('riwayatTransBody').innerHTML = rows.length ? buildRiwayatRows(rows) : `<tr><td colspan="6" class="muted" style="padding:14px;text-align:center;">Tidak ada transaksi.</td></tr>`;
-    riwayatCache = { rows };
+    const rowsTerbaru = [...rows].reverse();
+    document.getElementById('riwayatTransBody').innerHTML = rowsTerbaru.length ? buildRiwayatRows(rowsTerbaru) : `<tr><td colspan="6" class="muted" style="padding:14px;text-align:center;">Tidak ada transaksi.</td></tr>`;
+    riwayatCache = { rows: rowsTerbaru };
     wireRiwayatActions();
   }catch(e){
     console.error('Gagal memuat riwayat', e);
