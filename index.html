@@ -296,7 +296,7 @@
               </div>
             </div>
             <button class="btn btn-primary" id="btnTambahCustomItem" style="margin-top:8px;">Tambahkan ke Keranjang</button>
-            <p class="section-hint" style="margin-top:6px;margin-bottom:0;">Item ini hanya muncul di Struk Pasien (custom) dan tidak memengaruhi stok maupun laporan keuangan.</p>
+            <p class="section-hint" style="margin-top:6px;margin-bottom:0;">Item ini akan ikut tercatat di struk, riwayat transaksi, dan laporan keuangan sesuai harga di atas. Tidak memengaruhi stok obat.</p>
           </div>
         </div>
       </div>
@@ -310,12 +310,6 @@
         <div id="cartList">
           <div class="empty-state">Keranjang masih kosong.</div>
         </div>
-
-        <div class="toggle-row">
-          <input type="checkbox" id="pakaiHargaCustom">
-          <label for="pakaiHargaCustom">Aktifkan Harga Custom (untuk struk pasien)</label>
-        </div>
-        <p class="section-hint" id="hargaCustomHint" style="display:none;margin-top:-6px;">Harga di kolom "Struk Pasien" hanya memengaruhi struk yang diberikan ke pasien. Laporan keuangan tetap memakai harga asli dari Stok Obat.</p>
 
         <div class="toggle-row">
           <input type="checkbox" id="pakaiResep">
@@ -335,12 +329,8 @@
         </div>
 
         <div class="total-row grand">
-          <span>Total (Asli / Laporan Keuangan)</span>
+          <span>Total</span>
           <span id="cartTotal">Rp 0</span>
-        </div>
-        <div class="total-row custom" id="cartTotalCustomRow">
-          <span>Total Struk Pasien (Custom)</span>
-          <span id="cartTotalCustom">Rp 0</span>
         </div>
 
         <div class="field" style="margin-top:8px;">
@@ -991,9 +981,7 @@ function addToCart(obatId){
 }
 
 function addCustomItemToCart(nama, harga, qty){
-  cart.push({ obatId: null, isCustom: true, nama, hargaJual: 0, hargaCustom: harga, hargaBeli: 0, satuan: '', qty });
-  document.getElementById('pakaiHargaCustom').checked = true;
-  document.getElementById('hargaCustomHint').style.display = '';
+  cart.push({ obatId: null, isCustom: true, nama, hargaJual: harga, hargaBeli: 0, satuan: '', qty });
   renderCart();
 }
 document.getElementById('btnToggleTambahCustom').addEventListener('click', ()=>{
@@ -1015,42 +1003,15 @@ document.getElementById('btnTambahCustomItem').addEventListener('click', ()=>{
 
 function renderCart(){
   const wrap = document.getElementById('cartList');
-  const customOn = document.getElementById('pakaiHargaCustom').checked;
   if(cart.length === 0){
     wrap.innerHTML = '<div class="empty-state">Keranjang masih kosong.</div>';
   } else {
     wrap.innerHTML = cart.map((c,idx)=>{
-      const diff = c.hargaCustom !== c.hargaJual;
-      if(c.isCustom){
-        return `
-        <div class="cart-item" data-idx="${idx}">
-          <div class="ci-info">
-            <div class="ci-name">${escapeHtml(c.nama)} <span class="tag" style="background:var(--accent-soft);color:var(--accent);">Custom</span></div>
-            <div class="ci-price">Tidak ada di stok - tidak memengaruhi laporan</div>
-            <div class="ci-custom-row show">
-              <label>Struk Pasien:</label>
-              <input type="number" class="ci-custom-input" data-idx="${idx}" value="${c.hargaCustom}" min="0">
-            </div>
-          </div>
-          <div class="qty-ctrl">
-            <button class="qty-minus" data-idx="${idx}">-</button>
-            <input type="number" class="qty-input" data-idx="${idx}" value="${c.qty}" min="1">
-            <button class="qty-plus" data-idx="${idx}">+</button>
-          </div>
-          <div class="ci-subtotal">Rp 0</div>
-          <button class="ci-del" data-idx="${idx}">✕</button>
-        </div>`;
-      }
       return `
       <div class="cart-item" data-idx="${idx}">
         <div class="ci-info">
-          <div class="ci-name">${escapeHtml(c.nama)}</div>
-          <div class="ci-price">${rupiah(c.hargaJual)} / ${escapeHtml(c.satuan||'')}</div>
-          <div class="ci-custom-row ${customOn?'show':''}">
-            <label>Struk Pasien:</label>
-            <input type="number" class="ci-custom-input" data-idx="${idx}" value="${c.hargaCustom}" min="0">
-            ${diff?'<span class="ci-custom-diff">custom</span>':''}
-          </div>
+          <div class="ci-name">${escapeHtml(c.nama)} ${c.isCustom?'<span class="tag" style="background:var(--accent-soft);color:var(--accent);">Custom</span>':''}</div>
+          <div class="ci-price">${rupiah(c.hargaJual)}${c.satuan?(' / '+escapeHtml(c.satuan)):''}</div>
         </div>
         <div class="qty-ctrl">
           <button class="qty-minus" data-idx="${idx}">-</button>
@@ -1067,24 +1028,13 @@ function renderCart(){
   wrap.querySelectorAll('.qty-minus').forEach(b=>b.addEventListener('click', e=>changeQty(e.target.dataset.idx, -1)));
   wrap.querySelectorAll('.qty-plus').forEach(b=>b.addEventListener('click', e=>changeQty(e.target.dataset.idx, 1)));
   wrap.querySelectorAll('.qty-input').forEach(inp=>inp.addEventListener('change', e=>setQty(e.target.dataset.idx, Number(e.target.value))));
-  wrap.querySelectorAll('.ci-custom-input').forEach(inp=>inp.addEventListener('change', e=>{
-    const idx = Number(e.target.dataset.idx);
-    let val = Number(e.target.value);
-    if(!val || val < 0) val = cart[idx].hargaJual;
-    cart[idx].hargaCustom = val;
-    renderCart();
-  }));
   wrap.querySelectorAll('.ci-del').forEach(b=>b.addEventListener('click', e=>{
     cart.splice(Number(e.target.dataset.idx),1);
     renderCart();
   }));
 
   const total = cart.reduce((s,c)=>s+c.hargaJual*c.qty, 0);
-  const totalCustom = cart.reduce((s,c)=>s+c.hargaCustom*c.qty, 0);
   document.getElementById('cartTotal').textContent = rupiah(total);
-  document.getElementById('cartTotalCustom').textContent = rupiah(totalCustom);
-  const anyDiff = cart.some(c=>c.hargaCustom !== c.hargaJual);
-  document.getElementById('cartTotalCustomRow').classList.toggle('show', customOn && anyDiff);
   updateKembalian();
 }
 
@@ -1153,22 +1103,15 @@ async function prosesBayar(){
     }
   }
 
-  const customOn = document.getElementById('pakaiHargaCustom').checked;
-  const totalCustom = cart.reduce((s,c)=>s+c.hargaCustom*c.qty, 0);
-  const hasCustom = (customOn && cart.some(c=>c.hargaCustom !== c.hargaJual)) || cart.some(c=>c.isCustom);
-
   const now = new Date();
   const id = crypto.randomUUID();
   const noStruk = `${dateKey(now).replace(/-/g,'')}-${String(Date.now()).slice(-5)}`;
   const trx = {
     id, noStruk, waktu: timeStr(now), tanggal: dateKey(now),
-    items: cart.filter(c=>!c.isCustom).map(c=>({obatId:c.obatId, nama:c.nama, satuan:c.satuan||'', qty:c.qty, hargaJual:c.hargaJual, hargaBeli:c.hargaBeli, subtotal:c.hargaJual*c.qty})),
+    items: cart.map(c=>({obatId:c.obatId, nama:c.nama, satuan:c.satuan||'', qty:c.qty, hargaJual:c.hargaJual, hargaBeli:c.hargaBeli, subtotal:c.hargaJual*c.qty, isCustom: !!c.isCustom})),
     total, totalHpp, metode, diterima: metode==='Tunai'?diterima:total, kembalian: metode==='Tunai'?(diterima-total):0,
     pakaiResep, dokter: pakaiResep?dokter:'', pasien: pakaiResep?pasien:'',
     kasir: namaKasir,
-    hasCustom,
-    totalCustom: hasCustom ? totalCustom : null,
-    itemsCustom: hasCustom ? cart.map(c=>({nama:c.nama, satuan:c.satuan||'', qty:c.qty, hargaCustom:c.hargaCustom, subtotal:c.hargaCustom*c.qty})) : null,
   };
 
   // update stok (item custom otomatis dilewati karena obatId null / tidak ditemukan)
@@ -1192,17 +1135,11 @@ async function prosesBayar(){
   document.getElementById('resepDokter').value='';
   document.getElementById('resepPasien').value='';
   document.getElementById('uangDiterima').value='';
-  document.getElementById('pakaiHargaCustom').checked = false;
-  document.getElementById('hargaCustomHint').style.display = 'none';
   renderCart();
   renderStokTable();
   renderStokSummary();
 
-  if(trx.hasCustom){
-    showStrukPilihan(trx, false);
-  } else {
-    cetakStruk(trx);
-  }
+  cetakStruk(trx);
 }
 function showStrukPilihan(trx, isReprint){
   lastTrx = trx;
@@ -2304,10 +2241,6 @@ document.getElementById('btnSimpanPinRecovery').addEventListener('click', async 
 document.getElementById('kasirSearch').addEventListener('input', e=>renderSearchResults(e.target.value.trim()));
 document.getElementById('pakaiResep').addEventListener('change', e=>{
   document.getElementById('resepFields').style.display = e.target.checked ? '' : 'none';
-});
-document.getElementById('pakaiHargaCustom').addEventListener('change', e=>{
-  document.getElementById('hargaCustomHint').style.display = e.target.checked ? '' : 'none';
-  renderCart();
 });
 document.getElementById('btnCetakStrukAsli').addEventListener('click', ()=>{
   document.getElementById('strukPilihanModal').classList.add('hidden');
