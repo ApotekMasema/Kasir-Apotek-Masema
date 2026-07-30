@@ -439,9 +439,11 @@
       </div>
       <button class="btn btn-primary" id="btnTambahObat">+ Tambah Obat</button>
       <button class="btn" id="btnImportExcel">⬆️ Import dari Excel</button>
+      <button class="btn" id="btnDownloadStok">⬇️ Download Stok (Excel)</button>
       <button class="btn" id="btnPembelianSupplier">🛒 Pembelian dari Supplier</button>
       <button class="btn" id="btnStokOpname">🧮 Stok Opname</button>
       <button class="btn" id="btnRiwayatRestock">📋 Riwayat Restock</button>
+      <button class="btn btn-danger" id="btnHapusSemuaStok">🗑️ Hapus Semua Stok</button>
       <input type="file" id="fileImportExcel" accept=".xlsx,.xls,.csv" style="display:none;">
     </div>
 
@@ -3018,6 +3020,39 @@ document.getElementById('btnImportExcel').addEventListener('click', ()=>document
 document.getElementById('fileImportExcel').addEventListener('change', e=>{
   if(e.target.files[0]) handleImportFile(e.target.files[0]);
   e.target.value = '';
+});
+
+document.getElementById('btnDownloadStok').addEventListener('click', ()=>{
+  if(obatList.length===0){ toast('Belum ada data obat untuk diunduh.', true); return; }
+  const dataExport = [...obatList].sort((a,b)=>a.nama.localeCompare(b.nama)).map(o=>({
+    'Nama Obat': o.nama,
+    'Kategori': o.kategori||'',
+    'Satuan': o.satuan||'',
+    'Kode/Barcode': o.kode||'',
+    'Kadaluarsa': o.kadaluarsa||'',
+    'Harga Beli': o.hargaBeli||0,
+    'Harga Jual': o.hargaJual||0,
+    'Stok': o.stok||0,
+    'Stok Minimum': o.stokMin||0,
+  }));
+  const ws = XLSX.utils.json_to_sheet(dataExport);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Stok Obat');
+  XLSX.writeFile(wb, `Stok_Obat_${dateKey(new Date())}.xlsx`);
+  toast('File Excel stok obat berhasil diunduh ✓');
+});
+
+document.getElementById('btnHapusSemuaStok').addEventListener('click', ()=>{
+  if(obatList.length===0){ toast('Tidak ada data stok untuk dihapus.', true); return; }
+  if(!confirm(`Yakin ingin menghapus SEMUA data stok obat (${obatList.length} item)?\n\nSemua nama obat, harga, dan jumlah stok akan hilang permanen. Riwayat transaksi & laporan keuangan yang sudah ada TIDAK ikut terhapus. Aksi ini TIDAK BISA dibatalkan.\n\nSaran: klik "Download Stok (Excel)" dulu untuk backup sebelum menghapus.`)) return;
+  pinCallback = async ()=>{
+    obatList = [];
+    await saveObatList();
+    toast('Semua data stok obat berhasil dihapus.');
+    renderStokTable();
+    renderStokSummary();
+  };
+  openPinModal('Masukkan PIN Admin untuk menghapus SEMUA data stok obat.');
 });
 
 document.getElementById('resepStart').addEventListener('change', renderResep);
