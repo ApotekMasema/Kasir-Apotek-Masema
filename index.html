@@ -329,6 +329,24 @@
           </div>
         </div>
 
+        <div class="total-row">
+          <span>Subtotal</span>
+          <span id="cartSubtotal">Rp 0</span>
+        </div>
+        <div class="field" style="margin-top:8px;">
+          <label>Diskon</label>
+          <div style="display:flex;gap:8px;">
+            <select id="diskonTipe" style="width:120px;">
+              <option value="persen">Persen (%)</option>
+              <option value="nominal">Nominal (Rp)</option>
+            </select>
+            <input type="number" id="diskonNilai" min="0" placeholder="0" style="flex:1;">
+          </div>
+        </div>
+        <div class="total-row" id="diskonRow" style="display:none;">
+          <span>Potongan Diskon</span>
+          <span id="diskonNilaiTampil" style="color:var(--danger);">-Rp 0</span>
+        </div>
         <div class="total-row grand">
           <span>Total</span>
           <span id="cartTotal">Rp 0</span>
@@ -421,6 +439,8 @@
       </div>
       <button class="btn btn-primary" id="btnTambahObat">+ Tambah Obat</button>
       <button class="btn" id="btnImportExcel">⬆️ Import dari Excel</button>
+      <button class="btn" id="btnPembelianSupplier">🛒 Pembelian dari Supplier</button>
+      <button class="btn" id="btnStokOpname">🧮 Stok Opname</button>
       <button class="btn" id="btnRiwayatRestock">📋 Riwayat Restock</button>
       <input type="file" id="fileImportExcel" accept=".xlsx,.xls,.csv" style="display:none;">
     </div>
@@ -904,9 +924,9 @@
 <div class="toast" id="toast"></div>
 
 <div class="modal-overlay hidden" id="restockModal">
-  <div class="modal" style="max-width:680px;text-align:left;max-height:85vh;overflow-y:auto;">
+  <div class="modal" style="max-width:760px;text-align:left;max-height:85vh;overflow-y:auto;">
     <h3 style="text-align:center;">📋 Riwayat Restock</h3>
-    <p class="section-hint">Catatan penambahan stok lewat Edit Obat atau Import Excel (tidak termasuk pengurangan stok karena penjualan).</p>
+    <p class="section-hint">Catatan penambahan/penyesuaian stok lewat Edit Obat, Import Excel, Pembelian Supplier, atau Stok Opname (tidak termasuk pengurangan stok karena penjualan).</p>
     <div class="toolbar" style="margin-bottom:10px;">
       <div class="field">
         <label>Dari Tanggal</label>
@@ -925,12 +945,71 @@
           <th class="num">Sebelum</th>
           <th class="num">Sesudah</th>
           <th class="num">Selisih</th>
-          <th>Sumber</th>
+          <th>Sumber / Keterangan</th>
+          <th class="num">Nilai (Rp)</th>
         </tr>
       </thead>
-      <tbody id="restockBody"><tr><td colspan="6" class="muted" style="padding:14px;text-align:center;">Pilih rentang tanggal.</td></tr></tbody>
+      <tbody id="restockBody"><tr><td colspan="7" class="muted" style="padding:14px;text-align:center;">Pilih rentang tanggal.</td></tr></tbody>
     </table>
     <button class="cancel" id="btnTutupRestock">Tutup</button>
+  </div>
+</div>
+
+<div class="modal-overlay hidden" id="pembelianModal">
+  <div class="modal" style="text-align:left;">
+    <h3 style="text-align:center;">🛒 Pembelian dari Supplier</h3>
+    <p class="section-hint">Untuk menambah stok obat yang SUDAH ADA di daftar Stok Obat. Kalau obat belum ada, tambahkan dulu lewat "+ Tambah Obat".</p>
+    <div class="field" style="margin-bottom:10px;">
+      <label>Pilih Obat</label>
+      <select id="pembelianObatId"></select>
+    </div>
+    <p class="section-hint" id="pembelianStokInfo" style="margin-top:-4px;">Stok saat ini: -</p>
+    <div class="form-grid" style="margin-bottom:8px;">
+      <div class="field">
+        <label>Nama Supplier</label>
+        <input type="text" id="pembelianSupplier" placeholder="Contoh: PT Kimia Farma">
+      </div>
+      <div class="field">
+        <label>No. Faktur/Nota</label>
+        <input type="text" id="pembelianFaktur" placeholder="Opsional">
+      </div>
+      <div class="field">
+        <label>Qty Dibeli</label>
+        <input type="number" id="pembelianQty" min="1" placeholder="0">
+      </div>
+      <div class="field">
+        <label>Harga Beli / Satuan (Rp)</label>
+        <input type="number" id="pembelianHargaBeli" min="0" placeholder="0">
+      </div>
+    </div>
+    <div class="total-row grand">
+      <span>Total Pembelian</span>
+      <span id="pembelianTotalNilai">Rp 0</span>
+    </div>
+    <button class="btn btn-primary btn-block" id="btnSimpanPembelian" style="margin-top:10px;">Simpan Pembelian</button>
+    <button class="cancel" id="btnBatalPembelian">Batal</button>
+  </div>
+</div>
+
+<div class="modal-overlay hidden" id="opnameModal">
+  <div class="modal" style="text-align:left;">
+    <h3 style="text-align:center;">🧮 Stok Opname (Penyesuaian Fisik)</h3>
+    <p class="section-hint">Cocokkan stok sistem dengan hasil hitung fisik di rak/gudang. Memerlukan PIN Admin.</p>
+    <div class="field" style="margin-bottom:10px;">
+      <label>Pilih Obat</label>
+      <select id="opnameObatId"></select>
+    </div>
+    <p class="section-hint" id="opnameStokInfo" style="margin-top:-4px;">Stok sistem saat ini: -</p>
+    <div class="field" style="margin-bottom:10px;">
+      <label>Stok Fisik Hasil Hitung</label>
+      <input type="number" id="opnameStokFisik" min="0" placeholder="0">
+    </div>
+    <div class="field" style="margin-bottom:10px;">
+      <label>Alasan / Keterangan</label>
+      <input type="text" id="opnameAlasan" placeholder="Contoh: rusak, hilang, kadaluarsa dibuang, salah input">
+    </div>
+    <button class="btn btn-primary btn-block" id="btnSimpanOpname">Simpan Penyesuaian</button>
+    <button class="cancel" id="btnBatalOpname">Batal</button>
   </div>
 </div>
 
@@ -1166,7 +1245,23 @@ function renderCart(){
     renderCart();
   }));
 
-  const total = cart.reduce((s,c)=>s+c.hargaJual*c.qty, 0);
+  refreshTotalTampilan();
+}
+
+function hitungTotalDiskon(){
+  const subtotal = cart.reduce((s,c)=>s+c.hargaJual*c.qty, 0);
+  const tipe = document.getElementById('diskonTipe').value;
+  const nilaiInput = Number(document.getElementById('diskonNilai').value)||0;
+  let diskonNilai = tipe==='persen' ? Math.round(subtotal*nilaiInput/100) : Math.round(nilaiInput);
+  diskonNilai = Math.max(0, Math.min(diskonNilai, subtotal));
+  const total = subtotal - diskonNilai;
+  return { subtotal, tipe, nilaiInput, diskonNilai, total };
+}
+function refreshTotalTampilan(){
+  const { subtotal, diskonNilai, total } = hitungTotalDiskon();
+  document.getElementById('cartSubtotal').textContent = rupiah(subtotal);
+  document.getElementById('diskonRow').style.display = diskonNilai>0 ? '' : 'none';
+  document.getElementById('diskonNilaiTampil').textContent = '-' + rupiah(diskonNilai);
   document.getElementById('cartTotal').textContent = rupiah(total);
   updateKembalian();
 }
@@ -1203,13 +1298,15 @@ function updateKembalian(){
     return;
   }
   tunaiField.style.display='';
-  const total = cart.reduce((s,c)=>s+c.hargaJual*c.qty, 0);
+  const { total } = hitungTotalDiskon();
   const diterima = Number(document.getElementById('uangDiterima').value)||0;
   const kembalian = diterima - total;
   kembalianRow.style.display = diterima>0 ? '' : 'none';
   document.getElementById('kembalianVal').textContent = rupiah(kembalian);
   document.getElementById('kembalianVal').style.color = kembalian<0 ? 'var(--danger)' : 'var(--primary-dark)';
 }
+document.getElementById('diskonTipe').addEventListener('change', refreshTotalTampilan);
+document.getElementById('diskonNilai').addEventListener('input', refreshTotalTampilan);
 
 async function prosesBayar(){
   if(cart.length===0){ toast('Keranjang masih kosong.', true); return; }
@@ -1219,7 +1316,7 @@ async function prosesBayar(){
   const dokter = document.getElementById('resepDokter').value.trim();
   const pasien = document.getElementById('resepPasien').value.trim();
   const metode = document.getElementById('metodeBayar').value;
-  const total = cart.reduce((s,c)=>s+c.hargaJual*c.qty, 0);
+  const { subtotal, diskonNilai, tipe: diskonTipe, nilaiInput: diskonNilaiInput, total } = hitungTotalDiskon();
   const totalHpp = cart.reduce((s,c)=>s+c.hargaBeli*c.qty, 0);
   const diterima = Number(document.getElementById('uangDiterima').value)||0;
   const kasbonNama = document.getElementById('kasbonNama').value.trim();
@@ -1247,9 +1344,10 @@ async function prosesBayar(){
   const trx = {
     id, noStruk, waktu: timeStr(now), tanggal: dateKey(now),
     items: cart.map(c=>({obatId:c.obatId, nama:c.nama, satuan:c.satuan||'', qty:c.qty, hargaJual:c.hargaJual, hargaBeli:c.hargaBeli, subtotal:c.hargaJual*c.qty, isCustom: !!c.isCustom})),
-    total, totalHpp, metode, diterima: metode==='Tunai'?diterima:total, kembalian: metode==='Tunai'?(diterima-total):0,
+    subtotal, total, totalHpp, metode, diterima: metode==='Tunai'?diterima:total, kembalian: metode==='Tunai'?(diterima-total):0,
     pakaiResep, dokter: pakaiResep?dokter:'', pasien: pakaiResep?pasien:'',
     kasir: namaKasir,
+    diskon: diskonNilai>0 ? { tipe: diskonTipe, nilaiInput: diskonNilaiInput, nilaiPotongan: diskonNilai } : null,
     piutang: metode==='Kasbon' ? { namaPasien: kasbonNama, noHp: kasbonHp, totalDibayar: 0, sisaPiutang: total, lunas: false, cicilan: [] } : null,
   };
 
@@ -1277,6 +1375,8 @@ async function prosesBayar(){
   document.getElementById('kasbonNama').value='';
   document.getElementById('kasbonHp').value='';
   document.getElementById('metodeBayar').value='Tunai';
+  document.getElementById('diskonNilai').value='';
+  document.getElementById('diskonTipe').value='persen';
   renderCart();
   renderStokTable();
   renderStokSummary();
@@ -1337,6 +1437,8 @@ function cetakStruk(trx){
     </table>
     <hr>
     <table>
+      ${trx.diskon ? `<tr><td>Subtotal</td><td style="text-align:right;">${rupiah(trx.subtotal||trx.total)}</td></tr>` : ''}
+      ${trx.diskon ? `<tr><td>Diskon${trx.diskon.tipe==='persen'?` (${trx.diskon.nilaiInput}%)`:''}</td><td style="text-align:right;">-${rupiah(trx.diskon.nilaiPotongan)}</td></tr>` : ''}
       ${totalRetur>0 ? `<tr><td>Retur</td><td style="text-align:right;">-${rupiah(totalRetur)}</td></tr>` : ''}
       <tr><td><b>TOTAL${totalRetur>0?' (Bersih)':''}</b></td><td style="text-align:right;"><b>${rupiah(trx.total)}</b></td></tr>
       <tr><td>${trx.metode}</td><td style="text-align:right;">${rupiah(trx.diterima)}</td></tr>
@@ -2034,7 +2136,7 @@ function buildLapTransRows(rows){
     return `
     <tr class="${isVoid?'row-void':''}">
       <td>${fmtDateFull(parseDateInput(r.tanggal))} ${r.waktu}</td>
-      <td>${r.noStruk} ${isVoid?'<span class="tag tag-low">Dibatalkan</span>':''} ${adaRetur?'<span class="tag tag-soon">Retur Sebagian</span>':''}</td>
+      <td>${r.noStruk} ${isVoid?'<span class="tag tag-low">Dibatalkan</span>':''} ${adaRetur?'<span class="tag tag-soon">Retur Sebagian</span>':''} ${r.diskon?'<span class="tag tag-ok">Diskon</span>':''}</td>
       <td>${escapeHtml(r.kasir||'-')}</td>
       <td>${r.metode||'-'}${r.pakaiResep?' (Resep)':''}</td>
       <td class="num">${rupiah(r.total)}</td>
@@ -2187,7 +2289,9 @@ async function prosesRetur(retList, alasan){
   });
   await saveObatList();
 
-  trx.total = (trx.items||[]).reduce((s,it)=> s + Math.max(0,(it.qty||0)-(it.qtyRetur||0))*it.hargaJual, 0);
+  const subtotalNet = (trx.items||[]).reduce((s,it)=> s + Math.max(0,(it.qty||0)-(it.qtyRetur||0))*it.hargaJual, 0);
+  const diskonNilai = Math.min(trx.diskon?.nilaiPotongan||0, subtotalNet);
+  trx.total = subtotalNet - diskonNilai;
   trx.totalHpp = (trx.items||[]).reduce((s,it)=> s + Math.max(0,(it.qty||0)-(it.qtyRetur||0))*it.hargaBeli, 0);
   trx.returLog = trx.returLog || [];
   trx.returLog.push({ waktu: new Date().toISOString(), items: retList.map(r=>({nama: trx.items[r.idx]?.nama, qty: r.qty})), alasan, nilai: nilaiRetur });
@@ -2210,7 +2314,7 @@ function buildRiwayatRows(rows){
     return `
     <tr class="${isVoid?'row-void':''}">
       <td>${fmtDateFull(parseDateInput(r.tanggal))} ${r.waktu}</td>
-      <td>${r.noStruk} ${isVoid?'<span class="tag tag-low">Dibatalkan</span>':''} ${adaRetur?'<span class="tag tag-soon">Retur Sebagian</span>':''}</td>
+      <td>${r.noStruk} ${isVoid?'<span class="tag tag-low">Dibatalkan</span>':''} ${adaRetur?'<span class="tag tag-soon">Retur Sebagian</span>':''} ${r.diskon?'<span class="tag tag-ok">Diskon</span>':''}</td>
       <td>${escapeHtml(r.kasir||'-')}</td>
       <td>${r.metode||'-'}${r.pakaiResep?' (Resep)':''}</td>
       <td class="num">${rupiah(r.total)}</td>
@@ -2760,7 +2864,7 @@ async function renderRestockLog(){
   if(startVal > endVal){ toast('Tanggal "Dari" tidak boleh lebih besar dari "Sampai".', true); return; }
 
   const body = document.getElementById('restockBody');
-  body.innerHTML = `<tr><td colspan="6" class="muted" style="padding:14px;text-align:center;">Memuat...</td></tr>`;
+  body.innerHTML = `<tr><td colspan="7" class="muted" style="padding:14px;text-align:center;">Memuat...</td></tr>`;
 
   const start = parseDateInput(startVal);
   const end = parseDateInput(endVal);
@@ -2774,15 +2878,24 @@ async function renderRestockLog(){
   }
   entries.sort((a,b)=> (b.tanggal+b.waktu).localeCompare(a.tanggal+a.waktu));
 
-  body.innerHTML = entries.length ? entries.map(en=>`
+  body.innerHTML = entries.length ? entries.map(en=>{
+    const selisih = Number(en.selisih||0);
+    const keterangan = en.sumber==='Pembelian dari Supplier'
+      ? `Pembelian - ${escapeHtml(en.supplier||'-')}${en.noFaktur?` (Faktur ${escapeHtml(en.noFaktur)})`:''}`
+      : en.sumber==='Stok Opname'
+        ? `Stok Opname${en.alasan?`: ${escapeHtml(en.alasan)}`:''}`
+        : escapeHtml(en.sumber||'-');
+    return `
     <tr>
       <td>${fmtDateFull(parseDateInput(en.tanggal))} ${en.waktu}</td>
       <td>${escapeHtml(en.nama)}</td>
       <td class="num">${en.stokSebelum}</td>
       <td class="num">${en.stokSesudah}</td>
-      <td class="num" style="color:var(--primary-dark);font-weight:700;">+${en.selisih}</td>
-      <td>${escapeHtml(en.sumber||'-')}</td>
-    </tr>`).join('') : `<tr><td colspan="6" class="muted" style="padding:14px;text-align:center;">Tidak ada riwayat restock di rentang ini.</td></tr>`;
+      <td class="num" style="color:${selisih<0?'var(--danger)':'var(--primary-dark)'};font-weight:700;">${selisih>0?'+':''}${selisih}</td>
+      <td>${keterangan}</td>
+      <td class="num">${en.totalPembelian ? rupiah(en.totalPembelian) : '-'}</td>
+    </tr>`;
+  }).join('') : `<tr><td colspan="7" class="muted" style="padding:14px;text-align:center;">Tidak ada riwayat restock di rentang ini.</td></tr>`;
 }
 
 document.getElementById('btnRiwayatRestock').addEventListener('click', ()=>{
@@ -2797,6 +2910,103 @@ document.getElementById('restockStart').addEventListener('change', renderRestock
 document.getElementById('restockEnd').addEventListener('change', renderRestockLog);
 document.getElementById('btnTutupRestock').addEventListener('click', ()=>{
   document.getElementById('restockModal').classList.add('hidden');
+});
+
+/* ---------------- pembelian dari supplier ---------------- */
+function buildObatSelectOptions(){
+  const sorted = [...obatList].sort((a,b)=>a.nama.localeCompare(b.nama));
+  if(sorted.length===0) return '<option value="">(belum ada obat di stok)</option>';
+  return sorted.map(o=>`<option value="${o.id}">${escapeHtml(o.nama)} (stok: ${o.stok})</option>`).join('');
+}
+function updatePembelianInfo(){
+  const id = document.getElementById('pembelianObatId').value;
+  const o = obatList.find(x=>x.id===id);
+  document.getElementById('pembelianStokInfo').textContent = o ? `Stok saat ini: ${o.stok} ${o.satuan||''}` : 'Stok saat ini: -';
+  document.getElementById('pembelianHargaBeli').value = o ? (o.hargaBeli||0) : '';
+  updatePembelianTotal();
+}
+function updatePembelianTotal(){
+  const qty = Number(document.getElementById('pembelianQty').value)||0;
+  const harga = Number(document.getElementById('pembelianHargaBeli').value)||0;
+  document.getElementById('pembelianTotalNilai').textContent = rupiah(qty*harga);
+}
+document.getElementById('btnPembelianSupplier').addEventListener('click', ()=>{
+  if(obatList.length===0){ toast('Belum ada obat di daftar Stok Obat. Tambahkan obat dulu.', true); return; }
+  document.getElementById('pembelianObatId').innerHTML = buildObatSelectOptions();
+  document.getElementById('pembelianSupplier').value = '';
+  document.getElementById('pembelianFaktur').value = '';
+  document.getElementById('pembelianQty').value = '';
+  updatePembelianInfo();
+  document.getElementById('pembelianModal').classList.remove('hidden');
+});
+document.getElementById('pembelianObatId').addEventListener('change', updatePembelianInfo);
+document.getElementById('pembelianQty').addEventListener('input', updatePembelianTotal);
+document.getElementById('pembelianHargaBeli').addEventListener('input', updatePembelianTotal);
+document.getElementById('btnBatalPembelian').addEventListener('click', ()=>{
+  document.getElementById('pembelianModal').classList.add('hidden');
+});
+document.getElementById('btnSimpanPembelian').addEventListener('click', async ()=>{
+  const id = document.getElementById('pembelianObatId').value;
+  const o = obatList.find(x=>x.id===id);
+  if(!o){ toast('Pilih obat terlebih dahulu.', true); return; }
+  const qty = Math.floor(Number(document.getElementById('pembelianQty').value))||0;
+  const hargaBeli = Number(document.getElementById('pembelianHargaBeli').value)||0;
+  const supplier = document.getElementById('pembelianSupplier').value.trim();
+  const noFaktur = document.getElementById('pembelianFaktur').value.trim();
+  if(qty <= 0){ toast('Isi jumlah/qty dibeli terlebih dahulu.', true); return; }
+
+  const stokSebelum = o.stok;
+  o.stok = Number(o.stok||0) + qty;
+  o.hargaBeli = hargaBeli;
+  await saveObatList();
+  await logRestock([{
+    obatId: o.id, nama: o.nama, stokSebelum, stokSesudah: o.stok, selisih: qty,
+    sumber: 'Pembelian dari Supplier', supplier, noFaktur, hargaBeliSatuan: hargaBeli, totalPembelian: qty*hargaBeli,
+  }]);
+
+  document.getElementById('pembelianModal').classList.add('hidden');
+  toast(`Pembelian ${o.nama} sebanyak ${qty} berhasil dicatat, stok bertambah ✓`);
+  renderStokTable();
+  renderStokSummary();
+});
+
+/* ---------------- stok opname ---------------- */
+function updateOpnameInfo(){
+  const id = document.getElementById('opnameObatId').value;
+  const o = obatList.find(x=>x.id===id);
+  document.getElementById('opnameStokInfo').textContent = o ? `Stok sistem saat ini: ${o.stok} ${o.satuan||''}` : 'Stok sistem saat ini: -';
+  document.getElementById('opnameStokFisik').value = o ? o.stok : '';
+}
+document.getElementById('btnStokOpname').addEventListener('click', ()=>{
+  if(obatList.length===0){ toast('Belum ada obat di daftar Stok Obat.', true); return; }
+  document.getElementById('opnameObatId').innerHTML = buildObatSelectOptions();
+  document.getElementById('opnameAlasan').value = '';
+  updateOpnameInfo();
+  document.getElementById('opnameModal').classList.remove('hidden');
+});
+document.getElementById('opnameObatId').addEventListener('change', updateOpnameInfo);
+document.getElementById('btnBatalOpname').addEventListener('click', ()=>{
+  document.getElementById('opnameModal').classList.add('hidden');
+});
+document.getElementById('btnSimpanOpname').addEventListener('click', ()=>{
+  const id = document.getElementById('opnameObatId').value;
+  const o = obatList.find(x=>x.id===id);
+  if(!o){ toast('Pilih obat terlebih dahulu.', true); return; }
+  const stokFisik = Math.floor(Number(document.getElementById('opnameStokFisik').value));
+  if(isNaN(stokFisik) || stokFisik < 0){ toast('Isi stok fisik hasil hitung dengan benar.', true); return; }
+  const alasan = document.getElementById('opnameAlasan').value.trim();
+  if(stokFisik === o.stok){ toast('Stok fisik sama dengan stok sistem, tidak ada penyesuaian.', true); return; }
+  pinCallback = async ()=>{
+    const stokSebelum = o.stok;
+    o.stok = stokFisik;
+    await saveObatList();
+    await logRestock([{ obatId: o.id, nama: o.nama, stokSebelum, stokSesudah: stokFisik, selisih: stokFisik-stokSebelum, sumber: 'Stok Opname', alasan }]);
+    toast(`Stok ${o.nama} disesuaikan jadi ${stokFisik} ✓`);
+    renderStokTable();
+    renderStokSummary();
+  };
+  document.getElementById('opnameModal').classList.add('hidden');
+  openPinModal('Masukkan PIN Admin untuk menyimpan penyesuaian stok opname.');
 });
 
 document.getElementById('btnTambahObat').addEventListener('click', ()=>openObatModal(null));
