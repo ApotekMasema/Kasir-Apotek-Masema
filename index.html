@@ -1036,6 +1036,34 @@
   <div class="struk-box" id="strukContent"></div>
 </div>
 
+<!-- ========= Firebase App Check (keamanan database) ========= -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-check-compat.js"></script>
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyA05Ffp-iqAxQYV0x9Vvt1rd8tgTPnmfcI",
+    authDomain: "kasir-apotek-masema.firebaseapp.com",
+    databaseURL: "https://kasir-apotek-masema-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "kasir-apotek-masema",
+    storageBucket: "kasir-apotek-masema.firebasestorage.app",
+    messagingSenderId: "485337906538",
+    appId: "1:485337906538:web:5917c97a2dafb1a6eb7913"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const appCheck = firebase.appCheck();
+  appCheck.activate("6Le9Am4tAAAAAJPwdkI027Eu7rq5cPnISMWCnhdY", true);
+
+  window.__getAppCheckToken = async function(){
+    try{
+      const result = await appCheck.getToken(false);
+      return result.token;
+    }catch(e){
+      console.error('Gagal mengambil App Check token', e);
+      return null;
+    }
+  };
+</script>
+
 <script>
 /* =========================================================
    KASIR APOTEK MASEMA MEDIKA — Versi GitHub Pages + Firebase
@@ -1066,11 +1094,20 @@ let currentKasirNama = null; // nama kasir yang sedang login (atau 'Admin')
 let currentShift = null; // shift kasir yang sedang berjalan (modal awal, dll)
 
 /* ---------------- storage helpers (Firebase REST) ---------------- */
+async function appCheckHeaders(extra){
+  const headers = Object.assign({}, extra||{});
+  if(window.__getAppCheckToken){
+    const token = await window.__getAppCheckToken();
+    if(token) headers['X-Firebase-AppCheck'] = token;
+  }
+  return headers;
+}
 async function sGet(path){
   try{
     const controller = new AbortController();
     const timeoutId = setTimeout(()=>controller.abort(), 15000);
-    const res = await fetch(`${DB_URL}/${path}.json`, { cache:'no-store', signal: controller.signal });
+    const headers = await appCheckHeaders();
+    const res = await fetch(`${DB_URL}/${path}.json`, { cache:'no-store', signal: controller.signal, headers });
     clearTimeout(timeoutId);
     if(!res.ok) return null;
     return await res.json();
@@ -1078,9 +1115,10 @@ async function sGet(path){
 }
 async function sSet(path, valueObj){
   try{
+    const headers = await appCheckHeaders({ 'Content-Type':'application/json' });
     const res = await fetch(`${DB_URL}/${path}.json`, {
       method:'PUT',
-      headers:{ 'Content-Type':'application/json' },
+      headers,
       body: JSON.stringify(valueObj),
     });
     return res.ok;
