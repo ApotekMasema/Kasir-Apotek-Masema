@@ -184,6 +184,12 @@
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
   .toast.err{background:var(--danger);}
 
+  /* ---------- Sync/connection badge ---------- */
+  .conn-badge{border:none;border-radius:99px;padding:7px 13px;font-size:12px;font-weight:700;white-space:nowrap;}
+  .conn-badge.conn-ok{background:var(--primary-soft);color:var(--primary-dark);}
+  .conn-badge.conn-warn{background:var(--accent-soft);color:var(--accent);}
+  .conn-badge.conn-off{background:var(--danger-soft);color:var(--danger);}
+
   .summary-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px;}
   .s-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;}
   .s-card .k{font-size:11.5px;color:var(--ink-soft);font-weight:600;}
@@ -247,6 +253,7 @@
     <button class="tab" data-tab="laporan">Laporan Keuangan</button>
     <button class="tab" data-tab="pengaturan">Pengaturan</button>
   </nav>
+  <button class="conn-badge" id="connStatusBadge" title="Klik untuk buka pengaturan sinkronisasi cloud"></button>
   <div class="kasir-session" id="kasirSessionBadge" style="display:none;">
     <span class="name" id="kasirSessionName"></span>
     <button class="btn btn-sm" id="btnGantiKasir">Ganti Kasir</button>
@@ -723,6 +730,18 @@
       </table>
     </div>
 
+    <h2>Sinkronisasi Cloud</h2>
+    <p class="section-hint">Aplikasi ini menyimpan semua data langsung di komputer ini, jadi tetap bisa dipakai penuh (kasir, stok, riwayat, laporan, dll) walau internet mati. Gunakan tombol di bawah untuk menyalin data ke/dari cloud (Firebase) secara manual.</p>
+    <div class="card">
+      <p id="syncStatusDetail" class="muted" style="margin-bottom:14px;">Memeriksa status...</p>
+      <button class="btn btn-primary" id="btnSyncPush">☁️⬆️ Sinkron ke Cloud</button>
+      <button class="btn" id="btnSyncPull" style="margin-left:8px;">☁️⬇️ Tarik dari Cloud</button>
+      <p class="muted" style="margin-top:10px;">
+        <b>Sinkron ke Cloud</b>: unggah data dari komputer ini ke cloud. Lakukan setiap kali selesai kerja & internet tersedia.<br>
+        <b>Tarik dari Cloud</b>: timpa data di komputer ini dengan data dari cloud. Gunakan hanya saat membuka aplikasi di komputer/browser baru, atau untuk memulihkan data — perubahan yang belum disinkron di komputer ini akan hilang.
+      </p>
+    </div>
+
     <h2>Backup Data</h2>
     <p class="section-hint">Unduh seluruh data (stok obat, riwayat transaksi, pengaturan) sebagai file cadangan. Simpan file ini di HP/laptop/Google Drive secara berkala (mis. tiap minggu), untuk jaga-jaga kalau data bermasalah.</p>
     <div class="card">
@@ -1102,7 +1121,74 @@ let kasirAkunList = [];      // [{id,nama,pin}]
 let currentKasirNama = null; // nama kasir yang sedang login (atau 'Admin')
 let currentShift = null; // shift kasir yang sedang berjalan (modal awal, dll)
 
-/* ---------------- storage helpers (Firebase REST) ---------------- */
+/* ---------------- storage helpers (OFFLINE-FIRST: localStorage jadi sumber utama) ---------------- */
+const LOCAL_DB_KEY = 'kasirApotekMasema_localdb_v1';
+const SYNC_META_KEY = 'kasirApotekMasema_syncmeta_v1';
+let localDB = {};
+let syncMeta = { lastSyncAt: null, dirty: false };
+
+function getAtPath(obj, path){
+  if(!path) return obj;
+  const parts = String(path).split('/').filter(Boolean);
+  let cur = obj;
+  for(const p of parts){
+    if(cur == null) return null;
+    cur = cur[p];
+  }
+  return cur === undefined ? null : cur;
+}
+function setAtPath(obj, path, value){
+  const parts = String(path).split('/').filter(Boolean);
+  if(!parts.length) return;
+  let cur = obj;
+  for(let i=0;i<parts.length-1;i++){
+    const p = parts[i];
+    if(cur[p] == null || typeof cur[p] !== 'object') cur[p] = {};
+    cur = cur[p];
+  }
+  cur[parts[parts.length-1]] = value;
+}
+
+function loadLocalDBFromStorage(){
+  try{
+    const raw = localStorage.getItem(LOCAL_DB_KEY);
+    localDB = raw ? JSON.parse(raw) : {};
+  }catch(e){ console.error('Gagal membaca data lokal', e); localDB = {}; }
+  try{
+    const rawMeta = localStorage.getItem(SYNC_META_KEY);
+    syncMeta = rawMeta ? JSON.parse(rawMeta) : { lastSyncAt: null, dirty: false };
+  }catch(e){ syncMeta = { lastSyncAt: null, dirty: false }; }
+}
+function persistLocalDB(){
+  try{
+    localStorage.setItem(LOCAL_DB_KEY, JSON.stringify(localDB));
+  }catch(e){
+    console.error('Gagal menyimpan data lokal', e);
+    toast('⚠️ Gagal menyimpan ke penyimpanan komputer ini (kemungkinan penuh). Segera unduh Backup Data!', true);
+  }
+}
+function persistSyncMeta(){
+  try{ localStorage.setItem(SYNC_META_KEY, JSON.stringify(syncMeta)); }catch(e){}
+  updateSyncBadge();
+}
+function markDirty(){
+  if(!syncMeta.dirty){ syncMeta.dirty = true; persistSyncMeta(); }
+}
+
+/* Semua baca/tulis data aplikasi (kasir, stok, riwayat, dll) lewat sGet/sSet ini,
+   dan SELALU dari/ke penyimpanan komputer ini (bukan langsung ke internet).
+   Supaya aplikasi tetap 100% bisa dipakai walau internet mati. */
+async function sGet(path){
+  return getAtPath(localDB, path);
+}
+async function sSet(path, valueObj){
+  setAtPath(localDB, path, valueObj);
+  persistLocalDB();
+  markDirty();
+  return true;
+}
+
+/* ---------------- sinkronisasi manual ke/dari Firebase (cloud) ---------------- */
 async function authQuery(){
   if(window.__getAuthToken){
     const token = await window.__getAuthToken();
@@ -1110,28 +1196,74 @@ async function authQuery(){
   }
   return '';
 }
-async function sGet(path){
-  try{
-    const controller = new AbortController();
-    const timeoutId = setTimeout(()=>controller.abort(), 15000);
-    const q = await authQuery();
-    const res = await fetch(`${DB_URL}/${path}.json${q}`, { cache:'no-store', signal: controller.signal });
-    clearTimeout(timeoutId);
-    if(!res.ok) return null;
-    return await res.json();
-  }catch(e){ console.error('Gagal mengambil', path, e); return null; }
-}
-async function sSet(path, valueObj){
+
+async function pushToCloud(){
+  if(!navigator.onLine){ toast('Tidak ada koneksi internet. Coba lagi nanti.', true); return false; }
+  toast('Menyinkronkan data ke cloud...');
   try{
     const q = await authQuery();
-    const res = await fetch(`${DB_URL}/${path}.json${q}`, {
+    const res = await fetch(`${DB_URL}/.json${q}`, {
       method:'PUT',
       headers:{ 'Content-Type':'application/json' },
-      body: JSON.stringify(valueObj),
+      body: JSON.stringify(localDB),
     });
-    return res.ok;
-  }catch(e){ console.error('Gagal menyimpan', path, e); return false; }
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    syncMeta.dirty = false;
+    syncMeta.lastSyncAt = new Date().toISOString();
+    persistSyncMeta();
+    toast('Sinkron ke cloud berhasil ✓');
+    return true;
+  }catch(e){
+    console.error('Gagal sinkron ke cloud', e);
+    toast('Gagal sinkron ke cloud. Cek koneksi internet, lalu coba lagi.', true);
+    return false;
+  }
 }
+
+async function pullFromCloud(opts){
+  opts = opts || {};
+  if(!navigator.onLine){ if(!opts.silent) toast('Tidak ada koneksi internet.', true); return false; }
+  if(opts.confirmFirst && !confirm('Ini akan MENIMPA data di komputer ini dengan data dari cloud. Perubahan yang belum disinkronkan di komputer ini akan HILANG. Lanjutkan?')) return false;
+  if(!opts.silent) toast('Mengambil data dari cloud...');
+  try{
+    const q = await authQuery();
+    const res = await fetch(`${DB_URL}/.json${q}`, { cache:'no-store' });
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const data = await res.json();
+    localDB = data || {};
+    persistLocalDB();
+    syncMeta.dirty = false;
+    syncMeta.lastSyncAt = new Date().toISOString();
+    persistSyncMeta();
+    if(!opts.silent) toast('Data dari cloud berhasil diambil ✓');
+    return true;
+  }catch(e){
+    console.error('Gagal mengambil data dari cloud', e);
+    if(!opts.silent) toast('Gagal mengambil data dari cloud. Cek koneksi internet.', true);
+    return false;
+  }
+}
+
+function updateSyncBadge(){
+  const online = navigator.onLine;
+  const badge = document.getElementById('connStatusBadge');
+  if(badge){
+    if(online){
+      badge.textContent = syncMeta.dirty ? '🟡 Online — belum disinkron' : '🟢 Online — tersinkron';
+      badge.className = 'conn-badge ' + (syncMeta.dirty ? 'conn-warn' : 'conn-ok');
+    } else {
+      badge.textContent = '🔴 Offline — data aman di komputer ini';
+      badge.className = 'conn-badge conn-off';
+    }
+  }
+  const detail = document.getElementById('syncStatusDetail');
+  if(detail){
+    const last = syncMeta.lastSyncAt ? new Date(syncMeta.lastSyncAt).toLocaleString('id-ID') : 'belum pernah';
+    detail.textContent = `Status koneksi: ${online ? 'Online' : 'Offline'}  •  Terakhir sinkron ke cloud: ${last}  •  ${syncMeta.dirty ? 'Ada perubahan yang BELUM diunggah ke cloud' : 'Semua data sudah tersinkron ke cloud'}`;
+  }
+}
+window.addEventListener('online', updateSyncBadge);
+window.addEventListener('offline', updateSyncBadge);
 
 function pad(n){ return String(n).padStart(2,'0'); }
 function dateKey(d){ return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
@@ -3127,13 +3259,33 @@ document.getElementById('btnLapPrint').addEventListener('click', ()=>window.prin
 
 document.getElementById('btnSimpanPengaturan').addEventListener('click', simpanPengaturan);
 
+document.getElementById('btnSyncPush').addEventListener('click', pushToCloud);
+document.getElementById('btnSyncPull').addEventListener('click', async ()=>{
+  const ok = await pullFromCloud({ confirmFirst:true });
+  if(ok){ toast('Berhasil, memuat ulang halaman...'); setTimeout(()=>location.reload(), 1000); }
+});
+document.getElementById('connStatusBadge').addEventListener('click', ()=> goToTab('pengaturan'));
+
 /* ---------------- boot ---------------- */
 (async function boot(){
   if(!DB_CONFIGURED){
     document.getElementById('setupWarning').classList.remove('hidden');
     return;
   }
+  loadLocalDBFromStorage();
   if(window.__authReady) await window.__authReady;
+
+  const hasLocalData = localDB && Object.keys(localDB).length > 0;
+  if(!hasLocalData){
+    if(navigator.onLine){
+      toast('Mengambil data awal dari cloud...');
+      await pullFromCloud({ silent:true });
+    } else {
+      toast('⚠️ Belum ada data di komputer ini & sedang offline. Sambungkan internet sekali untuk mengambil data awal dari cloud.', true);
+    }
+  }
+  updateSyncBadge();
+
   await initData();
   updateKasirBanners();
   renderAkunKasirTable();
