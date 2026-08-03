@@ -127,6 +127,7 @@
   .search-box input{width:100%;padding:12px 14px;font-size:14px;}
   .search-results{border:1px solid var(--border);border-radius:var(--radius);max-height:360px;overflow-y:auto;background:var(--surface);}
   .search-item{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border-top:1px solid var(--border);gap:10px;}
+  .search-item-expired{opacity:.6;background:var(--danger-soft);}
   .search-item:first-child{border-top:none;}
   .search-item:hover{background:var(--bg);}
   .si-name{font-weight:700;font-size:13.5px;}
@@ -256,6 +257,7 @@
   <button class="conn-badge" id="connStatusBadge" title="Klik untuk buka pengaturan sinkronisasi cloud"></button>
   <div class="kasir-session" id="kasirSessionBadge" style="display:none;">
     <span class="name" id="kasirSessionName"></span>
+    <button class="btn btn-sm" id="btnPengeluaran">💸 Pengeluaran</button>
     <button class="btn btn-sm" id="btnGantiKasir">Ganti Kasir</button>
   </div>
 </header>
@@ -587,6 +589,19 @@
       <tbody id="lapProdukBody"></tbody>
     </table>
 
+    <h2 style="margin-top:22px;">Penjualan per Kategori</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Kategori</th>
+          <th class="num">Qty Terjual</th>
+          <th class="num">Total Penjualan</th>
+          <th class="num">Laba Kotor</th>
+        </tr>
+      </thead>
+      <tbody id="lapKategoriBody"></tbody>
+    </table>
+
     <h2 style="margin-top:22px;">Daftar Transaksi</h2>
     <div class="toolbar" style="margin-bottom:10px;">
       <div class="field search-inline">
@@ -725,8 +740,18 @@
     <div class="card">
       <button class="btn btn-sm" id="btnMuatRiwayatShift">🔄 Muat 14 Hari Terakhir</button>
       <table style="margin-top:12px;">
-        <thead><tr><th>Tanggal</th><th>Kasir</th><th>Modal Awal</th><th>Tunai Sistem</th><th>Kas Fisik</th><th>Selisih</th></tr></thead>
-        <tbody id="riwayatShiftBody"><tr><td colspan="6" class="muted" style="padding:14px;text-align:center;">Klik "Muat 14 Hari Terakhir" untuk melihat data.</td></tr></tbody>
+        <thead><tr><th>Tanggal</th><th>Kasir</th><th>Modal Awal</th><th>Tunai Sistem</th><th>Pengeluaran</th><th>Kas Fisik</th><th>Selisih</th></tr></thead>
+        <tbody id="riwayatShiftBody"><tr><td colspan="7" class="muted" style="padding:14px;text-align:center;">Klik "Muat 14 Hari Terakhir" untuk melihat data.</td></tr></tbody>
+      </table>
+    </div>
+
+    <h2>Log Perubahan Harga Obat</h2>
+    <p class="section-hint">Catatan siapa mengubah harga beli/jual obat, kapan, dan dari berapa ke berapa — untuk memantau kalau ada perubahan harga yang tidak wajar.</p>
+    <div class="card">
+      <button class="btn btn-sm" id="btnMuatLogHarga">🔄 Muat 14 Hari Terakhir</button>
+      <table style="margin-top:12px;">
+        <thead><tr><th>Tanggal</th><th>Obat</th><th>Field</th><th class="num">Sebelum</th><th class="num">Sesudah</th><th>Oleh</th></tr></thead>
+        <tbody id="logHargaBody"><tr><td colspan="6" class="muted" style="padding:14px;text-align:center;">Klik "Muat 14 Hari Terakhir" untuk melihat data.</td></tr></tbody>
       </table>
     </div>
 
@@ -848,6 +873,34 @@
   </div>
 </div>
 
+<div class="modal-overlay hidden" id="pengeluaranModal">
+  <div class="modal wide">
+    <h3>💸 Pengeluaran Kas Harian</h3>
+    <p class="section-hint">Catat uang tunai yang diambil dari laci kasir untuk keperluan operasional harian (mis. beli galon, ongkos kirim, dll), supaya tidak dianggap selisih saat Tutup Kasir.</p>
+    <div class="form-grid" style="margin-bottom:8px;">
+      <div class="field">
+        <label>Jumlah (Rp)</label>
+        <input type="number" id="pengeluaranJumlah" min="0" placeholder="0" style="text-align:left;letter-spacing:normal;font-size:15px;">
+      </div>
+      <div class="field">
+        <label>Keterangan</label>
+        <input type="text" id="pengeluaranKeterangan" placeholder="Contoh: beli galon air">
+      </div>
+    </div>
+    <button class="btn btn-primary btn-block" id="btnSimpanPengeluaran">Tambah Pengeluaran</button>
+    <h4 style="margin-top:16px;text-align:left;">Pengeluaran Shift Ini</h4>
+    <table>
+      <thead><tr><th>Waktu</th><th>Keterangan</th><th class="num">Jumlah</th><th></th></tr></thead>
+      <tbody id="pengeluaranBody"><tr><td colspan="4" class="muted" style="padding:12px;text-align:center;">Belum ada pengeluaran tercatat.</td></tr></tbody>
+    </table>
+    <div class="total-row grand" style="margin-top:8px;">
+      <span>Total Pengeluaran</span>
+      <span id="pengeluaranTotal">Rp 0</span>
+    </div>
+    <button class="cancel" id="btnTutupPengeluaran">Tutup</button>
+  </div>
+</div>
+
 <div class="modal-overlay hidden" id="returModal">
   <div class="modal wide">
     <h3>↩️ Retur Sebagian Item</h3>
@@ -884,6 +937,7 @@
       <div class="s-card"><div class="k">Kas Seharusnya</div><div class="v" id="shiftKasSeharusnya">Rp 0</div></div>
       <div class="s-card"><div class="k">Selisih</div><div class="v" id="shiftSelisih">Rp 0</div></div>
     </div>
+    <p class="muted" id="shiftTunaiBreakdown" style="text-align:left;margin:-6px 0 12px;"></p>
     <div class="field" style="text-align:left;margin-bottom:10px;">
       <label>Uang Tunai Fisik di Laci Sekarang (Rp)</label>
       <input type="number" id="shiftKasFisik" min="0" placeholder="0" style="text-align:left;letter-spacing:normal;font-size:15px;">
@@ -1326,6 +1380,14 @@ async function logRestock(entries){
 /* =========================================================
    TAB KASIR
    ========================================================= */
+function isObatExpired(o){
+  if(!o.kadaluarsa) return false;
+  const d = parseDateInput(o.kadaluarsa);
+  if(isNaN(d)) return false;
+  const today = new Date(); today.setHours(0,0,0,0);
+  return d < today;
+}
+
 function renderSearchResults(query){
   const wrap = document.getElementById('kasirSearchResults');
   if(!query){
@@ -1341,15 +1403,17 @@ function renderSearchResults(query){
     wrap.innerHTML = '<div class="empty-state">Obat tidak ditemukan.</div>';
     return;
   }
-  wrap.innerHTML = results.map(o=>`
-    <div class="search-item" data-id="${o.id}">
+  wrap.innerHTML = results.map(o=>{
+    const expired = isObatExpired(o);
+    return `
+    <div class="search-item ${expired?'search-item-expired':''}" data-id="${o.id}">
       <div>
         <div class="si-name">${escapeHtml(o.nama)}</div>
-        <div class="si-sub">Stok: ${o.stok} ${escapeHtml(o.satuan||'')} ${o.stok<=(o.stokMin||pengaturan.stokMinDefault) ? '<span class="tag tag-low">Menipis</span>' : ''}</div>
+        <div class="si-sub">Stok: ${o.stok} ${escapeHtml(o.satuan||'')} ${o.stok<=(o.stokMin||pengaturan.stokMinDefault) ? '<span class="tag tag-low">Menipis</span>' : ''} ${expired ? '<span class="tag tag-low">Kadaluarsa</span>' : ''}</div>
       </div>
       <div class="si-price">${rupiah(o.hargaJual)}</div>
     </div>
-  `).join('');
+  `;}).join('');
   wrap.querySelectorAll('.search-item').forEach(el=>{
     el.addEventListener('click', ()=> addToCart(el.dataset.id));
   });
@@ -1358,6 +1422,10 @@ function renderSearchResults(query){
 function addToCart(obatId){
   const obat = obatList.find(o=>o.id===obatId);
   if(!obat) return;
+  if(isObatExpired(obat)){
+    toast(`❌ ${obat.nama} sudah KADALUARSA (${obat.kadaluarsa}) dan tidak boleh dijual. Pisahkan dari stok jual.`, true);
+    return;
+  }
   const existing = cart.find(c=>c.obatId===obatId);
   const currentQty = existing ? existing.qty : 0;
   if(currentQty + 1 > obat.stok){
@@ -1846,6 +1914,18 @@ function openObatModal(id){
 }
 function closeObatModal(){ document.getElementById('obatModal').classList.add('hidden'); }
 
+async function logPerubahanHarga(entries){
+  if(!entries || !entries.length) return;
+  const now = new Date();
+  const tanggal = dateKey(now);
+  const existing = await sGet('harga-log/' + tanggal) || {};
+  entries.forEach(en=>{
+    const id = crypto.randomUUID();
+    existing[id] = { ...en, tanggal, waktu: timeStr(now), oleh: currentKasirNama || 'Admin' };
+  });
+  await sSet('harga-log/' + tanggal, existing);
+}
+
 async function simpanObat(){
   const nama = document.getElementById('fNama').value.trim();
   if(!nama){ toast('Nama obat wajib diisi.', true); return; }
@@ -1872,6 +1952,12 @@ async function simpanObat(){
   await saveObatList();
   if(data.stok > stokSebelum){
     await logRestock([{ obatId:data.id, nama:data.nama, stokSebelum, stokSesudah:data.stok, selisih:data.stok-stokSebelum, sumber:'Edit Manual' }]);
+  }
+  if(oldObat && (oldObat.hargaBeli !== data.hargaBeli || oldObat.hargaJual !== data.hargaJual)){
+    const perubahan = [];
+    if(oldObat.hargaBeli !== data.hargaBeli) perubahan.push({ obatId:data.id, nama:data.nama, field:'Harga Beli', sebelum:oldObat.hargaBeli, sesudah:data.hargaBeli });
+    if(oldObat.hargaJual !== data.hargaJual) perubahan.push({ obatId:data.id, nama:data.nama, field:'Harga Jual', sebelum:oldObat.hargaJual, sesudah:data.hargaJual });
+    await logPerubahanHarga(perubahan);
   }
   closeObatModal();
   renderStokTable();
@@ -2001,6 +2087,9 @@ async function buildLaporan(startStr, endStr){
   const end = parseDateInput(endStr);
   const rows = [];
   const produk = {};
+  const kategori = {};
+  const kategoriByObatId = {};
+  obatList.forEach(o=> kategoriByObatId[o.id] = o.kategori || 'Tanpa Kategori');
 
   const dateKeys = [];
   const cur = new Date(start);
@@ -2016,19 +2105,32 @@ async function buildLaporan(startStr, endStr){
       Object.values(raw).forEach(trx=>{
         rows.push(trx);
         if(trx.dibatalkan) return;
+        const totalDiskon = trx.diskon ? Number(trx.diskon.nilaiPotongan||0) : 0;
+        const subtotalTrx = trx.subtotal || (trx.items||[]).reduce((s,it)=>s+(it.subtotal!=null?it.subtotal:(it.hargaJual||0)*(it.qty||0)),0);
         (trx.items||[]).forEach(it=>{
           const qtyNet = Math.max(0, (it.qty||0) - (it.qtyRetur||0));
           if(qtyNet <= 0) return;
+          const itemSubtotalOriginal = it.subtotal!=null ? it.subtotal : (it.hargaJual||0)*(it.qty||0);
+          const itemDiskonShare = (totalDiskon>0 && subtotalTrx>0) ? (itemSubtotalOriginal/subtotalTrx)*totalDiskon : 0;
+          const diskonPerUnit = it.qty>0 ? itemDiskonShare/it.qty : 0;
+          const hargaEfektif = Math.max(0, (it.hargaJual||0) - diskonPerUnit);
+
           if(!produk[it.nama]) produk[it.nama] = { qty:0, total:0, laba:0 };
           produk[it.nama].qty += qtyNet;
-          produk[it.nama].total += qtyNet * it.hargaJual;
-          produk[it.nama].laba += (it.hargaJual - it.hargaBeli) * qtyNet;
+          produk[it.nama].total += qtyNet * hargaEfektif;
+          produk[it.nama].laba += (hargaEfektif - (it.hargaBeli||0)) * qtyNet;
+
+          const kat = it.obatId ? (kategoriByObatId[it.obatId] || 'Tanpa Kategori') : 'Item Custom / Lainnya';
+          if(!kategori[kat]) kategori[kat] = { qty:0, total:0, laba:0 };
+          kategori[kat].qty += qtyNet;
+          kategori[kat].total += qtyNet * hargaEfektif;
+          kategori[kat].laba += (hargaEfektif - (it.hargaBeli||0)) * qtyNet;
         });
       });
     }
   });
   rows.sort((a,b)=> (a.tanggal+a.waktu).localeCompare(b.tanggal+b.waktu));
-  return { rows, produk };
+  return { rows, produk, kategori };
 }
 
 /* ---------------- akun kasir (login) ---------------- */
@@ -2153,12 +2255,98 @@ function doLogoutKasir(){
   activateTab('kasir');
   openLoginGate();
 }
+async function tambahPengeluaran(jumlah, keterangan){
+  const now = new Date();
+  const tanggal = dateKey(now);
+  const existing = await sGet('pengeluaran/' + tanggal) || {};
+  const id = crypto.randomUUID();
+  existing[id] = { id, jumlah, keterangan, kasir: currentKasirNama || 'Admin', tanggal, waktu: timeStr(now) };
+  await sSet('pengeluaran/' + tanggal, existing);
+  return existing[id];
+}
+async function hapusPengeluaran(tanggal, id){
+  const existing = await sGet('pengeluaran/' + tanggal) || {};
+  delete existing[id];
+  await sSet('pengeluaran/' + tanggal, existing);
+}
+async function renderPengeluaranList(){
+  const body = document.getElementById('pengeluaranBody');
+  if(!currentShift){
+    body.innerHTML = `<tr><td colspan="4" class="muted" style="padding:12px;text-align:center;">Belum mulai shift.</td></tr>`;
+    document.getElementById('pengeluaranTotal').textContent = rupiah(0);
+    return;
+  }
+  const raw = await sGet('pengeluaran/' + currentShift.tanggal) || {};
+  const rows = Object.values(raw)
+    .filter(p => p.kasir === currentShift.kasir && p.waktu >= currentShift.waktuMulai)
+    .sort((a,b)=> b.waktu.localeCompare(a.waktu));
+  const total = rows.reduce((s,p)=>s+(p.jumlah||0),0);
+  document.getElementById('pengeluaranTotal').textContent = rupiah(total);
+  body.innerHTML = rows.length ? rows.map(p=>`
+    <tr>
+      <td>${p.waktu}</td>
+      <td>${escapeHtml(p.keterangan||'-')}</td>
+      <td class="num">${rupiah(p.jumlah)}</td>
+      <td><button class="btn btn-sm btn-hapus-pengeluaran" data-id="${p.id}">🗑️</button></td>
+    </tr>`).join('') : `<tr><td colspan="4" class="muted" style="padding:12px;text-align:center;">Belum ada pengeluaran tercatat.</td></tr>`;
+  body.querySelectorAll('.btn-hapus-pengeluaran').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const id = btn.dataset.id;
+      pinCallback = async ()=>{
+        await hapusPengeluaran(currentShift.tanggal, id);
+        renderPengeluaranList();
+        toast('Pengeluaran dihapus.');
+      };
+      openPinModal('Masukkan PIN untuk menghapus pengeluaran ini.');
+    });
+  });
+}
+function openPengeluaranModal(){
+  if(!currentShift){ toast('Mulai shift terlebih dahulu.', true); return; }
+  document.getElementById('pengeluaranJumlah').value = '';
+  document.getElementById('pengeluaranKeterangan').value = '';
+  document.getElementById('pengeluaranModal').classList.remove('hidden');
+  renderPengeluaranList();
+}
+document.getElementById('btnPengeluaran').addEventListener('click', openPengeluaranModal);
+document.getElementById('btnTutupPengeluaran').addEventListener('click', ()=>{
+  document.getElementById('pengeluaranModal').classList.add('hidden');
+});
+document.getElementById('btnSimpanPengeluaran').addEventListener('click', async ()=>{
+  const jumlah = Math.floor(Number(document.getElementById('pengeluaranJumlah').value))||0;
+  const keterangan = document.getElementById('pengeluaranKeterangan').value.trim();
+  if(jumlah <= 0){ toast('Isi jumlah pengeluaran terlebih dahulu.', true); return; }
+  if(!keterangan){ toast('Isi keterangan pengeluaran.', true); return; }
+  await tambahPengeluaran(jumlah, keterangan);
+  document.getElementById('pengeluaranJumlah').value = '';
+  document.getElementById('pengeluaranKeterangan').value = '';
+  toast('Pengeluaran dicatat ✓');
+  renderPengeluaranList();
+});
+
 async function hitungTunaiSistemShift(shift){
   const raw = await sGet('transaksi/' + shift.tanggal);
-  if(!raw) return 0;
-  return Object.values(raw)
-    .filter(trx => trx.kasir === shift.kasir && trx.metode === 'Tunai' && !trx.dibatalkan && trx.waktu >= shift.waktuMulai)
-    .reduce((s,trx)=>s+(trx.total||0), 0);
+  let tunaiTransaksi = 0;
+  if(raw){
+    tunaiTransaksi = Object.values(raw)
+      .filter(trx => trx.kasir === shift.kasir && trx.metode === 'Tunai' && !trx.dibatalkan && trx.waktu >= shift.waktuMulai)
+      .reduce((s,trx)=>s+(trx.total||0), 0);
+  }
+  const cicilanRaw = await sGet('piutang-pembayaran/' + shift.tanggal);
+  let tunaiCicilan = 0;
+  if(cicilanRaw){
+    tunaiCicilan = Object.values(cicilanRaw)
+      .filter(p => p.kasir === shift.kasir && p.metode === 'Tunai' && p.waktu >= shift.waktuMulai)
+      .reduce((s,p)=>s+(p.jumlah||0), 0);
+  }
+  const pengeluaranRaw = await sGet('pengeluaran/' + shift.tanggal);
+  let pengeluaran = 0;
+  if(pengeluaranRaw){
+    pengeluaran = Object.values(pengeluaranRaw)
+      .filter(p => p.kasir === shift.kasir && p.waktu >= shift.waktuMulai)
+      .reduce((s,p)=>s+(p.jumlah||0), 0);
+  }
+  return { total: tunaiTransaksi + tunaiCicilan - pengeluaran, tunaiTransaksi, tunaiCicilan, pengeluaran };
 }
 function updateSelisihView(){
   if(!currentShift) return;
@@ -2179,12 +2367,16 @@ async function openShiftCloseModal(){
   document.getElementById('shiftSelisih').textContent = '-';
   document.getElementById('shiftKasFisik').value = '';
   document.getElementById('shiftCloseModal').classList.remove('hidden');
-  const tunai = await hitungTunaiSistemShift(currentShift);
+  const hasil = await hitungTunaiSistemShift(currentShift);
+  const tunai = hasil.total;
   currentShift._tunaiSistem = tunai;
+  currentShift._pengeluaran = hasil.pengeluaran;
   const seharusnya = Number(currentShift.modalAwal||0) + tunai;
   currentShift._seharusnya = seharusnya;
   document.getElementById('shiftTunaiSistem').textContent = rupiah(tunai);
   document.getElementById('shiftKasSeharusnya').textContent = rupiah(seharusnya);
+  document.getElementById('shiftTunaiBreakdown').textContent =
+    `Rincian: Penjualan Tunai ${rupiah(hasil.tunaiTransaksi)} + Cicilan Piutang (Tunai) ${rupiah(hasil.tunaiCicilan)} − Pengeluaran Kas ${rupiah(hasil.pengeluaran)}`;
   updateSelisihView();
 }
 document.getElementById('btnBatalTutupShift').addEventListener('click', ()=>{
@@ -2196,12 +2388,14 @@ document.getElementById('btnTutupShift').addEventListener('click', async ()=>{
   const now = new Date();
   currentShift.waktuTutup = timeStr(now);
   currentShift.totalTunaiSistem = currentShift._tunaiSistem||0;
+  currentShift.totalPengeluaran = currentShift._pengeluaran||0;
   currentShift.kasFisik = kasFisik;
   currentShift.selisih = kasFisik - Number(currentShift._seharusnya||0);
   currentShift.status = 'tutup';
   const toSave = { ...currentShift };
   delete toSave._tunaiSistem;
   delete toSave._seharusnya;
+  delete toSave._pengeluaran;
   const existing = await sGet('shift/' + currentShift.tanggal) || {};
   existing[currentShift.id] = toSave;
   await sSet('shift/' + currentShift.tanggal, existing);
@@ -2268,7 +2462,7 @@ async function renderLaporan(){
   document.getElementById('lapTransBody').innerHTML = `<tr><td colspan="8" class="muted">Menghitung laporan...</td></tr>`;
   document.getElementById('lapProdukBody').innerHTML = '';
   try{
-    const { rows, produk } = await buildLaporan(startVal, endVal);
+    const { rows, produk, kategori } = await buildLaporan(startVal, endVal);
     const rowsAktif = rows.filter(r=>!r.dibatalkan);
     renderTrendChart(rowsAktif, startVal, endVal);
     rows.sort((a,b)=> (b.tanggal+b.waktu).localeCompare(a.tanggal+a.waktu)); // tampilkan transaksi terbaru di atas
@@ -2295,9 +2489,18 @@ async function renderLaporan(){
         <td class="num">${rupiah(p.laba)}</td>
       </tr>`).join('') : `<tr><td colspan="4" class="muted" style="padding:14px;text-align:center;">Tidak ada data.</td></tr>`;
 
+    const kategoriArr = Object.entries(kategori).map(([nama,v])=>({nama,...v})).sort((a,b)=>b.total-a.total);
+    document.getElementById('lapKategoriBody').innerHTML = kategoriArr.length ? kategoriArr.map(k=>`
+      <tr>
+        <td>${escapeHtml(k.nama)}</td>
+        <td class="num">${k.qty}</td>
+        <td class="num">${rupiah(k.total)}</td>
+        <td class="num">${rupiah(k.laba)}</td>
+      </tr>`).join('') : `<tr><td colspan="4" class="muted" style="padding:14px;text-align:center;">Tidak ada data.</td></tr>`;
+
     document.getElementById('lapTransBody').innerHTML = rows.length ? buildLapTransRows(rows) : `<tr><td colspan="8" class="muted" style="padding:14px;text-align:center;">Tidak ada transaksi.</td></tr>`;
 
-    lapCache = { rows, produk: produkArr, range: `${startVal}_sd_${endVal}` };
+    lapCache = { rows, produk: produkArr, kategori: kategoriArr, range: `${startVal}_sd_${endVal}` };
     wireLapTransActions();
     const searchInput = document.getElementById('lapTransSearch');
     if(searchInput) searchInput.value = '';
@@ -2691,7 +2894,7 @@ document.querySelectorAll('.tab').forEach(tabBtn=>{
 });
 async function renderShiftLog(){
   const body = document.getElementById('riwayatShiftBody');
-  body.innerHTML = `<tr><td colspan="6" class="muted">Memuat...</td></tr>`;
+  body.innerHTML = `<tr><td colspan="7" class="muted">Memuat...</td></tr>`;
   try{
     const dateKeys = [];
     const cur = new Date();
@@ -2708,17 +2911,47 @@ async function renderShiftLog(){
         <td>${escapeHtml(s.kasir||'-')}</td>
         <td class="num">${rupiah(s.modalAwal)}</td>
         <td class="num">${s.status==='tutup' ? rupiah(s.totalTunaiSistem) : '-'}</td>
+        <td class="num">${s.status==='tutup' ? rupiah(s.totalPengeluaran||0) : '-'}</td>
         <td class="num">${s.status==='tutup' ? rupiah(s.kasFisik) : '-'}</td>
         <td class="num" style="color:${s.status!=='tutup' ? 'inherit' : (s.selisih===0?'var(--primary-dark)':'var(--danger)')};font-weight:700;">
           ${s.status==='tutup' ? (s.selisih>0?'+':'')+rupiah(s.selisih) : '<span class="tag tag-soon">Sedang Bertugas</span>'}
         </td>
-      </tr>`).join('') : `<tr><td colspan="6" class="muted" style="padding:14px;text-align:center;">Belum ada data.</td></tr>`;
+      </tr>`).join('') : `<tr><td colspan="7" class="muted" style="padding:14px;text-align:center;">Belum ada data.</td></tr>`;
   }catch(e){
     console.error('Gagal memuat riwayat shift', e);
-    body.innerHTML = `<tr><td colspan="6" style="padding:14px;text-align:center;color:var(--danger);">Gagal memuat data. Cek koneksi internet.</td></tr>`;
+    body.innerHTML = `<tr><td colspan="7" style="padding:14px;text-align:center;color:var(--danger);">Gagal memuat data. Cek koneksi internet.</td></tr>`;
   }
 }
 document.getElementById('btnMuatRiwayatShift').addEventListener('click', renderShiftLog);
+
+async function renderHargaLog(){
+  const body = document.getElementById('logHargaBody');
+  body.innerHTML = `<tr><td colspan="6" class="muted">Memuat...</td></tr>`;
+  try{
+    const dateKeys = [];
+    const cur = new Date();
+    for(let i=0;i<14;i++){ dateKeys.push(dateKey(cur)); cur.setDate(cur.getDate()-1); }
+    const rawResults = await Promise.all(dateKeys.map(ds => sGet('harga-log/' + ds)));
+    let rows = [];
+    rawResults.forEach((raw)=>{
+      if(raw) rows = rows.concat(Object.values(raw));
+    });
+    rows.sort((a,b)=> (b.tanggal+b.waktu).localeCompare(a.tanggal+a.waktu));
+    body.innerHTML = rows.length ? rows.map(r=>`
+      <tr>
+        <td>${fmtDateFull(parseDateInput(r.tanggal))} ${r.waktu||''}</td>
+        <td>${escapeHtml(r.nama)}</td>
+        <td>${escapeHtml(r.field)}</td>
+        <td class="num">${rupiah(r.sebelum)}</td>
+        <td class="num">${rupiah(r.sesudah)}</td>
+        <td>${escapeHtml(r.oleh||'-')}</td>
+      </tr>`).join('') : `<tr><td colspan="6" class="muted" style="padding:14px;text-align:center;">Belum ada perubahan harga tercatat.</td></tr>`;
+  }catch(e){
+    console.error('Gagal memuat log harga', e);
+    body.innerHTML = `<tr><td colspan="6" style="padding:14px;text-align:center;color:var(--danger);">Gagal memuat data.</td></tr>`;
+  }
+}
+document.getElementById('btnMuatLogHarga').addEventListener('click', renderHargaLog);
 
 /* =========================================================
    TAB PIUTANG (KASBON)
@@ -2793,6 +3026,15 @@ document.getElementById('btnBatalBayarPiutang').addEventListener('click', ()=>{
   document.getElementById('bayarPiutangModal').classList.add('hidden');
   bayarPiutangTrx = null;
 });
+async function logPembayaranPiutang(entry){
+  const now = new Date();
+  const tanggal = dateKey(now);
+  const existing = await sGet('piutang-pembayaran/' + tanggal) || {};
+  const id = crypto.randomUUID();
+  existing[id] = { ...entry, tanggal, waktu: timeStr(now) };
+  await sSet('piutang-pembayaran/' + tanggal, existing);
+}
+
 document.getElementById('btnSimpanBayarPiutang').addEventListener('click', async ()=>{
   const trx = bayarPiutangTrx;
   if(!trx) return;
@@ -2810,6 +3052,13 @@ document.getElementById('btnSimpanBayarPiutang').addEventListener('click', async
   const existingTrx = await sGet('transaksi/' + trx.tanggal) || {};
   existingTrx[trx.id] = trx;
   await sSet('transaksi/' + trx.tanggal, existingTrx);
+
+  await logPembayaranPiutang({
+    noStruk: trx.noStruk,
+    namaPasien: trx.piutang.namaPasien,
+    jumlah, metode,
+    kasir: currentKasirNama || 'Admin',
+  });
 
   document.getElementById('bayarPiutangModal').classList.add('hidden');
   bayarPiutangTrx = null;
