@@ -574,7 +574,7 @@
       <div id="lapChartContainer"></div>
     </div>
 
-    <h2 style="margin-top:22px;">Produk Terlaris</h2>
+    <h2 style="margin-top:22px;">Produk Terlaris (Top 10)</h2>
     <table>
       <thead>
         <tr>
@@ -1973,6 +1973,7 @@ async function renderResep(){
     }
     cur.setDate(cur.getDate()+1);
   }
+  rows.sort((a,b)=> (b.tanggal+b.waktu).localeCompare(a.tanggal+a.waktu));
 
   if(rows.length===0){
     body.innerHTML = `<tr><td colspan="6" class="muted" style="padding:20px;text-align:center;">Tidak ada transaksi resep pada periode ini.</td></tr>`;
@@ -2270,6 +2271,7 @@ async function renderLaporan(){
     const { rows, produk } = await buildLaporan(startVal, endVal);
     const rowsAktif = rows.filter(r=>!r.dibatalkan);
     renderTrendChart(rowsAktif, startVal, endVal);
+    rows.sort((a,b)=> (b.tanggal+b.waktu).localeCompare(a.tanggal+a.waktu)); // tampilkan transaksi terbaru di atas
 
     const totalPenjualan = rowsAktif.reduce((s,r)=>s+(r.total||0),0);
     const totalHpp = rowsAktif.reduce((s,r)=>s+(r.totalHpp||0),0);
@@ -2284,7 +2286,8 @@ async function renderLaporan(){
     `;
 
     const produkArr = Object.entries(produk).map(([nama,v])=>({nama,...v})).sort((a,b)=>b.total-a.total);
-    document.getElementById('lapProdukBody').innerHTML = produkArr.length ? produkArr.map(p=>`
+    const produkTop10 = produkArr.slice(0, 10);
+    document.getElementById('lapProdukBody').innerHTML = produkTop10.length ? produkTop10.map(p=>`
       <tr>
         <td>${escapeHtml(p.nama)}</td>
         <td class="num">${p.qty}</td>
