@@ -66,6 +66,21 @@
   .tab.active{background:var(--primary);color:#fff;}
   .tab:not(.active):hover{color:var(--ink);background:var(--surface);}
 
+  .area-tabs{display:flex;gap:8px;}
+  .area-tab{
+    border:1.5px solid var(--border);background:var(--surface);padding:9px 18px;border-radius:10px;
+    font-family:var(--font-display);font-weight:800;font-size:13.5px;color:var(--ink-soft);transition:.15s;
+  }
+  .area-tab.active{background:var(--primary-dark);color:#fff;border-color:var(--primary-dark);}
+  .area-tab:not(.active):hover{border-color:var(--primary);color:var(--primary-dark);}
+  .subtopbar{
+    background:var(--bg);border-bottom:1px solid var(--border);
+    padding:10px 20px;
+    display:flex;overflow-x:auto;
+  }
+  .subtopbar .tabs{border:none;background:transparent;padding:0;}
+  .subtopbar .tabs.hidden{display:none;}
+
   main{max-width:1180px;margin:0 auto;padding:26px 20px 80px;}
   .tab-panel{display:none;}
   .tab-panel.active{display:block;animation:fade .25s ease;}
@@ -245,15 +260,9 @@
       <small>Sistem Kasir & Manajemen Apotek</small>
     </div>
   </div>
-  <nav class="tabs">
-    <button class="tab active" data-tab="kasir">Kasir</button>
-    <button class="tab" data-tab="pasien">Pasien</button>
-    <button class="tab" data-tab="riwayat">Riwayat Transaksi</button>
-    <button class="tab" data-tab="stok">Stok Obat</button>
-    <button class="tab" data-tab="resep">Resep Dokter</button>
-    <button class="tab" data-tab="piutang">Piutang</button>
-    <button class="tab" data-tab="laporan">Laporan Keuangan</button>
-    <button class="tab" data-tab="pengaturan">Pengaturan</button>
+  <nav class="area-tabs">
+    <button class="area-tab active" data-area="kasir">🏪 Kasir</button>
+    <button class="area-tab" data-area="klinik">🏥 Klinik</button>
   </nav>
   <button class="conn-badge" id="connStatusBadge" title="Klik untuk buka pengaturan sinkronisasi cloud"></button>
   <div class="kasir-session" id="kasirSessionBadge" style="display:none;">
@@ -262,6 +271,22 @@
     <button class="btn btn-sm" id="btnGantiKasir">Ganti Kasir</button>
   </div>
 </header>
+
+<div class="subtopbar">
+  <nav class="tabs" id="areaSubTabs-kasir">
+    <button class="tab active" data-tab="kasir">Kasir</button>
+    <button class="tab" data-tab="riwayat">Riwayat Transaksi</button>
+    <button class="tab" data-tab="stok">Stok Obat</button>
+    <button class="tab" data-tab="resep">Resep Dokter</button>
+    <button class="tab" data-tab="piutang">Piutang</button>
+    <button class="tab" data-tab="laporan">Laporan Keuangan</button>
+    <button class="tab" data-tab="pengaturan">Pengaturan</button>
+  </nav>
+  <nav class="tabs hidden" id="areaSubTabs-klinik">
+    <button class="tab" data-tab="pasien">Pasien</button>
+    <button class="tab" data-tab="antrian">Antrian Klinik</button>
+  </nav>
+</div>
 
 <main>
 
@@ -430,6 +455,32 @@
         </tr>
       </thead>
       <tbody id="pasienBody"></tbody>
+    </table>
+  </section>
+
+  <!-- ===== TAB ANTRIAN KLINIK ===== -->
+  <section class="tab-panel" id="tab-antrian">
+    <h2>Antrian Klinik Hari Ini</h2>
+    <p class="section-hint" id="antrianTanggalLabel">Daftar pasien yang berkunjung hari ini, urut nomor antrian.</p>
+
+    <div class="toolbar">
+      <button class="btn btn-primary" id="btnTambahAntrian">+ Daftarkan Pasien</button>
+    </div>
+
+    <div class="summary-cards" id="antrianSummaryCards"></div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>No.</th>
+          <th>Nama Pasien</th>
+          <th>Keluhan</th>
+          <th>Waktu Daftar</th>
+          <th>Status</th>
+          <th>Aksi</th>
+        </tr>
+      </thead>
+      <tbody id="antrianBody"></tbody>
     </table>
   </section>
 
@@ -861,6 +912,25 @@
     </div>
     <button class="btn btn-primary btn-block" id="btnSimpanObat" style="margin-top:14px;">Simpan</button>
     <button class="cancel" id="btnBatalObat">Batal</button>
+  </div>
+</div>
+
+<div class="modal-overlay hidden" id="antrianModal">
+  <div class="modal wide">
+    <h3>Daftarkan Pasien ke Antrian</h3>
+    <div class="field full" style="margin-bottom:10px;">
+      <label>Cari Pasien</label>
+      <input type="text" id="antrianCariPasien" placeholder="Ketik nama / no. RM pasien...">
+      <div id="antrianPasienResults" class="search-results" style="max-height:180px;margin-top:6px;"></div>
+    </div>
+    <div id="antrianPasienTerpilih" class="banner-alert" style="display:none;"></div>
+    <button class="btn" id="btnAntrianPasienBaru" style="margin-bottom:10px;">+ Pasien Baru Belum Terdaftar</button>
+    <div class="field full">
+      <label>Keluhan Singkat (opsional)</label>
+      <textarea id="antrianKeluhan" rows="2" placeholder="Contoh: demam 2 hari, batuk pilek"></textarea>
+    </div>
+    <button class="btn btn-primary btn-block" id="btnSimpanAntrian" style="margin-top:14px;">Tambahkan ke Antrian</button>
+    <button class="cancel" id="btnBatalAntrian">Batal</button>
   </div>
 </div>
 
@@ -1578,6 +1648,11 @@ async function simpanPasien(){
   closePasienModal();
   renderPasienTable();
   toast(editingPasienId ? 'Data pasien diperbarui ✓' : `Pasien baru tersimpan ✓ (No. RM: ${data.noRm})`);
+  if(antrianAwaitingNewPasien && !editingPasienId){
+    antrianAwaitingNewPasien = false;
+    pilihPasienAntrian(data);
+    document.getElementById('antrianModal').classList.remove('hidden');
+  }
 }
 
 async function handleImportPasienFile(file){
@@ -1620,6 +1695,147 @@ async function handleImportPasienFile(file){
   await savePasienList();
   renderPasienTable();
   toast(`${count} pasien berhasil diimpor ✓`);
+}
+
+/* =========================================================
+   TAB ANTRIAN KLINIK
+   ========================================================= */
+let antrianList = []; // antrian pasien untuk HARI INI saja
+let antrianTanggalAktif = null;
+let antrianPasienTerpilih = null; // {id,nama,noRm}
+let antrianAwaitingNewPasien = false;
+
+async function loadAntrianHariIni(){
+  const tanggal = dateKey(new Date());
+  antrianTanggalAktif = tanggal;
+  const raw = await sGet('antrian-log/' + tanggal);
+  antrianList = raw ? Object.values(raw) : [];
+}
+async function saveAntrianList(){
+  const obj = {};
+  antrianList.forEach(a=> obj[a.id] = a);
+  await sSet('antrian-log/' + antrianTanggalAktif, obj);
+}
+
+function renderAntrianSummary(){
+  const wrap = document.getElementById('antrianSummaryCards');
+  if(!wrap) return;
+  const menunggu = antrianList.filter(a=>a.status==='Menunggu').length;
+  const diperiksa = antrianList.filter(a=>a.status==='Diperiksa').length;
+  const selesai = antrianList.filter(a=>a.status==='Selesai').length;
+  wrap.innerHTML = `
+    <div class="s-card"><div class="k">Total Hari Ini</div><div class="v">${antrianList.length}</div></div>
+    <div class="s-card"><div class="k">Menunggu</div><div class="v">${menunggu}</div></div>
+    <div class="s-card"><div class="k">Sedang Diperiksa</div><div class="v">${diperiksa}</div></div>
+    <div class="s-card"><div class="k">Selesai</div><div class="v">${selesai}</div></div>
+  `;
+}
+
+function renderAntrianTable(){
+  const now = new Date();
+  document.getElementById('antrianTanggalLabel').textContent =
+    `Daftar pasien yang berkunjung hari ini, ${now.getDate()} ${BULAN[now.getMonth()]} ${now.getFullYear()} — urut nomor antrian.`;
+
+  const body = document.getElementById('antrianBody');
+  const list = [...antrianList].sort((a,b)=>a.noAntrian-b.noAntrian);
+  if(list.length===0){
+    body.innerHTML = `<tr><td colspan="6" class="muted" style="padding:20px;text-align:center;">Belum ada pasien terdaftar hari ini.</td></tr>`;
+    renderAntrianSummary();
+    return;
+  }
+  const statusTag = s => s==='Selesai' ? '<span class="tag tag-ok">Selesai</span>'
+    : s==='Diperiksa' ? '<span class="tag tag-soon">Diperiksa</span>'
+    : '<span class="tag tag-low">Menunggu</span>';
+
+  body.innerHTML = list.map(a=>`
+    <tr data-id="${a.id}">
+      <td>${a.noAntrian}</td>
+      <td>${escapeHtml(a.namaPasien)}</td>
+      <td>${escapeHtml(a.keluhan||'-')}</td>
+      <td>${a.waktuDaftar||'-'}</td>
+      <td>${statusTag(a.status)}</td>
+      <td>
+        ${a.status==='Menunggu' ? `<button class="btn btn-sm mulai-periksa" data-id="${a.id}">Mulai Periksa</button>` : ''}
+        ${a.status==='Diperiksa' ? `<button class="btn btn-sm selesai-periksa" data-id="${a.id}">Tandai Selesai</button>` : ''}
+        <button class="btn btn-sm btn-danger del-antrian" data-id="${a.id}">Hapus</button>
+      </td>
+    </tr>`).join('');
+
+  body.querySelectorAll('.mulai-periksa').forEach(b=>b.addEventListener('click', async e=>{
+    const a = antrianList.find(x=>x.id===e.target.dataset.id);
+    if(a){ a.status='Diperiksa'; await saveAntrianList(); renderAntrianTable(); }
+  }));
+  body.querySelectorAll('.selesai-periksa').forEach(b=>b.addEventListener('click', async e=>{
+    const a = antrianList.find(x=>x.id===e.target.dataset.id);
+    if(a){ a.status='Selesai'; await saveAntrianList(); renderAntrianTable(); }
+  }));
+  body.querySelectorAll('.del-antrian').forEach(b=>b.addEventListener('click', async e=>{
+    const id = e.target.dataset.id;
+    const a = antrianList.find(x=>x.id===id);
+    if(!a || !confirm(`Hapus "${a.namaPasien}" dari antrian hari ini?`)) return;
+    antrianList = antrianList.filter(x=>x.id!==id);
+    await saveAntrianList();
+    renderAntrianTable();
+    toast('Dihapus dari antrian.');
+  }));
+  renderAntrianSummary();
+}
+
+function renderAntrianPasienResults(query){
+  const wrap = document.getElementById('antrianPasienResults');
+  if(!query){ wrap.innerHTML=''; return; }
+  const q = query.toLowerCase();
+  const results = pasienList.filter(p=>
+    (p.nama||'').toLowerCase().includes(q) || (p.noRm||'').toLowerCase().includes(q)
+  ).slice(0,15);
+  if(results.length===0){
+    wrap.innerHTML = `<div class="search-item"><span class="muted">Pasien tidak ditemukan. Klik "+ Pasien Baru" di bawah.</span></div>`;
+    return;
+  }
+  wrap.innerHTML = results.map(p=>`
+    <div class="search-item pilih-pasien-antrian" data-id="${p.id}" style="cursor:pointer;">
+      <div><div class="si-name">${escapeHtml(p.nama)}</div><div class="si-sub">${escapeHtml(p.noRm||'-')} ${p.tglLahir?'· '+calcUmur(p.tglLahir):''}</div></div>
+    </div>`).join('');
+  wrap.querySelectorAll('.pilih-pasien-antrian').forEach(el=>el.addEventListener('click', ()=>{
+    const p = pasienList.find(x=>x.id===el.dataset.id);
+    pilihPasienAntrian(p);
+  }));
+}
+function pilihPasienAntrian(p){
+  antrianPasienTerpilih = { id:p.id, nama:p.nama, noRm:p.noRm };
+  const banner = document.getElementById('antrianPasienTerpilih');
+  banner.style.display = '';
+  banner.innerHTML = `<span>✅ Pasien terpilih: <strong>${escapeHtml(p.nama)}</strong> (${escapeHtml(p.noRm||'-')})</span>`;
+  document.getElementById('antrianCariPasien').value = '';
+  document.getElementById('antrianPasienResults').innerHTML = '';
+}
+
+function openAntrianModal(){
+  antrianPasienTerpilih = null;
+  document.getElementById('antrianPasienTerpilih').style.display='none';
+  document.getElementById('antrianCariPasien').value = '';
+  document.getElementById('antrianPasienResults').innerHTML = '';
+  document.getElementById('antrianKeluhan').value = '';
+  document.getElementById('antrianModal').classList.remove('hidden');
+}
+function closeAntrianModal(){ document.getElementById('antrianModal').classList.add('hidden'); }
+
+async function simpanAntrian(){
+  if(!antrianPasienTerpilih){ toast('Pilih pasien terlebih dulu (cari atau tambah pasien baru).', true); return; }
+  const noAntrian = antrianList.length ? Math.max(...antrianList.map(a=>a.noAntrian)) + 1 : 1;
+  antrianList.push({
+    id: crypto.randomUUID(),
+    pasienId: antrianPasienTerpilih.id,
+    namaPasien: antrianPasienTerpilih.nama,
+    noAntrian,
+    keluhan: document.getElementById('antrianKeluhan').value.trim(),
+    status: 'Menunggu',
+    waktuDaftar: timeStr(new Date()),
+  });
+  await saveAntrianList();
+  closeAntrianModal();
+  renderAntrianTable();
+  toast(`${antrianPasienTerpilih.nama} ditambahkan ke antrian (No. ${noAntrian}) ✓`);
 }
 
 /* =========================================================
@@ -3137,6 +3353,13 @@ function goToTab(target){
 document.querySelectorAll('.tab').forEach(tabBtn=>{
   tabBtn.addEventListener('click', ()=> goToTab(tabBtn.dataset.tab));
 });
+document.querySelectorAll('.area-tab').forEach(areaBtn=>{
+  areaBtn.addEventListener('click', ()=>{
+    const area = areaBtn.dataset.area;
+    const defaultTab = area==='klinik' ? 'pasien' : 'kasir';
+    goToTab(defaultTab);
+  });
+});
 async function renderShiftLog(){
   const body = document.getElementById('riwayatShiftBody');
   body.innerHTML = `<tr><td colspan="7" class="muted">Memuat...</td></tr>`;
@@ -3383,12 +3606,23 @@ document.getElementById('btnGoStokMenipis').addEventListener('click', ()=> goToT
 document.getElementById('btnGoKadaluarsa').addEventListener('click', ()=> goToTab('stok'));
 document.getElementById('btnGoPengaturanPin').addEventListener('click', ()=> goToTab('pengaturan'));
 
+const TAB_AREA = { kasir:'kasir', riwayat:'kasir', stok:'kasir', resep:'kasir', piutang:'kasir', laporan:'kasir', pengaturan:'kasir', pasien:'klinik', antrian:'klinik' };
+
+function activateArea(area){
+  document.querySelectorAll('.area-tab').forEach(b=>b.classList.toggle('active', b.dataset.area===area));
+  document.getElementById('areaSubTabs-kasir').classList.toggle('hidden', area!=='kasir');
+  document.getElementById('areaSubTabs-klinik').classList.toggle('hidden', area!=='klinik');
+}
+
 function activateTab(target){
+  const area = TAB_AREA[target] || 'kasir';
+  activateArea(area);
   document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active', b.dataset.tab===target));
   document.querySelectorAll('.tab-panel').forEach(p=>p.classList.toggle('active', p.id==='tab-'+target));
 
   if(target === 'stok'){ renderStokTable(); renderStokSummary(); }
   if(target === 'pasien'){ renderPasienTable(); }
+  if(target === 'antrian'){ loadAntrianHariIni().then(renderAntrianTable); }
   if(target === 'riwayat'){
     if(!document.getElementById('riwayatStart').value){
       const now = new Date();
@@ -3699,6 +3933,15 @@ document.getElementById('fileImportPasienExcel').addEventListener('change', asyn
   try{ await handleImportPasienFile(file); }
   catch(err){ console.error(err); toast('Gagal membaca file. Pastikan format Excel/CSV benar.', true); }
   e.target.value = '';
+});
+document.getElementById('btnTambahAntrian').addEventListener('click', openAntrianModal);
+document.getElementById('btnBatalAntrian').addEventListener('click', closeAntrianModal);
+document.getElementById('btnSimpanAntrian').addEventListener('click', simpanAntrian);
+document.getElementById('antrianCariPasien').addEventListener('input', e=>renderAntrianPasienResults(e.target.value));
+document.getElementById('btnAntrianPasienBaru').addEventListener('click', ()=>{
+  antrianAwaitingNewPasien = true;
+  closeAntrianModal();
+  openPasienModal(null);
 });
 
 
