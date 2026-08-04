@@ -247,6 +247,7 @@
   </div>
   <nav class="tabs">
     <button class="tab active" data-tab="kasir">Kasir</button>
+    <button class="tab" data-tab="pasien">Pasien</button>
     <button class="tab" data-tab="riwayat">Riwayat Transaksi</button>
     <button class="tab" data-tab="stok">Stok Obat</button>
     <button class="tab" data-tab="resep">Resep Dokter</button>
@@ -396,6 +397,40 @@
         <button class="btn btn-block" id="btnKosongkanKeranjang" style="margin-top:8px;">Kosongkan Keranjang</button>
       </div>
     </div>
+  </section>
+
+  <!-- ===== TAB PASIEN ===== -->
+  <section class="tab-panel" id="tab-pasien">
+    <h2>Data Pasien</h2>
+    <p class="section-hint">Daftar pasien klinik Apotek Masema Medika. Data ini akan dipakai saat dokter membuat resep dan rekam medis.</p>
+
+    <div class="toolbar">
+      <div class="field search-inline">
+        <label>Cari Pasien</label>
+        <input type="text" id="pasienSearch" placeholder="Cari nama / no. RM / no. HP...">
+      </div>
+      <button class="btn btn-primary" id="btnTambahPasien">+ Pasien Baru</button>
+      <button class="btn" id="btnImportPasienExcel">⬆️ Import dari Excel</button>
+      <input type="file" id="fileImportPasienExcel" accept=".xlsx,.xls,.csv" style="display:none;">
+    </div>
+
+    <div class="summary-cards" id="pasienSummaryCards"></div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>No. RM</th>
+          <th>Nama Pasien</th>
+          <th>Tgl Lahir</th>
+          <th>JK</th>
+          <th>No. HP</th>
+          <th>Alamat</th>
+          <th>Alergi</th>
+          <th>Aksi</th>
+        </tr>
+      </thead>
+      <tbody id="pasienBody"></tbody>
+    </table>
   </section>
 
   <!-- ===== TAB RIWAYAT TRANSAKSI ===== -->
@@ -829,6 +864,47 @@
   </div>
 </div>
 
+<div class="modal-overlay hidden" id="pasienModal">
+  <div class="modal wide">
+    <h3 id="pasienModalTitle">Pasien Baru</h3>
+    <div class="form-grid">
+      <div class="field full">
+        <label>Nama Pasien</label>
+        <input type="text" id="pNama" placeholder="Nama lengkap pasien">
+      </div>
+      <div class="field">
+        <label>Tanggal Lahir</label>
+        <input type="date" id="pTglLahir">
+      </div>
+      <div class="field">
+        <label>Jenis Kelamin</label>
+        <select id="pJK">
+          <option value="L">Laki-laki</option>
+          <option value="P">Perempuan</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>No. HP</label>
+        <input type="text" id="pHp" placeholder="08...">
+      </div>
+      <div class="field">
+        <label>NIK (opsional)</label>
+        <input type="text" id="pNik" placeholder="16 digit NIK">
+      </div>
+      <div class="field full">
+        <label>Alamat</label>
+        <input type="text" id="pAlamat" placeholder="Alamat pasien">
+      </div>
+      <div class="field full">
+        <label>Riwayat Alergi / Catatan Penting</label>
+        <textarea id="pAlergi" rows="2" placeholder="Contoh: alergi amoxicillin, riwayat asma, dll (opsional)"></textarea>
+      </div>
+    </div>
+    <button class="btn btn-primary btn-block" id="btnSimpanPasien" style="margin-top:14px;">Simpan</button>
+    <button class="cancel" id="btnBatalPasien">Batal</button>
+  </div>
+</div>
+
 <div class="modal-overlay hidden" id="strukPilihanModal">
   <div class="modal">
     <h3 id="strukPilihanTitle">Transaksi Tersimpan ✓</h3>
@@ -1164,6 +1240,7 @@ const HARI = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
 const BULAN = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
 
 let obatList = [];      // [{id,nama,kategori,satuan,kode,kadaluarsa,hargaBeli,hargaJual,stok,stokMin}]
+let pasienList = [];    // [{id,noRm,nama,tglLahir,jk,hp,nik,alamat,alergi}]
 let cart = [];           // [{obatId,nama,hargaJual,hargaBeli,qty}]
 let adminPin = '1234';
 let adminRecovery = { question:'', answer:'' };
@@ -1357,6 +1434,34 @@ async function initData(){
 
   const akunRaw = await sGet('kasir-akun');
   kasirAkunList = akunRaw ? Object.values(akunRaw) : [];
+
+  const pasienRaw = await sGet('pasien-list');
+  pasienList = pasienRaw ? Object.values(pasienRaw) : [];
+}
+
+async function savePasienList(){
+  const obj = {};
+  pasienList.forEach(p=> obj[p.id] = p);
+  await sSet('pasien-list', obj);
+}
+function nextNoRm(){
+  // Format: RM-000001, urut naik berdasarkan jumlah pasien yang pernah dibuat
+  const nums = pasienList.map(p=>{
+    const m = String(p.noRm||'').match(/(\d+)$/);
+    return m ? parseInt(m[1],10) : 0;
+  });
+  const next = (nums.length ? Math.max(...nums) : 0) + 1;
+  return 'RM-' + String(next).padStart(6,'0');
+}
+function calcUmur(tglLahir){
+  if(!tglLahir) return '-';
+  const d = parseDateInput(tglLahir);
+  if(isNaN(d)) return '-';
+  const now = new Date();
+  let umur = now.getFullYear() - d.getFullYear();
+  const m = now.getMonth() - d.getMonth();
+  if(m < 0 || (m===0 && now.getDate() < d.getDate())) umur--;
+  return umur + ' th';
 }
 
 async function saveObatList(){
@@ -1375,6 +1480,146 @@ async function logRestock(entries){
     existing[id] = { ...en, tanggal, waktu: timeStr(now) };
   });
   await sSet('restock-log/' + tanggal, existing);
+}
+
+/* =========================================================
+   TAB PASIEN
+   ========================================================= */
+function renderPasienSummary(){
+  const wrap = document.getElementById('pasienSummaryCards');
+  if(!wrap) return;
+  wrap.innerHTML = `
+    <div class="s-card"><div class="k">Total Pasien Terdaftar</div><div class="v">${pasienList.length}</div></div>
+  `;
+}
+function renderPasienTable(){
+  const q = (document.getElementById('pasienSearch').value||'').toLowerCase();
+  const body = document.getElementById('pasienBody');
+  const list = pasienList.filter(p=>
+    !q || (p.nama||'').toLowerCase().includes(q) || (p.noRm||'').toLowerCase().includes(q) || (p.hp||'').toLowerCase().includes(q)
+  ).sort((a,b)=>(a.nama||'').localeCompare(b.nama||''));
+
+  if(list.length===0){
+    body.innerHTML = `<tr><td colspan="8" class="muted" style="padding:20px;text-align:center;">Belum ada data pasien. Klik "+ Pasien Baru" untuk mulai.</td></tr>`;
+    renderPasienSummary();
+    return;
+  }
+  body.innerHTML = list.map(p=>`
+    <tr data-id="${p.id}">
+      <td>${escapeHtml(p.noRm||'-')}</td>
+      <td>${escapeHtml(p.nama)}</td>
+      <td>${p.tglLahir||'-'} ${p.tglLahir ? `<span class="muted">(${calcUmur(p.tglLahir)})</span>` : ''}</td>
+      <td>${p.jk||'-'}</td>
+      <td>${escapeHtml(p.hp||'-')}</td>
+      <td>${escapeHtml(p.alamat||'-')}</td>
+      <td>${p.alergi ? `<span class="tag tag-soon">${escapeHtml(p.alergi)}</span>` : '<span class="muted">-</span>'}</td>
+      <td>
+        <button class="btn btn-sm edit-pasien" data-id="${p.id}">Edit</button>
+        <button class="btn btn-sm btn-danger del-pasien" data-id="${p.id}">Hapus</button>
+      </td>
+    </tr>`).join('');
+
+  body.querySelectorAll('.edit-pasien').forEach(b=>b.addEventListener('click', e=>{
+    openPasienModal(e.target.dataset.id);
+  }));
+  body.querySelectorAll('.del-pasien').forEach(b=>b.addEventListener('click', e=>{
+    const id = e.target.dataset.id;
+    pinCallback = async ()=>{
+      const p = pasienList.find(x=>x.id===id);
+      if(!p || !confirm(`Hapus data pasien "${p.nama}"? Riwayat transaksi/resep lama tidak akan terhapus.`)) return;
+      pasienList = pasienList.filter(x=>x.id!==id);
+      await savePasienList();
+      renderPasienTable();
+      toast('Data pasien dihapus.');
+    };
+    openPinModal('Masukkan PIN untuk menghapus data pasien ini.');
+  }));
+  renderPasienSummary();
+}
+
+let editingPasienId = null;
+function openPasienModal(id){
+  editingPasienId = id || null;
+  document.getElementById('pasienModalTitle').textContent = id ? 'Edit Data Pasien' : 'Pasien Baru';
+  const p = id ? pasienList.find(x=>x.id===id) : null;
+  document.getElementById('pNama').value = p ? p.nama : '';
+  document.getElementById('pTglLahir').value = p ? (p.tglLahir||'') : '';
+  document.getElementById('pJK').value = p ? (p.jk||'L') : 'L';
+  document.getElementById('pHp').value = p ? (p.hp||'') : '';
+  document.getElementById('pNik').value = p ? (p.nik||'') : '';
+  document.getElementById('pAlamat').value = p ? (p.alamat||'') : '';
+  document.getElementById('pAlergi').value = p ? (p.alergi||'') : '';
+  document.getElementById('pasienModal').classList.remove('hidden');
+}
+function closePasienModal(){ document.getElementById('pasienModal').classList.add('hidden'); }
+
+async function simpanPasien(){
+  const nama = document.getElementById('pNama').value.trim();
+  if(!nama){ toast('Nama pasien wajib diisi.', true); return; }
+  const old = editingPasienId ? pasienList.find(x=>x.id===editingPasienId) : null;
+  const data = {
+    id: editingPasienId || crypto.randomUUID(),
+    noRm: old ? old.noRm : nextNoRm(),
+    nama,
+    tglLahir: document.getElementById('pTglLahir').value,
+    jk: document.getElementById('pJK').value,
+    hp: document.getElementById('pHp').value.trim(),
+    nik: document.getElementById('pNik').value.trim(),
+    alamat: document.getElementById('pAlamat').value.trim(),
+    alergi: document.getElementById('pAlergi').value.trim(),
+  };
+  if(editingPasienId){
+    const idx = pasienList.findIndex(x=>x.id===editingPasienId);
+    pasienList[idx] = data;
+  } else {
+    pasienList.push(data);
+  }
+  await savePasienList();
+  closePasienModal();
+  renderPasienTable();
+  toast(editingPasienId ? 'Data pasien diperbarui ✓' : `Pasien baru tersimpan ✓ (No. RM: ${data.noRm})`);
+}
+
+async function handleImportPasienFile(file){
+  const buf = await file.arrayBuffer();
+  const wb = XLSX.read(buf, { type:'array', cellDates:true });
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(ws, { defval:'' });
+  if(rows.length===0){ toast('File kosong atau format tidak dikenali.', true); return; }
+
+  const colMap = {};
+  Object.keys(rows[0]).forEach(k=>{
+    const nk = normalizeHeader(k);
+    if(nk.includes('nama')) colMap.nama = k;
+    else if(nk.includes('lahir')) colMap.tglLahir = k;
+    else if(nk.includes('kelamin') || nk==='jk') colMap.jk = k;
+    else if(nk.includes('hp') || nk.includes('telp') || nk.includes('phone')) colMap.hp = k;
+    else if(nk.includes('nik')) colMap.nik = k;
+    else if(nk.includes('alamat')) colMap.alamat = k;
+    else if(nk.includes('alergi')) colMap.alergi = k;
+  });
+  if(!colMap.nama){ toast('Kolom "Nama" tidak ditemukan di file. Pastikan ada kolom header bernama Nama.', true); return; }
+
+  let count = 0;
+  rows.forEach(r=>{
+    const nama = String(r[colMap.nama]||'').trim();
+    if(!nama) return;
+    pasienList.push({
+      id: crypto.randomUUID(),
+      noRm: nextNoRm(),
+      nama,
+      tglLahir: colMap.tglLahir ? String(r[colMap.tglLahir]||'') : '',
+      jk: colMap.jk ? String(r[colMap.jk]||'L').trim().toUpperCase().startsWith('P') ? 'P' : 'L' : 'L',
+      hp: colMap.hp ? String(r[colMap.hp]||'') : '',
+      nik: colMap.nik ? String(r[colMap.nik]||'') : '',
+      alamat: colMap.alamat ? String(r[colMap.alamat]||'') : '',
+      alergi: colMap.alergi ? String(r[colMap.alergi]||'') : '',
+    });
+    count++;
+  });
+  await savePasienList();
+  renderPasienTable();
+  toast(`${count} pasien berhasil diimpor ✓`);
 }
 
 /* =========================================================
@@ -3143,6 +3388,7 @@ function activateTab(target){
   document.querySelectorAll('.tab-panel').forEach(p=>p.classList.toggle('active', p.id==='tab-'+target));
 
   if(target === 'stok'){ renderStokTable(); renderStokSummary(); }
+  if(target === 'pasien'){ renderPasienTable(); }
   if(target === 'riwayat'){
     if(!document.getElementById('riwayatStart').value){
       const now = new Date();
@@ -3442,6 +3688,18 @@ document.getElementById('btnSimpanOpname').addEventListener('click', ()=>{
 });
 
 document.getElementById('btnTambahObat').addEventListener('click', ()=>openObatModal(null));
+document.getElementById('btnTambahPasien').addEventListener('click', ()=>openPasienModal(null));
+document.getElementById('btnSimpanPasien').addEventListener('click', simpanPasien);
+document.getElementById('btnBatalPasien').addEventListener('click', closePasienModal);
+document.getElementById('pasienSearch').addEventListener('input', renderPasienTable);
+document.getElementById('btnImportPasienExcel').addEventListener('click', ()=>document.getElementById('fileImportPasienExcel').click());
+document.getElementById('fileImportPasienExcel').addEventListener('change', async e=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  try{ await handleImportPasienFile(file); }
+  catch(err){ console.error(err); toast('Gagal membaca file. Pastikan format Excel/CSV benar.', true); }
+  e.target.value = '';
+});
 
 
 document.getElementById('btnBatalObat').addEventListener('click', closeObatModal);
