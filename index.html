@@ -304,6 +304,11 @@
       <span id="kadaluarsaText">⚠️ Ada obat yang kadaluarsa/mendekati kadaluarsa.</span>
       <button class="link-btn" id="btnGoKadaluarsa">Cek Stok →</button>
     </div>
+    <div class="card hidden" id="resepPendingBox">
+      <h2>📋 Resep Menunggu Diproses dari Klinik</h2>
+      <p class="section-hint">Resep yang baru dibuat dokter. Klik "Proses ke Keranjang" untuk memasukkan otomatis ke Kasir.</p>
+      <div id="resepPendingList"></div>
+    </div>
     <div class="kasir-grid">
       <div>
         <h2>Cari Obat</h2>
@@ -956,6 +961,15 @@
         <textarea id="rmeCatatan" rows="2" placeholder="Catatan tambahan perkembangan pasien (opsional)"></textarea>
       </div>
     </div>
+
+    <h3 style="margin-top:16px;">💊 Resep Obat (opsional)</h3>
+    <p class="section-hint">Obat yang dipilih di sini akan otomatis muncul di keranjang tab Kasir untuk diproses pembayaran.</p>
+    <div class="search-box">
+      <input type="text" id="rmeCariObat" placeholder="Cari nama / kode obat...">
+    </div>
+    <div class="search-results" id="rmeCariObatResults" style="max-height:180px;margin-bottom:10px;"></div>
+    <div id="rmeResepList"></div>
+
     <button class="btn btn-primary btn-block" id="btnSimpanRme" style="margin-top:14px;">Simpan Rekam Medis & Tandai Selesai</button>
     <button class="cancel" id="btnBatalRme">Batal</button>
   </div>
@@ -1888,18 +1902,79 @@ async function simpanAntrian(){
    Data disimpan per pasien: rme-log/{pasienId}/{id}
    ========================================================= */
 let rmeAntrianAktif = null; // entri antrian yang sedang dibuka RME-nya (untuk auto tandai selesai)
+let rmeResepCart = []; // [{obatId,nama,hargaJual,hargaBeli,satuan,qty}] - resep yang dipilih dokter
 
 function openRmeModal(antrian){
   rmeAntrianAktif = antrian;
+  rmeResepCart = [];
   document.getElementById('rmeInfoPasien').innerHTML =
     `<span>🩺 Pasien: <strong>${escapeHtml(antrian.namaPasien)}</strong> — No. Antrian ${antrian.noAntrian}</span>`;
   document.getElementById('rmeKeluhan').value = antrian.keluhan || '';
   document.getElementById('rmeDiagnosa').value = '';
   document.getElementById('rmeTindakan').value = '';
   document.getElementById('rmeCatatan').value = '';
+  document.getElementById('rmeCariObat').value = '';
+  document.getElementById('rmeCariObatResults').innerHTML = '';
+  renderRmeResepList();
   document.getElementById('rmeModal').classList.remove('hidden');
 }
 function closeRmeModal(){ document.getElementById('rmeModal').classList.add('hidden'); }
+
+function renderRmeCariObatResults(query){
+  const wrap = document.getElementById('rmeCariObatResults');
+  if(!query){ wrap.innerHTML=''; return; }
+  const q = query.toLowerCase();
+  const results = obatList.filter(o=>!isObatExpired(o) &&
+    ((o.nama||'').toLowerCase().includes(q) || (o.kode||'').toLowerCase().includes(q))
+  ).slice(0,20);
+  if(results.length===0){ wrap.innerHTML = `<div class="search-item"><span class="muted">Obat tidak ditemukan.</span></div>`; return; }
+  wrap.innerHTML = results.map(o=>`
+    <div class="search-item pilih-obat-rme" data-id="${o.id}" style="cursor:pointer;">
+      <div><div class="si-name">${escapeHtml(o.nama)}</div><div class="si-sub">Stok: ${o.stok} ${o.satuan||''}</div></div>
+      <div class="si-price">${rupiah(o.hargaJual)}</div>
+    </div>`).join('');
+  wrap.querySelectorAll('.pilih-obat-rme').forEach(el=>el.addEventListener('click', ()=>{
+    tambahObatKeResepRme(el.dataset.id);
+    document.getElementById('rmeCariObat').value = '';
+    wrap.innerHTML = '';
+  }));
+}
+function tambahObatKeResepRme(obatId){
+  const o = obatList.find(x=>x.id===obatId);
+  if(!o) return;
+  const existing = rmeResepCart.find(c=>c.obatId===obatId);
+  if(existing){ existing.qty += 1; }
+  else { rmeResepCart.push({ obatId:o.id, nama:o.nama, hargaJual:o.hargaJual, hargaBeli:o.hargaBeli, satuan:o.satuan, qty:1 }); }
+  renderRmeResepList();
+}
+function renderRmeResepList(){
+  const wrap = document.getElementById('rmeResepList');
+  if(rmeResepCart.length===0){ wrap.innerHTML = `<p class="muted">Belum ada obat dipilih.</p>`; return; }
+  wrap.innerHTML = rmeResepCart.map((c,idx)=>`
+    <div class="cart-item">
+      <div class="ci-info"><div class="ci-name">${escapeHtml(c.nama)}</div><div class="ci-price">${rupiah(c.hargaJual)} x ${c.qty}</div></div>
+      <div class="qty-ctrl">
+        <button type="button" class="rme-qty-minus" data-idx="${idx}">−</button>
+        <span>${c.qty}</span>
+        <button type="button" class="rme-qty-plus" data-idx="${idx}">+</button>
+      </div>
+      <button class="ci-del rme-hapus-obat" data-idx="${idx}">✕</button>
+    </div>`).join('');
+  wrap.querySelectorAll('.rme-qty-minus').forEach(b=>b.addEventListener('click', e=>{
+    const i = Number(e.target.dataset.idx);
+    rmeResepCart[i].qty = Math.max(1, rmeResepCart[i].qty-1);
+    renderRmeResepList();
+  }));
+  wrap.querySelectorAll('.rme-qty-plus').forEach(b=>b.addEventListener('click', e=>{
+    const i = Number(e.target.dataset.idx);
+    rmeResepCart[i].qty += 1;
+    renderRmeResepList();
+  }));
+  wrap.querySelectorAll('.rme-hapus-obat').forEach(b=>b.addEventListener('click', e=>{
+    rmeResepCart.splice(Number(e.target.dataset.idx), 1);
+    renderRmeResepList();
+  }));
+}
 
 async function simpanRme(){
   if(!rmeAntrianAktif){ closeRmeModal(); return; }
@@ -1922,11 +1997,26 @@ async function simpanRme(){
   existing[entry.id] = entry;
   await sSet('rme-log/' + entry.pasienId, existing);
 
+  if(rmeResepCart.length > 0){
+    const resepEntry = {
+      id: crypto.randomUUID(),
+      pasienId: entry.pasienId,
+      namaPasien: entry.namaPasien,
+      dokter: entry.dokter,
+      items: rmeResepCart.map(c=>({...c})),
+      tanggal: entry.tanggal,
+      waktu: entry.waktu,
+    };
+    const pendingExisting = await sGet('resep-pending') || {};
+    pendingExisting[resepEntry.id] = resepEntry;
+    await sSet('resep-pending', pendingExisting);
+  }
+
   const a = antrianList.find(x=>x.id===rmeAntrianAktif.id);
   if(a){ a.status = 'Selesai'; await saveAntrianList(); renderAntrianTable(); }
 
   closeRmeModal();
-  toast('Rekam medis tersimpan & pasien ditandai selesai ✓');
+  toast(rmeResepCart.length>0 ? 'Rekam medis & resep tersimpan — resep menunggu diproses di tab Kasir ✓' : 'Rekam medis tersimpan & pasien ditandai selesai ✓');
 }
 
 async function openRiwayatRmModal(pasienId){
@@ -1966,6 +2056,61 @@ function isObatExpired(o){
   if(isNaN(d)) return false;
   const today = new Date(); today.setHours(0,0,0,0);
   return d < today;
+}
+
+/* ---- Resep dari Klinik yang menunggu diproses di Kasir ---- */
+async function renderResepPendingBanner(){
+  const box = document.getElementById('resepPendingBox');
+  const raw = await sGet('resep-pending');
+  const list = raw ? Object.values(raw) : [];
+  if(list.length===0){ box.classList.add('hidden'); return; }
+  box.classList.remove('hidden');
+  const wrap = document.getElementById('resepPendingList');
+  wrap.innerHTML = list.map(r=>`
+    <div class="search-item">
+      <div>
+        <div class="si-name">${escapeHtml(r.namaPasien)} <span class="muted">(${escapeHtml(r.dokter||'-')})</span></div>
+        <div class="si-sub">${r.items.length} jenis obat — ${r.tanggal} ${r.waktu}</div>
+      </div>
+      <button class="btn btn-sm btn-primary proses-resep-pending" data-id="${r.id}">Proses ke Keranjang</button>
+    </div>`).join('');
+  wrap.querySelectorAll('.proses-resep-pending').forEach(b=>b.addEventListener('click', e=>prosesResepPending(e.target.dataset.id)));
+}
+
+async function prosesResepPending(id){
+  const raw = await sGet('resep-pending') || {};
+  const r = raw[id];
+  if(!r) return;
+  if(cart.length > 0 && !confirm('Keranjang Kasir saat ini akan ditambah item dari resep ini. Lanjutkan?')) return;
+
+  let kurang = [];
+  r.items.forEach(it=>{
+    const obat = obatList.find(o=>o.id===it.obatId);
+    if(!obat){ kurang.push(`${it.nama} (obat sudah tidak ada di stok)`); return; }
+    const existing = cart.find(c=>c.obatId===it.obatId);
+    const currentQty = existing ? existing.qty : 0;
+    const qtyPakai = Math.min(it.qty, Math.max(0, obat.stok - currentQty));
+    if(qtyPakai < it.qty) kurang.push(`${it.nama} (diminta ${it.qty}, stok sisa cukup untuk ${qtyPakai})`);
+    if(qtyPakai <= 0) return;
+    if(existing){ existing.qty += qtyPakai; }
+    else { cart.push({ obatId:obat.id, nama:obat.nama, hargaJual:obat.hargaJual, hargaCustom:obat.hargaJual, hargaBeli:obat.hargaBeli, satuan:obat.satuan, qty:qtyPakai }); }
+  });
+  renderCart();
+
+  document.getElementById('pakaiResep').checked = true;
+  document.getElementById('resepFields').style.display = '';
+  document.getElementById('resepDokter').value = r.dokter || '';
+  document.getElementById('resepPasien').value = r.namaPasien || '';
+
+  delete raw[id];
+  await sSet('resep-pending', raw);
+  renderResepPendingBanner();
+
+  if(kurang.length){
+    toast('⚠️ Sebagian obat resep stoknya tidak mencukupi: ' + kurang.join(', '), true);
+  } else {
+    toast('Resep dimasukkan ke keranjang ✓ Lanjutkan proses pembayaran.');
+  }
 }
 
 function renderSearchResults(query){
@@ -3740,6 +3885,7 @@ function activateTab(target){
   document.querySelectorAll('.tab-panel').forEach(p=>p.classList.toggle('active', p.id==='tab-'+target));
 
   if(target === 'stok'){ renderStokTable(); renderStokSummary(); }
+  if(target === 'kasir'){ renderResepPendingBanner(); }
   if(target === 'pasien'){ renderPasienTable(); }
   if(target === 'antrian'){ loadAntrianHariIni().then(renderAntrianTable); }
   if(target === 'riwayat'){
@@ -4064,6 +4210,7 @@ document.getElementById('btnAntrianPasienBaru').addEventListener('click', ()=>{
 });
 document.getElementById('btnBatalRme').addEventListener('click', closeRmeModal);
 document.getElementById('btnSimpanRme').addEventListener('click', simpanRme);
+document.getElementById('rmeCariObat').addEventListener('input', e=>renderRmeCariObatResults(e.target.value));
 document.getElementById('btnTutupRiwayatRm').addEventListener('click', ()=>document.getElementById('riwayatRmModal').classList.add('hidden'));
 
 
@@ -4182,6 +4329,7 @@ document.getElementById('connStatusBadge').addEventListener('click', ()=> goToTa
   }
 
   renderCart();
+  renderResepPendingBanner();
 })();
 </script>
 </body>
