@@ -934,6 +934,41 @@
   </div>
 </div>
 
+<div class="modal-overlay hidden" id="rmeModal">
+  <div class="modal wide">
+    <h3>Rekam Medis — Pemeriksaan Pasien</h3>
+    <div class="banner-alert" id="rmeInfoPasien" style="margin-bottom:12px;"></div>
+    <div class="form-grid">
+      <div class="field full">
+        <label>Keluhan</label>
+        <textarea id="rmeKeluhan" rows="2" placeholder="Keluhan pasien saat datang"></textarea>
+      </div>
+      <div class="field full">
+        <label>Diagnosa</label>
+        <input type="text" id="rmeDiagnosa" placeholder="Diagnosa dokter">
+      </div>
+      <div class="field full">
+        <label>Tindakan / Terapi</label>
+        <textarea id="rmeTindakan" rows="2" placeholder="Tindakan yang dilakukan / terapi yang diberikan"></textarea>
+      </div>
+      <div class="field full">
+        <label>Catatan Perkembangan (CPPT)</label>
+        <textarea id="rmeCatatan" rows="2" placeholder="Catatan tambahan perkembangan pasien (opsional)"></textarea>
+      </div>
+    </div>
+    <button class="btn btn-primary btn-block" id="btnSimpanRme" style="margin-top:14px;">Simpan Rekam Medis & Tandai Selesai</button>
+    <button class="cancel" id="btnBatalRme">Batal</button>
+  </div>
+</div>
+
+<div class="modal-overlay hidden" id="riwayatRmModal">
+  <div class="modal wide" style="max-height:85vh;overflow-y:auto;">
+    <h3 id="riwayatRmTitle">Riwayat Rekam Medis</h3>
+    <div id="riwayatRmList"></div>
+    <button class="cancel" id="btnTutupRiwayatRm">Tutup</button>
+  </div>
+</div>
+
 <div class="modal-overlay hidden" id="pasienModal">
   <div class="modal wide">
     <h3 id="pasienModalTitle">Pasien Baru</h3>
@@ -1584,10 +1619,15 @@ function renderPasienTable(){
       <td>${escapeHtml(p.alamat||'-')}</td>
       <td>${p.alergi ? `<span class="tag tag-soon">${escapeHtml(p.alergi)}</span>` : '<span class="muted">-</span>'}</td>
       <td>
+        <button class="btn btn-sm lihat-rme" data-id="${p.id}">Riwayat RM</button>
         <button class="btn btn-sm edit-pasien" data-id="${p.id}">Edit</button>
         <button class="btn btn-sm btn-danger del-pasien" data-id="${p.id}">Hapus</button>
       </td>
     </tr>`).join('');
+
+  body.querySelectorAll('.lihat-rme').forEach(b=>b.addEventListener('click', e=>{
+    openRiwayatRmModal(e.target.dataset.id);
+  }));
 
   body.querySelectorAll('.edit-pasien').forEach(b=>b.addEventListener('click', e=>{
     openPasienModal(e.target.dataset.id);
@@ -1756,6 +1796,7 @@ function renderAntrianTable(){
       <td>${statusTag(a.status)}</td>
       <td>
         ${a.status==='Menunggu' ? `<button class="btn btn-sm mulai-periksa" data-id="${a.id}">Mulai Periksa</button>` : ''}
+        ${a.status==='Diperiksa' ? `<button class="btn btn-sm btn-primary buka-rme" data-id="${a.id}">📋 Rekam Medis</button>` : ''}
         ${a.status==='Diperiksa' ? `<button class="btn btn-sm selesai-periksa" data-id="${a.id}">Tandai Selesai</button>` : ''}
         <button class="btn btn-sm btn-danger del-antrian" data-id="${a.id}">Hapus</button>
       </td>
@@ -1764,6 +1805,10 @@ function renderAntrianTable(){
   body.querySelectorAll('.mulai-periksa').forEach(b=>b.addEventListener('click', async e=>{
     const a = antrianList.find(x=>x.id===e.target.dataset.id);
     if(a){ a.status='Diperiksa'; await saveAntrianList(); renderAntrianTable(); }
+  }));
+  body.querySelectorAll('.buka-rme').forEach(b=>b.addEventListener('click', e=>{
+    const a = antrianList.find(x=>x.id===e.target.dataset.id);
+    if(a) openRmeModal(a);
   }));
   body.querySelectorAll('.selesai-periksa').forEach(b=>b.addEventListener('click', async e=>{
     const a = antrianList.find(x=>x.id===e.target.dataset.id);
@@ -1836,6 +1881,80 @@ async function simpanAntrian(){
   closeAntrianModal();
   renderAntrianTable();
   toast(`${antrianPasienTerpilih.nama} ditambahkan ke antrian (No. ${noAntrian}) ✓`);
+}
+
+/* =========================================================
+   REKAM MEDIS ELEKTRONIK (RME)
+   Data disimpan per pasien: rme-log/{pasienId}/{id}
+   ========================================================= */
+let rmeAntrianAktif = null; // entri antrian yang sedang dibuka RME-nya (untuk auto tandai selesai)
+
+function openRmeModal(antrian){
+  rmeAntrianAktif = antrian;
+  document.getElementById('rmeInfoPasien').innerHTML =
+    `<span>🩺 Pasien: <strong>${escapeHtml(antrian.namaPasien)}</strong> — No. Antrian ${antrian.noAntrian}</span>`;
+  document.getElementById('rmeKeluhan').value = antrian.keluhan || '';
+  document.getElementById('rmeDiagnosa').value = '';
+  document.getElementById('rmeTindakan').value = '';
+  document.getElementById('rmeCatatan').value = '';
+  document.getElementById('rmeModal').classList.remove('hidden');
+}
+function closeRmeModal(){ document.getElementById('rmeModal').classList.add('hidden'); }
+
+async function simpanRme(){
+  if(!rmeAntrianAktif){ closeRmeModal(); return; }
+  const diagnosa = document.getElementById('rmeDiagnosa').value.trim();
+  if(!diagnosa){ toast('Isi diagnosa terlebih dulu.', true); return; }
+  const now = new Date();
+  const entry = {
+    id: crypto.randomUUID(),
+    pasienId: rmeAntrianAktif.pasienId,
+    namaPasien: rmeAntrianAktif.namaPasien,
+    tanggal: dateKey(now),
+    waktu: timeStr(now),
+    keluhan: document.getElementById('rmeKeluhan').value.trim(),
+    diagnosa,
+    tindakan: document.getElementById('rmeTindakan').value.trim(),
+    catatan: document.getElementById('rmeCatatan').value.trim(),
+    dokter: currentKasirNama || 'Dokter',
+  };
+  const existing = await sGet('rme-log/' + entry.pasienId) || {};
+  existing[entry.id] = entry;
+  await sSet('rme-log/' + entry.pasienId, existing);
+
+  const a = antrianList.find(x=>x.id===rmeAntrianAktif.id);
+  if(a){ a.status = 'Selesai'; await saveAntrianList(); renderAntrianTable(); }
+
+  closeRmeModal();
+  toast('Rekam medis tersimpan & pasien ditandai selesai ✓');
+}
+
+async function openRiwayatRmModal(pasienId){
+  const p = pasienList.find(x=>x.id===pasienId);
+  document.getElementById('riwayatRmTitle').textContent = `Riwayat Rekam Medis — ${p ? p.nama : ''}`;
+  const wrap = document.getElementById('riwayatRmList');
+  wrap.innerHTML = `<p class="muted">Memuat riwayat...</p>`;
+  document.getElementById('riwayatRmModal').classList.remove('hidden');
+
+  const raw = await sGet('rme-log/' + pasienId);
+  const list = raw ? Object.values(raw).sort((a,b)=> (b.tanggal+b.waktu).localeCompare(a.tanggal+a.waktu)) : [];
+  if(list.length===0){
+    wrap.innerHTML = `<div class="empty-state">Belum ada riwayat pemeriksaan untuk pasien ini.</div>`;
+    return;
+  }
+  wrap.innerHTML = list.map(r=>`
+    <div class="card" style="margin-bottom:10px;">
+      <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;">
+        <strong>${r.tanggal} ${r.waktu}</strong>
+        <span class="muted">Oleh: ${escapeHtml(r.dokter||'-')}</span>
+      </div>
+      <div style="margin-top:6px;font-size:13px;">
+        ${r.keluhan ? `<div><span class="muted">Keluhan:</span> ${escapeHtml(r.keluhan)}</div>` : ''}
+        <div><span class="muted">Diagnosa:</span> ${escapeHtml(r.diagnosa||'-')}</div>
+        ${r.tindakan ? `<div><span class="muted">Tindakan:</span> ${escapeHtml(r.tindakan)}</div>` : ''}
+        ${r.catatan ? `<div><span class="muted">Catatan:</span> ${escapeHtml(r.catatan)}</div>` : ''}
+      </div>
+    </div>`).join('');
 }
 
 /* =========================================================
@@ -3943,6 +4062,9 @@ document.getElementById('btnAntrianPasienBaru').addEventListener('click', ()=>{
   closeAntrianModal();
   openPasienModal(null);
 });
+document.getElementById('btnBatalRme').addEventListener('click', closeRmeModal);
+document.getElementById('btnSimpanRme').addEventListener('click', simpanRme);
+document.getElementById('btnTutupRiwayatRm').addEventListener('click', ()=>document.getElementById('riwayatRmModal').classList.add('hidden'));
 
 
 document.getElementById('btnBatalObat').addEventListener('click', closeObatModal);
