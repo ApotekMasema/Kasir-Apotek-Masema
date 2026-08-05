@@ -227,7 +227,10 @@
     body:not(.printing-struk) .toolbar,
     body:not(.printing-struk) .tab:not(.active){display:none !important;}
     body.printing-struk main > *:not(#strukPrint){display:none !important;}
-    body.printing-struk .topbar{display:none !important;}
+    body.printing-struk .topbar,
+    body.printing-struk .area-tabs,
+    body.printing-struk #areaSubTabs-kasir,
+    body.printing-struk #areaSubTabs-klinik{display:none !important;}
     body.printing-struk .modal-overlay{display:none !important;}
     body.printing-struk .toast{display:none !important;}
     #strukPrint{display:block !important;}
