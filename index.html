@@ -291,6 +291,7 @@
   <nav class="tabs hidden" id="areaSubTabs-klinik">
     <button class="tab" data-tab="pasien">Pasien</button>
     <button class="tab" data-tab="antrian">Antrian Klinik</button>
+    <button class="tab" data-tab="laporanKlinik">Laporan Klinik</button>
   </nav>
 </div>
 
@@ -492,6 +493,71 @@
         </tr>
       </thead>
       <tbody id="antrianBody"></tbody>
+    </table>
+  </section>
+
+  <!-- ===== TAB LAPORAN KLINIK ===== -->
+  <section class="tab-panel" id="tab-laporanKlinik">
+    <h2>Laporan Klinik</h2>
+    <p class="section-hint">Rekap kunjungan, diagnosa, dan aktivitas dokter berdasarkan data Antrian & Rekam Medis.</p>
+
+    <div class="toolbar">
+      <div class="field">
+        <label>Dari Tanggal</label>
+        <input type="date" id="lapKlinikStart">
+      </div>
+      <div class="field">
+        <label>Sampai Tanggal</label>
+        <input type="date" id="lapKlinikEnd">
+      </div>
+      <button class="btn" id="btnLapKlinikBulanIni">Bulan Ini</button>
+      <button class="btn" id="btnLapKlinikPrint">🖨️ Cetak</button>
+    </div>
+
+    <div class="summary-cards" id="lapKlinikSummaryCards"></div>
+
+    <h2 style="margin-top:22px;">Kunjungan Harian</h2>
+    <div class="card" id="lapKlinikChartCard">
+      <div id="lapKlinikChartContainer"></div>
+    </div>
+
+    <h2 style="margin-top:22px;">Diagnosa Terbanyak (Top 10)</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Diagnosa</th>
+          <th class="num">Jumlah Kasus</th>
+        </tr>
+      </thead>
+      <tbody id="lapKlinikDiagnosaBody"></tbody>
+    </table>
+
+    <h2 style="margin-top:22px;">Aktivitas per Dokter</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Dokter</th>
+          <th class="num">Jumlah Pemeriksaan</th>
+          <th class="num">Resep Dibuat</th>
+        </tr>
+      </thead>
+      <tbody id="lapKlinikDokterBody"></tbody>
+    </table>
+
+    <h2 style="margin-top:22px;">Riwayat Kunjungan</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Tanggal</th>
+          <th>No. Antrian</th>
+          <th>Pasien</th>
+          <th>Keluhan</th>
+          <th>Diagnosa</th>
+          <th>Dokter</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody id="lapKlinikKunjunganBody"></tbody>
     </table>
   </section>
 
@@ -2045,6 +2111,7 @@ async function simpanRme(){
     tindakan: document.getElementById('rmeTindakan').value.trim(),
     catatan: document.getElementById('rmeCatatan').value.trim(),
     dokter: currentKasirNama || 'Dokter',
+    adaResep: rmeResepCart.length > 0,
   };
   const existing = await sGet('rme-log/' + entry.pasienId) || {};
   existing[entry.id] = entry;
@@ -2099,6 +2166,146 @@ async function openRiwayatRmModal(pasienId){
       </div>
     </div>`).join('');
 }
+
+/* =========================================================
+   LAPORAN KLINIK
+   ========================================================= */
+async function buildLaporanKlinik(startVal, endVal){
+  const start = parseDateInput(startVal);
+  const end = parseDateInput(endVal);
+  const dateKeys = [];
+  const cur = new Date(start);
+  while(cur <= end && dateKeys.length < 400){ dateKeys.push(dateKey(cur)); cur.setDate(cur.getDate()+1); }
+
+  const rawAntrian = await Promise.all(dateKeys.map(ds => sGet('antrian-log/' + ds)));
+  let kunjungan = [];
+  rawAntrian.forEach((raw, i) => {
+    if(raw) kunjungan = kunjungan.concat(Object.values(raw).map(a => ({...a, tanggal: dateKeys[i]})));
+  });
+
+  const pasienIdUnik = [...new Set(kunjungan.map(k => k.pasienId).filter(Boolean))];
+  const rawRme = await Promise.all(pasienIdUnik.map(pid => sGet('rme-log/' + pid)));
+  let rmeEntries = [];
+  rawRme.forEach(raw => { if(raw) rmeEntries = rmeEntries.concat(Object.values(raw)); });
+  rmeEntries = rmeEntries.filter(r => r.tanggal >= startVal && r.tanggal <= endVal);
+
+  return { kunjungan, rmeEntries };
+}
+
+function renderLaporanKlinikChart(kunjungan, startVal, endVal){
+  const start = parseDateInput(startVal);
+  const end = parseDateInput(endVal);
+  const days = [];
+  const cur = new Date(start);
+  while(cur <= end && days.length < 400){ days.push(dateKey(cur)); cur.setDate(cur.getDate()+1); }
+  const totals = {};
+  days.forEach(d => totals[d] = 0);
+  kunjungan.forEach(k => { totals[k.tanggal] = (totals[k.tanggal]||0) + 1; });
+
+  const maxVal = Math.max(...days.map(d => totals[d]), 1);
+  const barW = 30, gap = 10, chartH = 150;
+  const svgW = Math.max(days.length * (barW+gap) + gap, 300);
+  const svgH = chartH + 46;
+
+  const bars = days.map((d,i) => {
+    const val = totals[d];
+    const h = maxVal>0 ? Math.max(Math.round((val/maxVal)*chartH), val>0?2:0) : 0;
+    const x = gap + i*(barW+gap);
+    const y = chartH - h + 20;
+    const dObj = parseDateInput(d);
+    const label = `${dObj.getDate()}/${dObj.getMonth()+1}`;
+    return `
+      <g>
+        <rect x="${x}" y="${y}" width="${barW}" height="${h}" rx="4" style="fill:var(--primary);"><title>${label}: ${val} kunjungan</title></rect>
+        <text x="${x+barW/2}" y="${chartH+38}" text-anchor="middle" font-size="9" style="fill:var(--ink-soft);">${label}</text>
+      </g>`;
+  }).join('');
+
+  document.getElementById('lapKlinikChartContainer').innerHTML = days.length ? `
+    <div style="overflow-x:auto;">
+      <svg width="${svgW}" height="${svgH}" viewBox="0 0 ${svgW} ${svgH}">
+        ${bars}
+      </svg>
+    </div>
+    <p class="muted" style="margin-top:6px;">Arahkan kursor ke batang untuk lihat jumlah kunjungan per hari.</p>` : `<p class="muted" style="text-align:center;padding:14px;">Tidak ada data.</p>`;
+}
+
+async function renderLaporanKlinik(){
+  const startVal = document.getElementById('lapKlinikStart').value;
+  const endVal = document.getElementById('lapKlinikEnd').value;
+  if(!startVal || !endVal) return;
+  if(startVal > endVal){ toast('Tanggal "Dari" tidak boleh lebih besar dari "Sampai".', true); return; }
+
+  document.getElementById('lapKlinikKunjunganBody').innerHTML = `<tr><td colspan="7" class="muted">Menghitung laporan...</td></tr>`;
+  document.getElementById('lapKlinikDiagnosaBody').innerHTML = '';
+  document.getElementById('lapKlinikDokterBody').innerHTML = '';
+  try{
+    const { kunjungan, rmeEntries } = await buildLaporanKlinik(startVal, endVal);
+    renderLaporanKlinikChart(kunjungan, startVal, endVal);
+
+    const totalKunjungan = kunjungan.length;
+    const pasienUnik = new Set(kunjungan.map(k => k.pasienId).filter(Boolean)).size;
+    const totalSelesai = kunjungan.filter(k => k.status === 'Selesai').length;
+    const totalDiperiksaRme = rmeEntries.length;
+
+    document.getElementById('lapKlinikSummaryCards').innerHTML = `
+      <div class="s-card"><div class="k">Total Kunjungan</div><div class="v">${totalKunjungan}</div></div>
+      <div class="s-card"><div class="k">Pasien Unik</div><div class="v">${pasienUnik}</div></div>
+      <div class="s-card"><div class="k">Kunjungan Selesai</div><div class="v">${totalSelesai}</div></div>
+      <div class="s-card"><div class="k">Rekam Medis Terisi</div><div class="v">${totalDiperiksaRme}</div></div>`;
+
+    const diagnosaMap = {};
+    rmeEntries.forEach(r => {
+      const dx = (r.diagnosa || '-').trim();
+      diagnosaMap[dx] = (diagnosaMap[dx]||0) + 1;
+    });
+    const diagnosaTop = Object.entries(diagnosaMap).sort((a,b)=>b[1]-a[1]).slice(0,10);
+    document.getElementById('lapKlinikDiagnosaBody').innerHTML = diagnosaTop.length ? diagnosaTop.map(([dx,jml])=>`
+      <tr><td>${escapeHtml(dx)}</td><td class="num">${jml}</td></tr>`).join('')
+      : `<tr><td colspan="2" class="muted" style="padding:14px;text-align:center;">Belum ada data rekam medis di periode ini.</td></tr>`;
+
+    const dokterMap = {};
+    rmeEntries.forEach(r => {
+      const nm = r.dokter || '-';
+      if(!dokterMap[nm]) dokterMap[nm] = { periksa:0, resep:0 };
+      dokterMap[nm].periksa += 1;
+      if(r.adaResep) dokterMap[nm].resep += 1;
+    });
+    const dokterRows = Object.entries(dokterMap).sort((a,b)=>b[1].periksa-a[1].periksa);
+    document.getElementById('lapKlinikDokterBody').innerHTML = dokterRows.length ? dokterRows.map(([nm,d])=>`
+      <tr><td>${escapeHtml(nm)}</td><td class="num">${d.periksa}</td><td class="num">${d.resep}</td></tr>`).join('')
+      : `<tr><td colspan="3" class="muted" style="padding:14px;text-align:center;">Belum ada data rekam medis di periode ini.</td></tr>`;
+
+    const rmeByAntrianKey = {};
+    rmeEntries.forEach(r => { rmeByAntrianKey[r.pasienId + '|' + r.tanggal] = r; });
+    const kunjunganSorted = [...kunjungan].sort((a,b)=> (b.tanggal+(b.waktuDaftar||'')).localeCompare(a.tanggal+(a.waktuDaftar||'')));
+    document.getElementById('lapKlinikKunjunganBody').innerHTML = kunjunganSorted.length ? kunjunganSorted.map(k=>{
+      const rme = rmeByAntrianKey[k.pasienId + '|' + k.tanggal];
+      return `<tr>
+        <td>${fmtDateFull(parseDateInput(k.tanggal))}</td>
+        <td>${k.noAntrian||'-'}</td>
+        <td>${escapeHtml(k.namaPasien||'-')}</td>
+        <td>${escapeHtml(k.keluhan||'-')}</td>
+        <td>${escapeHtml(rme ? (rme.diagnosa||'-') : '-')}</td>
+        <td>${escapeHtml(rme ? (rme.dokter||'-') : '-')}</td>
+        <td>${escapeHtml(k.status||'-')}</td>
+      </tr>`;
+    }).join('') : `<tr><td colspan="7" class="muted" style="padding:14px;text-align:center;">Tidak ada kunjungan di periode ini.</td></tr>`;
+  }catch(e){
+    console.error('Gagal memuat laporan klinik', e);
+    document.getElementById('lapKlinikKunjunganBody').innerHTML = `<tr><td colspan="7" style="padding:14px;text-align:center;color:var(--danger);">Gagal memuat data. Cek koneksi internet.</td></tr>`;
+  }
+}
+document.getElementById('lapKlinikStart').addEventListener('change', renderLaporanKlinik);
+document.getElementById('lapKlinikEnd').addEventListener('change', renderLaporanKlinik);
+document.getElementById('btnLapKlinikBulanIni').addEventListener('click', ()=>{
+  const now = new Date();
+  const first = new Date(now.getFullYear(), now.getMonth(), 1);
+  document.getElementById('lapKlinikStart').value = dateKey(first);
+  document.getElementById('lapKlinikEnd').value = dateKey(now);
+  renderLaporanKlinik();
+});
+document.getElementById('btnLapKlinikPrint').addEventListener('click', ()=>window.print());
 
 /* =========================================================
    TAB KASIR
@@ -4015,7 +4222,7 @@ document.getElementById('btnGoStokMenipis').addEventListener('click', ()=> goToT
 document.getElementById('btnGoKadaluarsa').addEventListener('click', ()=> goToTab('stok'));
 document.getElementById('btnGoPengaturanPin').addEventListener('click', ()=> goToTab('pengaturan'));
 
-const TAB_AREA = { kasir:'kasir', riwayat:'kasir', stok:'kasir', resep:'kasir', piutang:'kasir', laporan:'kasir', pengaturan:'kasir', pasien:'klinik', antrian:'klinik' };
+const TAB_AREA = { kasir:'kasir', riwayat:'kasir', stok:'kasir', resep:'kasir', piutang:'kasir', laporan:'kasir', pengaturan:'kasir', pasien:'klinik', antrian:'klinik', laporanKlinik:'klinik' };
 
 function activateArea(area){
   document.querySelectorAll('.area-tab').forEach(b=>b.classList.toggle('active', b.dataset.area===area));
@@ -4033,6 +4240,15 @@ function activateTab(target){
   if(target === 'kasir'){ renderResepPendingBanner(); }
   if(target === 'pasien'){ renderPasienTable(); }
   if(target === 'antrian'){ loadAntrianHariIni().then(renderAntrianTable); }
+  if(target === 'laporanKlinik'){
+    if(!document.getElementById('lapKlinikStart').value){
+      const now = new Date();
+      const first = new Date(now.getFullYear(), now.getMonth(), 1);
+      document.getElementById('lapKlinikStart').value = dateKey(first);
+      document.getElementById('lapKlinikEnd').value = dateKey(now);
+    }
+    renderLaporanKlinik();
+  }
   if(target === 'riwayat'){
     if(!document.getElementById('riwayatStart').value){
       const now = new Date();
