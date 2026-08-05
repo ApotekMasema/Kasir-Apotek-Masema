@@ -939,14 +939,14 @@
     </div>
 
     <h2>Sinkronisasi Cloud</h2>
-    <p class="section-hint">Aplikasi ini menyimpan semua data langsung di komputer ini, jadi tetap bisa dipakai penuh (kasir, stok, riwayat, laporan, dll) walau internet mati. Gunakan tombol di bawah untuk menyalin data ke/dari cloud (Firebase) secara manual.</p>
+    <p class="section-hint">Aplikasi ini menyimpan semua data di komputer ini dulu (offline-first), jadi tetap bisa dipakai penuh walau internet mati. Selama online, aplikasi otomatis menyinkron data ke/dari cloud (Firebase) tiap ±12 detik di belakang layar — berguna kalau Kasir & Dokter memakai PC/perangkat yang berbeda, supaya data (antrian, resep, pasien, dll) saling muncul otomatis tanpa perlu klik manual. Kalau internet putus-putus, tidak masalah: perubahan tetap aman tersimpan di komputer ini dan otomatis dicoba disinkron lagi begitu online kembali. Tombol di bawah hanya untuk sinkron manual/darurat.</p>
     <div class="card">
       <p id="syncStatusDetail" class="muted" style="margin-bottom:14px;">Memeriksa status...</p>
       <button class="btn btn-primary" id="btnSyncPush">☁️⬆️ Sinkron ke Cloud</button>
       <button class="btn" id="btnSyncPull" style="margin-left:8px;">☁️⬇️ Tarik dari Cloud</button>
       <p class="muted" style="margin-top:10px;">
-        <b>Sinkron ke Cloud</b>: unggah data dari komputer ini ke cloud. Lakukan setiap kali selesai kerja & internet tersedia.<br>
-        <b>Tarik dari Cloud</b>: timpa data di komputer ini dengan data dari cloud. Gunakan hanya saat membuka aplikasi di komputer/browser baru, atau untuk memulihkan data — perubahan yang belum disinkron di komputer ini akan hilang.
+        <b>Sinkron ke Cloud</b>: paksa unggah perubahan yang belum terkirim sekarang juga (biasanya tidak perlu, karena sudah otomatis).<br>
+        <b>Tarik dari Cloud</b>: timpa SELURUH data di komputer ini dengan data dari cloud. Gunakan hanya saat membuka aplikasi di komputer/browser baru, atau untuk memulihkan data — perubahan yang belum disinkron di komputer ini akan hilang.
       </p>
     </div>
 
@@ -1485,8 +1485,11 @@ let currentShift = null; // shift kasir yang sedang berjalan (modal awal, dll) -
 /* ---------------- storage helpers (OFFLINE-FIRST: localStorage jadi sumber utama) ---------------- */
 const LOCAL_DB_KEY = 'kasirApotekMasema_localdb_v1';
 const SYNC_META_KEY = 'kasirApotekMasema_syncmeta_v1';
+const AUTO_SYNC_INTERVAL_MS = 12000; // auto-sync tiap 12 detik selama online
 let localDB = {};
-let syncMeta = { lastSyncAt: null, dirty: false };
+let syncMeta = { lastSyncAt: null, dirtyKeys: [] };
+let autoSyncTimer = null;
+let autoSyncInProgress = false;
 
 function getAtPath(obj, path){
   if(!path) return obj;
@@ -1509,6 +1512,7 @@ function setAtPath(obj, path, value){
   }
   cur[parts[parts.length-1]] = value;
 }
+function topLevelKey(path){ return String(path).split('/').filter(Boolean)[0]; }
 
 function loadLocalDBFromStorage(){
   try{
@@ -1517,8 +1521,9 @@ function loadLocalDBFromStorage(){
   }catch(e){ console.error('Gagal membaca data lokal', e); localDB = {}; }
   try{
     const rawMeta = localStorage.getItem(SYNC_META_KEY);
-    syncMeta = rawMeta ? JSON.parse(rawMeta) : { lastSyncAt: null, dirty: false };
-  }catch(e){ syncMeta = { lastSyncAt: null, dirty: false }; }
+    syncMeta = rawMeta ? JSON.parse(rawMeta) : { lastSyncAt: null, dirtyKeys: [] };
+    if(!Array.isArray(syncMeta.dirtyKeys)) syncMeta.dirtyKeys = [];
+  }catch(e){ syncMeta = { lastSyncAt: null, dirtyKeys: [] }; }
 }
 function persistLocalDB(){
   try{
@@ -1532,24 +1537,31 @@ function persistSyncMeta(){
   try{ localStorage.setItem(SYNC_META_KEY, JSON.stringify(syncMeta)); }catch(e){}
   updateSyncBadge();
 }
-function markDirty(){
-  if(!syncMeta.dirty){ syncMeta.dirty = true; persistSyncMeta(); }
+function markDirty(key){
+  if(!key) return;
+  if(!syncMeta.dirtyKeys.includes(key)){ syncMeta.dirtyKeys.push(key); }
+  persistSyncMeta();
 }
 
 /* Semua baca/tulis data aplikasi (kasir, stok, riwayat, dll) lewat sGet/sSet ini,
    dan SELALU dari/ke penyimpanan komputer ini (bukan langsung ke internet).
-   Supaya aplikasi tetap 100% bisa dipakai walau internet mati. */
+   Supaya aplikasi tetap 100% bisa dipakai walau internet mati/putus-putus. */
 async function sGet(path){
   return getAtPath(localDB, path);
 }
 async function sSet(path, valueObj){
   setAtPath(localDB, path, valueObj);
   persistLocalDB();
-  markDirty();
+  markDirty(topLevelKey(path));
   return true;
 }
 
-/* ---------------- sinkronisasi manual ke/dari Firebase (cloud) ---------------- */
+/* ---------------- sinkronisasi ke/dari Firebase (cloud) ----------------
+   Auto-sync berjalan otomatis di background (per "kelompok data"/top-level key,
+   bukan timpa seluruh database) supaya PC Kasir & PC Dokter yang terpisah bisa
+   saling lihat data terbaru tanpa harus klik manual, dan aman dipakai meski
+   koneksi internet kadang putus-putus (setiap perubahan lokal tetap tersimpan
+   aman & otomatis dicoba lagi saat online kembali). */
 async function authQuery(){
   if(window.__getAuthToken){
     const token = await window.__getAuthToken();
@@ -1558,29 +1570,114 @@ async function authQuery(){
   return '';
 }
 
-async function pushToCloud(){
-  if(!navigator.onLine){ toast('Tidak ada koneksi internet. Coba lagi nanti.', true); return false; }
-  toast('Menyinkronkan data ke cloud...');
+async function pushDirtyKeysToCloud(opts){
+  opts = opts || {};
+  if(!navigator.onLine){ if(!opts.silent) toast('Tidak ada koneksi internet. Coba lagi nanti.', true); return false; }
+  const keys = (syncMeta.dirtyKeys || []).slice();
+  if(keys.length === 0){ if(!opts.silent) toast('Tidak ada perubahan baru untuk disinkron.'); return true; }
+  if(!opts.silent) toast('Menyinkronkan data ke cloud...');
+  let ok = true;
   try{
     const q = await authQuery();
-    const res = await fetch(`${DB_URL}/.json${q}`, {
-      method:'PUT',
-      headers:{ 'Content-Type':'application/json' },
-      body: JSON.stringify(localDB),
-    });
-    if(!res.ok) throw new Error('HTTP '+res.status);
-    syncMeta.dirty = false;
+    for(const key of keys){
+      const res = await fetch(`${DB_URL}/${encodeURIComponent(key)}.json${q}`, {
+        method:'PUT',
+        headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify(localDB[key] === undefined ? null : localDB[key]),
+      });
+      if(!res.ok) throw new Error('HTTP '+res.status+' saat unggah '+key);
+      syncMeta.dirtyKeys = syncMeta.dirtyKeys.filter(k=>k!==key);
+    }
     syncMeta.lastSyncAt = new Date().toISOString();
     persistSyncMeta();
-    toast('Sinkron ke cloud berhasil ✓');
-    return true;
+    if(!opts.silent) toast('Sinkron ke cloud berhasil ✓');
   }catch(e){
     console.error('Gagal sinkron ke cloud', e);
-    toast('Gagal sinkron ke cloud. Cek koneksi internet, lalu coba lagi.', true);
+    persistSyncMeta();
+    ok = false;
+    if(!opts.silent) toast('Gagal sinkron ke cloud. Cek koneksi internet, lalu coba lagi.', true);
+  }
+  return ok;
+}
+
+async function pullRemoteKeysSilent(){
+  if(!navigator.onLine) return false;
+  try{
+    const q = await authQuery();
+    const res = await fetch(`${DB_URL}/.json${q}`, { cache:'no-store' });
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const remote = (await res.json()) || {};
+    const dirty = new Set(syncMeta.dirtyKeys || []);
+    let changed = false;
+    Object.keys(remote).forEach(key=>{
+      if(dirty.has(key)) return; // ada perubahan lokal yang belum sempat diunggah, jangan ditimpa dulu
+      if(JSON.stringify(localDB[key]) !== JSON.stringify(remote[key])){
+        localDB[key] = remote[key];
+        changed = true;
+      }
+    });
+    if(changed) persistLocalDB();
+    syncMeta.lastSyncAt = new Date().toISOString();
+    persistSyncMeta();
+    return changed;
+  }catch(e){
+    console.error('Gagal auto-sync mengambil data dari cloud', e);
     return false;
   }
 }
 
+async function reloadCachedListsFromLocalDB(){
+  const obatRaw = await sGet('obat-list');
+  obatList = obatRaw ? Object.values(obatRaw) : [];
+  const akunRaw = await sGet('kasir-akun');
+  kasirAkunList = akunRaw ? Object.values(akunRaw) : [];
+  const akunDokterRaw = await sGet('dokter-akun');
+  dokterAkunList = akunDokterRaw ? Object.values(akunDokterRaw) : [];
+  const pasienRaw = await sGet('pasien-list');
+  pasienList = pasienRaw ? Object.values(pasienRaw) : [];
+}
+
+function refreshActiveTabView(){
+  const activePanel = document.querySelector('.tab-panel.active');
+  if(!activePanel) return;
+  const target = activePanel.id.replace('tab-','');
+  updateKasirBanners();
+  if(target === 'kasir'){ renderResepPendingBanner(); }
+  else if(target === 'stok'){ renderStokTable(); renderStokSummary(); }
+  else if(target === 'pasien'){ renderPasienTable(); }
+  else if(target === 'antrian'){ loadAntrianHariIni().then(renderAntrianTable); }
+  else if(target === 'piutang'){ renderPiutang(); }
+  else if(target === 'pengaturan'){ renderAkunKasirTable(); renderAkunDokterTable(); }
+}
+
+async function runAutoSync(){
+  if(autoSyncInProgress) return;
+  if(!navigator.onLine) return;
+  autoSyncInProgress = true;
+  try{
+    await pushDirtyKeysToCloud({ silent:true });
+    const changed = await pullRemoteKeysSilent();
+    if(changed){
+      await reloadCachedListsFromLocalDB();
+      refreshActiveTabView();
+    }
+  }catch(e){
+    console.error('Auto-sync gagal', e);
+  } finally {
+    autoSyncInProgress = false;
+  }
+}
+function startAutoSync(){
+  if(autoSyncTimer) return;
+  autoSyncTimer = setInterval(runAutoSync, AUTO_SYNC_INTERVAL_MS);
+  runAutoSync();
+}
+window.addEventListener('online', ()=>{ updateSyncBadge(); runAutoSync(); });
+
+/* ---------------- sinkron manual (tombol di Pengaturan) ---------------- */
+async function pushToCloud(){
+  return pushDirtyKeysToCloud({ silent:false });
+}
 async function pullFromCloud(opts){
   opts = opts || {};
   if(!navigator.onLine){ if(!opts.silent) toast('Tidak ada koneksi internet.', true); return false; }
@@ -1593,7 +1690,7 @@ async function pullFromCloud(opts){
     const data = await res.json();
     localDB = data || {};
     persistLocalDB();
-    syncMeta.dirty = false;
+    syncMeta.dirtyKeys = [];
     syncMeta.lastSyncAt = new Date().toISOString();
     persistSyncMeta();
     if(!opts.silent) toast('Data dari cloud berhasil diambil ✓');
@@ -1607,11 +1704,12 @@ async function pullFromCloud(opts){
 
 function updateSyncBadge(){
   const online = navigator.onLine;
+  const dirty = (syncMeta.dirtyKeys || []).length > 0;
   const badge = document.getElementById('connStatusBadge');
   if(badge){
     if(online){
-      badge.textContent = syncMeta.dirty ? '🟡 Online — belum disinkron' : '🟢 Online — tersinkron';
-      badge.className = 'conn-badge ' + (syncMeta.dirty ? 'conn-warn' : 'conn-ok');
+      badge.textContent = dirty ? '🟡 Online — menyinkron...' : '🟢 Online — auto-sync aktif';
+      badge.className = 'conn-badge ' + (dirty ? 'conn-warn' : 'conn-ok');
     } else {
       badge.textContent = '🔴 Offline — data aman di komputer ini';
       badge.className = 'conn-badge conn-off';
@@ -1620,10 +1718,9 @@ function updateSyncBadge(){
   const detail = document.getElementById('syncStatusDetail');
   if(detail){
     const last = syncMeta.lastSyncAt ? new Date(syncMeta.lastSyncAt).toLocaleString('id-ID') : 'belum pernah';
-    detail.textContent = `Status koneksi: ${online ? 'Online' : 'Offline'}  •  Terakhir sinkron ke cloud: ${last}  •  ${syncMeta.dirty ? 'Ada perubahan yang BELUM diunggah ke cloud' : 'Semua data sudah tersinkron ke cloud'}`;
+    detail.textContent = `Status koneksi: ${online ? 'Online (auto-sync tiap ~12 detik)' : 'Offline'}  •  Terakhir sinkron ke cloud: ${last}  •  ${dirty ? 'Ada perubahan yang sedang menunggu diunggah ke cloud' : 'Semua data sudah tersinkron ke cloud'}`;
   }
 }
-window.addEventListener('online', updateSyncBadge);
 window.addEventListener('offline', updateSyncBadge);
 
 function pad(n){ return String(n).padStart(2,'0'); }
@@ -4702,6 +4799,7 @@ document.getElementById('connStatusBadge').addEventListener('click', ()=> goToTa
 
   renderCart();
   renderResepPendingBanner();
+  startAutoSync();
 })();
 </script>
 </body>
