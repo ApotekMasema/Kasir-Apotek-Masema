@@ -73,6 +73,12 @@
   }
   .area-tab.active{background:var(--primary-dark);color:#fff;border-color:var(--primary-dark);}
   .area-tab:not(.active):hover{border-color:var(--primary);color:var(--primary-dark);}
+  .login-role-tab{
+    border:1.5px solid var(--border);background:var(--surface);padding:9px 18px;border-radius:10px;
+    font-family:var(--font-display);font-weight:800;font-size:13.5px;color:var(--ink-soft);transition:.15s;
+  }
+  .login-role-tab.active{background:var(--primary-dark);color:#fff;border-color:var(--primary-dark);}
+  .login-role-tab:not(.active):hover{border-color:var(--primary);color:var(--primary-dark);}
   .subtopbar{
     background:var(--bg);border-bottom:1px solid var(--border);
     padding:10px 20px;
@@ -826,6 +832,26 @@
       </table>
     </div>
 
+    <h2>Akun Dokter (Login)</h2>
+    <p class="section-hint">Kelola nama & PIN setiap dokter. Dokter login lewat tab "🩺 Dokter" di layar login untuk masuk ke area Klinik (Antrian, Rekam Medis) - tidak bisa mengakses area Kasir/Stok/Laporan.</p>
+    <div class="card">
+      <div class="form-grid">
+        <div class="field">
+          <label>Nama Dokter Baru</label>
+          <input type="text" id="fAkunDokterNama" placeholder="Contoh: dr. Nama">
+        </div>
+        <div class="field">
+          <label>PIN Dokter (4 digit)</label>
+          <input type="password" id="fAkunDokterPin" maxlength="4" inputmode="numeric" placeholder="••••">
+        </div>
+      </div>
+      <button class="btn btn-primary" id="btnTambahAkunDokter" style="margin-top:10px;">+ Tambah Akun Dokter</button>
+      <table style="margin-top:14px;">
+        <thead><tr><th>Nama</th><th>PIN</th><th>Aksi</th></tr></thead>
+        <tbody id="akunDokterBody"></tbody>
+      </table>
+    </div>
+
     <h2>Riwayat Tutup Kasir</h2>
     <p class="section-hint">Rekap rekonsiliasi kas setiap kali kasir tutup/ganti shift, untuk memantau selisih uang tunai di laci.</p>
     <div class="card">
@@ -1145,19 +1171,36 @@
 <div class="modal-overlay hidden" id="loginGateModal">
 
   <div class="modal">
-    <h3>✚ Login Kasir</h3>
-    <p class="section-hint" id="loginGateHint">Pilih nama Anda dan masukkan PIN untuk mulai bertugas.</p>
-    <div class="field" style="text-align:left;margin-bottom:10px;">
-      <label>Nama Kasir</label>
-      <select id="loginKasirNama"></select>
+    <h3>✚ Login</h3>
+    <p class="section-hint" id="loginGateHint">Pilih peran Anda, lalu masukkan nama dan PIN untuk mulai bertugas.</p>
+    <div class="area-tabs" style="justify-content:center;margin-bottom:14px;">
+      <button type="button" class="login-role-tab active" id="btnLoginTabKasir">🏪 Kasir</button>
+      <button type="button" class="login-role-tab" id="btnLoginTabDokter">🩺 Dokter</button>
     </div>
-    <div class="field" style="text-align:left;margin-bottom:12px;">
-      <label>PIN Kasir</label>
-      <input type="password" id="loginKasirPin" maxlength="4" inputmode="numeric" placeholder="••••">
+    <div id="loginTabKasirForm">
+      <div class="field" style="text-align:left;margin-bottom:10px;">
+        <label>Nama Kasir</label>
+        <select id="loginKasirNama"></select>
+      </div>
+      <div class="field" style="text-align:left;margin-bottom:12px;">
+        <label>PIN Kasir</label>
+        <input type="password" id="loginKasirPin" maxlength="4" inputmode="numeric" placeholder="••••">
+      </div>
+      <button class="btn btn-primary btn-block" id="btnLoginKasir">Masuk</button>
     </div>
-    <button class="btn btn-primary btn-block" id="btnLoginKasir">Masuk</button>
+    <div id="loginTabDokterForm" class="hidden">
+      <div class="field" style="text-align:left;margin-bottom:10px;">
+        <label>Nama Dokter</label>
+        <select id="loginDokterNama"></select>
+      </div>
+      <div class="field" style="text-align:left;margin-bottom:12px;">
+        <label>PIN Dokter</label>
+        <input type="password" id="loginDokterPin" maxlength="4" inputmode="numeric" placeholder="••••">
+      </div>
+      <button class="btn btn-primary btn-block" id="btnLoginDokter">Masuk</button>
+    </div>
     <p class="muted" style="margin-top:14px;">
-      <button id="btnLoginSebagaiAdmin" style="background:none;border:none;color:var(--primary);font-weight:700;cursor:pointer;font-size:12.5px;">Masuk sebagai Admin (kelola akun kasir) →</button>
+      <button id="btnLoginSebagaiAdmin" style="background:none;border:none;color:var(--primary);font-weight:700;cursor:pointer;font-size:12.5px;">Masuk sebagai Admin (kelola akun kasir & dokter) →</button>
     </p>
   </div>
 </div>
@@ -1368,8 +1411,10 @@ let pinCallback = null;
 let pendingTabAfterPin = null;
 let pengaturan = { namaApotek:'Apotek Masema Medika', alamat:'', telp:'', stokMinDefault:10, tampilkanAlamat:true, tampilkanTelp:true, tampilkanKasir:true, headerTambahan:'' };
 let kasirAkunList = [];      // [{id,nama,pin}]
-let currentKasirNama = null; // nama kasir yang sedang login (atau 'Admin')
-let currentShift = null; // shift kasir yang sedang berjalan (modal awal, dll)
+let dokterAkunList = [];     // [{id,nama,pin}]
+let currentKasirNama = null; // nama orang yang sedang login (kasir/dokter/Admin)
+let currentUserRole = 'kasir'; // 'kasir' | 'dokter' | 'admin'
+let currentShift = null; // shift kasir yang sedang berjalan (modal awal, dll) - tidak dipakai untuk dokter
 
 /* ---------------- storage helpers (OFFLINE-FIRST: localStorage jadi sumber utama) ---------------- */
 const LOCAL_DB_KEY = 'kasirApotekMasema_localdb_v1';
@@ -1553,6 +1598,9 @@ async function initData(){
 
   const akunRaw = await sGet('kasir-akun');
   kasirAkunList = akunRaw ? Object.values(akunRaw) : [];
+
+  const akunDokterRaw = await sGet('dokter-akun');
+  dokterAkunList = akunDokterRaw ? Object.values(akunDokterRaw) : [];
 
   const pasienRaw = await sGet('pasien-list');
   pasienList = pasienRaw ? Object.values(pasienRaw) : [];
@@ -1810,7 +1858,7 @@ function renderAntrianTable(){
       <td>${statusTag(a.status)}</td>
       <td>
         ${a.status==='Menunggu' ? `<button class="btn btn-sm mulai-periksa" data-id="${a.id}">Mulai Periksa</button>` : ''}
-        ${a.status==='Diperiksa' ? `<button class="btn btn-sm btn-primary buka-rme" data-id="${a.id}">📋 Rekam Medis</button>` : ''}
+        ${a.status==='Diperiksa' ? (canIsiRme() ? `<button class="btn btn-sm btn-primary buka-rme" data-id="${a.id}">📋 Rekam Medis</button>` : `<span class="muted" style="font-size:12px;">Menunggu dokter mengisi RM</span>`) : ''}
         ${a.status==='Diperiksa' ? `<button class="btn btn-sm selesai-periksa" data-id="${a.id}">Tandai Selesai</button>` : ''}
         <button class="btn btn-sm btn-danger del-antrian" data-id="${a.id}">Hapus</button>
       </td>
@@ -1904,7 +1952,12 @@ async function simpanAntrian(){
 let rmeAntrianAktif = null; // entri antrian yang sedang dibuka RME-nya (untuk auto tandai selesai)
 let rmeResepCart = []; // [{obatId,nama,hargaJual,hargaBeli,satuan,qty}] - resep yang dipilih dokter
 
+function canIsiRme(){
+  return currentUserRole==='dokter' || currentUserRole==='admin';
+}
+
 function openRmeModal(antrian){
+  if(!canIsiRme()){ toast('Hanya akun Dokter atau Admin yang bisa mengisi rekam medis.', true); return; }
   rmeAntrianAktif = antrian;
   rmeResepCart = [];
   document.getElementById('rmeInfoPasien').innerHTML =
@@ -2902,6 +2955,50 @@ document.getElementById('btnTambahAkunKasir').addEventListener('click', async ()
   toast('Akun kasir ditambahkan ✓');
 });
 
+/* ---------------- akun dokter (login) ---------------- */
+async function saveDokterAkunList(){
+  const obj = {};
+  dokterAkunList.forEach(a=> obj[a.id] = a);
+  await sSet('dokter-akun', obj);
+}
+function renderAkunDokterTable(){
+  const body = document.getElementById('akunDokterBody');
+  if(!body) return;
+  body.innerHTML = dokterAkunList.length ? dokterAkunList.map(a=>`
+    <tr>
+      <td>${escapeHtml(a.nama)}</td>
+      <td class="num">${'•'.repeat((a.pin||'').length)}</td>
+      <td><button class="btn btn-sm btn-danger" data-id="${a.id}">Hapus</button></td>
+    </tr>`).join('') : `<tr><td colspan="3" class="muted" style="padding:14px;text-align:center;">Belum ada akun dokter. Tambahkan minimal satu agar dokter bisa login.</td></tr>`;
+  body.querySelectorAll('button[data-id]').forEach(b=>{
+    b.addEventListener('click', ()=> hapusAkunDokter(b.dataset.id));
+  });
+}
+async function hapusAkunDokter(id){
+  const akun = dokterAkunList.find(a=>a.id===id);
+  if(!akun) return;
+  if(!confirm(`Hapus akun dokter "${akun.nama}"?`)) return;
+  dokterAkunList = dokterAkunList.filter(a=>a.id!==id);
+  await saveDokterAkunList();
+  renderAkunDokterTable();
+  refreshLoginDokterOptions();
+  toast('Akun dokter dihapus ✓');
+}
+document.getElementById('btnTambahAkunDokter').addEventListener('click', async ()=>{
+  const nama = document.getElementById('fAkunDokterNama').value.trim();
+  const pin = document.getElementById('fAkunDokterPin').value.trim();
+  if(!nama){ toast('Isi nama dokter.', true); return; }
+  if(!/^\d{4}$/.test(pin)){ toast('PIN harus 4 digit angka.', true); return; }
+  if(dokterAkunList.some(a=>a.nama.toLowerCase()===nama.toLowerCase())){ toast('Nama dokter sudah terdaftar.', true); return; }
+  dokterAkunList.push({ id: crypto.randomUUID(), nama, pin });
+  await saveDokterAkunList();
+  document.getElementById('fAkunDokterNama').value='';
+  document.getElementById('fAkunDokterPin').value='';
+  renderAkunDokterTable();
+  refreshLoginDokterOptions();
+  toast('Akun dokter ditambahkan ✓');
+});
+
 /* ---------------- login gate ---------------- */
 function refreshLoginKasirOptions(){
   const sel = document.getElementById('loginKasirNama');
@@ -2910,18 +3007,46 @@ function refreshLoginKasirOptions(){
     ? kasirAkunList.map(a=>`<option value="${a.id}">${escapeHtml(a.nama)}</option>`).join('')
     : `<option value="">(belum ada akun kasir)</option>`;
 }
+function refreshLoginDokterOptions(){
+  const sel = document.getElementById('loginDokterNama');
+  if(!sel) return;
+  sel.innerHTML = dokterAkunList.length
+    ? dokterAkunList.map(a=>`<option value="${a.id}">${escapeHtml(a.nama)}</option>`).join('')
+    : `<option value="">(belum ada akun dokter)</option>`;
+}
 function openLoginGate(){
   refreshLoginKasirOptions();
+  refreshLoginDokterOptions();
   document.getElementById('loginKasirPin').value = '';
+  document.getElementById('loginDokterPin').value = '';
+  switchLoginTab('kasir');
   document.getElementById('loginGateModal').classList.remove('hidden');
 }
-function loginSukses(nama){
+function switchLoginTab(which){
+  document.getElementById('loginTabKasirForm').classList.toggle('hidden', which!=='kasir');
+  document.getElementById('loginTabDokterForm').classList.toggle('hidden', which!=='dokter');
+  document.getElementById('btnLoginTabKasir').classList.toggle('active', which==='kasir');
+  document.getElementById('btnLoginTabDokter').classList.toggle('active', which==='dokter');
+}
+document.getElementById('btnLoginTabKasir').addEventListener('click', ()=> switchLoginTab('kasir'));
+document.getElementById('btnLoginTabDokter').addEventListener('click', ()=> switchLoginTab('dokter'));
+function loginSukses(nama, role){
   currentKasirNama = nama;
+  currentUserRole = role || 'kasir';
   sessionStorage.setItem('kasirLoginNama', nama);
+  sessionStorage.setItem('kasirLoginRole', currentUserRole);
   document.getElementById('loginGateModal').classList.add('hidden');
-  document.getElementById('kasirBertugasDisplay').textContent = nama;
+  const label = currentUserRole==='dokter' ? ('dr. ' + nama) : nama;
+  document.getElementById('kasirBertugasDisplay').textContent = label;
   document.getElementById('kasirSessionBadge').style.display = '';
-  document.getElementById('kasirSessionName').textContent = '👤 ' + nama;
+  document.getElementById('kasirSessionName').textContent = '👤 ' + label;
+  document.getElementById('btnPengeluaran').style.display = currentUserRole==='dokter' ? 'none' : '';
+  document.getElementById('btnGantiKasir').textContent = currentUserRole==='dokter' ? 'Ganti Akun' : 'Ganti Kasir';
+  applyRoleUI();
+}
+function applyRoleUI(){
+  const kasirAreaBtn = document.querySelector('.area-tab[data-area="kasir"]');
+  if(kasirAreaBtn) kasirAreaBtn.style.display = currentUserRole==='dokter' ? 'none' : '';
 }
 let pendingLoginNama = null;
 function promptShiftOpen(nama){
@@ -2947,7 +3072,7 @@ document.getElementById('btnMulaiShift').addEventListener('click', async ()=>{
   currentShift = shift;
   sessionStorage.setItem('currentShift', JSON.stringify(shift));
   document.getElementById('shiftOpenModal').classList.add('hidden');
-  loginSukses(pendingLoginNama);
+  loginSukses(pendingLoginNama, 'kasir');
   pendingLoginNama = null;
 });
 document.getElementById('btnLoginKasir').addEventListener('click', ()=>{
@@ -2959,24 +3084,39 @@ document.getElementById('btnLoginKasir').addEventListener('click', ()=>{
   promptShiftOpen(akun.nama);
 });
 document.getElementById('loginKasirPin').addEventListener('keydown', e=>{ if(e.key==='Enter') document.getElementById('btnLoginKasir').click(); });
+document.getElementById('btnLoginDokter').addEventListener('click', ()=>{
+  const id = document.getElementById('loginDokterNama').value;
+  const pin = document.getElementById('loginDokterPin').value.trim();
+  const akun = dokterAkunList.find(a=>a.id===id);
+  if(!akun){ toast('Pilih nama dokter terlebih dahulu (hubungi admin bila belum ada akun).', true); return; }
+  if(pin !== akun.pin){ toast('PIN salah.', true); return; }
+  currentShift = null;
+  sessionStorage.removeItem('currentShift');
+  loginSukses(akun.nama, 'dokter');
+  goToTab('antrian');
+});
+document.getElementById('loginDokterPin').addEventListener('keydown', e=>{ if(e.key==='Enter') document.getElementById('btnLoginDokter').click(); });
 document.getElementById('btnLoginSebagaiAdmin').addEventListener('click', ()=>{
   pinCallback = ()=>{
     currentShift = null;
     sessionStorage.removeItem('currentShift');
-    loginSukses('Admin');
+    loginSukses('Admin', 'admin');
     goToTab('pengaturan');
   };
   document.getElementById('loginGateModal').classList.add('hidden');
-  openPinModal('Masukkan PIN Admin untuk masuk & kelola akun kasir.');
+  openPinModal('Masukkan PIN Admin untuk masuk & kelola akun kasir/dokter.');
 });
 function doLogoutKasir(){
   sessionStorage.removeItem('kasirLoginNama');
+  sessionStorage.removeItem('kasirLoginRole');
   sessionStorage.removeItem('currentShift');
   currentKasirNama = null;
+  currentUserRole = 'kasir';
   currentShift = null;
   pinUnlocked = false;
   document.getElementById('kasirSessionBadge').style.display = 'none';
   document.getElementById('kasirBertugasDisplay').textContent = '-';
+  applyRoleUI();
   activateTab('kasir');
   openLoginGate();
 }
@@ -3604,8 +3744,13 @@ document.getElementById('recoveryForm').addEventListener('submit', async (e)=>{
    TABS + PIN GATE
    ========================================================= */
 const PROTECTED_TABS = ['stok','laporan','pengaturan'];
+const KASIR_ONLY_TABS = ['kasir','riwayat','stok','resep','piutang','laporan'];
 
 function goToTab(target){
+  if(currentUserRole==='dokter' && KASIR_ONLY_TABS.includes(target)){
+    toast('Area Kasir tidak tersedia untuk akun Dokter.', true);
+    return;
+  }
   if(PROTECTED_TABS.includes(target) && !pinUnlocked){
     pendingTabAfterPin = target;
     openPinModal();
@@ -4311,19 +4456,30 @@ document.getElementById('connStatusBadge').addEventListener('click', ()=> goToTa
   await initData();
   updateKasirBanners();
   renderAkunKasirTable();
+  renderAkunDokterTable();
 
   const savedNama = sessionStorage.getItem('kasirLoginNama');
-  if(savedNama && (savedNama === 'Admin' || kasirAkunList.some(a=>a.nama===savedNama))){
-    document.getElementById('kasirBertugasDisplay').textContent = savedNama;
+  const savedRole = sessionStorage.getItem('kasirLoginRole') || 'kasir';
+  const namaValid = savedRole==='dokter' ? dokterAkunList.some(a=>a.nama===savedNama) : (savedNama==='Admin' || kasirAkunList.some(a=>a.nama===savedNama));
+  if(savedNama && namaValid){
+    currentUserRole = savedRole;
+    const label = currentUserRole==='dokter' ? ('dr. ' + savedNama) : savedNama;
+    document.getElementById('kasirBertugasDisplay').textContent = label;
     document.getElementById('kasirSessionBadge').style.display = '';
-    document.getElementById('kasirSessionName').textContent = '👤 ' + savedNama;
+    document.getElementById('kasirSessionName').textContent = '👤 ' + label;
+    document.getElementById('btnPengeluaran').style.display = currentUserRole==='dokter' ? 'none' : '';
+    document.getElementById('btnGantiKasir').textContent = currentUserRole==='dokter' ? 'Ganti Akun' : 'Ganti Kasir';
     currentKasirNama = savedNama;
-    const savedShift = sessionStorage.getItem('currentShift');
-    if(savedShift){
-      try{ currentShift = JSON.parse(savedShift); }catch(e){ currentShift = null; }
+    applyRoleUI();
+    if(currentUserRole !== 'dokter'){
+      const savedShift = sessionStorage.getItem('currentShift');
+      if(savedShift){
+        try{ currentShift = JSON.parse(savedShift); }catch(e){ currentShift = null; }
+      }
     }
   } else {
     sessionStorage.removeItem('kasirLoginNama');
+    sessionStorage.removeItem('kasirLoginRole');
     sessionStorage.removeItem('currentShift');
     openLoginGate();
   }
