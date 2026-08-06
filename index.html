@@ -221,19 +221,28 @@
   .search-inline{flex:1;min-width:180px;}
 
   #strukPrint{display:none;}
+  #suratPrint{display:none;}
 
   @media print{
-    body:not(.printing-struk) .topbar,
-    body:not(.printing-struk) .toolbar,
-    body:not(.printing-struk) .tab:not(.active){display:none !important;}
+    body:not(.printing-struk):not(.printing-surat) .topbar,
+    body:not(.printing-struk):not(.printing-surat) .toolbar,
+    body:not(.printing-struk):not(.printing-surat) .tab:not(.active){display:none !important;}
     body.printing-struk main > *:not(#strukPrint){display:none !important;}
+    body.printing-surat main > *:not(#suratPrint){display:none !important;}
     body.printing-struk .topbar,
     body.printing-struk .area-tabs,
     body.printing-struk #areaSubTabs-kasir,
     body.printing-struk #areaSubTabs-klinik{display:none !important;}
-    body.printing-struk .modal-overlay{display:none !important;}
-    body.printing-struk .toast{display:none !important;}
+    body.printing-surat .topbar,
+    body.printing-surat .area-tabs,
+    body.printing-surat #areaSubTabs-kasir,
+    body.printing-surat #areaSubTabs-klinik{display:none !important;}
+    body.printing-struk .modal-overlay,
+    body.printing-surat .modal-overlay{display:none !important;}
+    body.printing-struk .toast,
+    body.printing-surat .toast{display:none !important;}
     #strukPrint{display:block !important;}
+    #suratPrint{display:block !important;}
     body{background:#fff;}
     main{padding:0;max-width:100%;}
     .card,.emp-card{box-shadow:none;}
@@ -249,6 +258,26 @@
   .struk-box hr{border:none;border-top:1px dashed #000;margin:8px 0;}
   .struk-box table{border:none;width:100%;}
   .struk-box td{border:none;padding:2px 0;font-size:12px;}
+
+  .surat-a4{width:180mm;min-height:250mm;margin:0 auto;padding:14mm 16mm;color:#000;font-size:13px;line-height:1.6;box-sizing:border-box;}
+  .surat-a4 .surat-kop{text-align:center;border-bottom:2.5px solid #000;padding-bottom:10px;margin-bottom:22px;}
+  .surat-a4 .surat-kop h3{margin:0;font-size:19px;letter-spacing:0.5px;}
+  .surat-a4 .surat-kop div{font-size:12px;margin-top:2px;}
+  .surat-a4 h4{text-align:center;text-decoration:underline;margin:0 0 4px;font-size:15px;letter-spacing:0.5px;}
+  .surat-a4 .surat-nomor{text-align:center;font-size:12px;margin-bottom:18px;}
+  .surat-a4 table.surat-data{border:none;width:100%;margin:10px 0 16px;}
+  .surat-a4 table.surat-data td{border:none;padding:2px 6px 2px 0;vertical-align:top;font-size:13px;}
+  .surat-a4 table.surat-data td.lbl{width:150px;}
+  .surat-a4 p{margin:0 0 12px;text-align:justify;}
+  .surat-a4 .surat-ttd{margin-top:56px;display:flex;justify-content:flex-end;}
+  .surat-a4 .surat-ttd .blok{text-align:center;min-width:220px;}
+  .surat-a4 .surat-ttd .nama-ttd{margin-top:64px;font-weight:700;text-decoration:underline;}
+  .surat-a4 table.surat-resep{border:none;width:100%;margin:14px 0;}
+  .surat-a4 table.surat-resep td{border:none;padding:5px 4px;font-size:13px;vertical-align:top;}
+  .surat-a4 table.surat-resep tr{border-bottom:1px dotted #999;}
+  .surat-a4 .surat-resep .no-item{font-weight:700;width:22px;}
+  .surat-a4 .surat-resep .nama-item{font-weight:700;}
+  .surat-a4 .surat-resep .aturan-item{color:#333;font-style:italic;}
 
   @media (max-width:520px){
     .topbar{padding:12px 14px;}
@@ -515,6 +544,7 @@
       </div>
       <button class="btn" id="btnLapKlinikBulanIni">Bulan Ini</button>
       <button class="btn" id="btnLapKlinikPrint">🖨️ Cetak</button>
+      <button class="btn" id="btnLapKlinikExcel">📊 Unduh Excel</button>
     </div>
 
     <div class="summary-cards" id="lapKlinikSummaryCards"></div>
@@ -733,6 +763,7 @@
       <button class="btn" id="btnLapBulanIni">Bulan Ini</button>
       <button class="btn" id="btnLapPrint">🖨️ Cetak</button>
       <button class="btn" id="btnLapCsv">⬇️ Unduh CSV</button>
+      <button class="btn" id="btnLapExcel">📊 Unduh Excel</button>
     </div>
 
     <div class="summary-cards" id="lapSummaryCards"></div>
@@ -1038,7 +1069,36 @@
   <div class="modal wide">
     <h3>Rekam Medis — Pemeriksaan Pasien</h3>
     <div class="banner-alert" id="rmeInfoPasien" style="margin-bottom:12px;"></div>
+
+    <h3 style="margin-top:0;">🩺 Data Vital</h3>
     <div class="form-grid">
+      <div class="field">
+        <label>Tekanan Darah</label>
+        <input type="text" id="rmeTensi" placeholder="mis. 120/80 mmHg">
+      </div>
+      <div class="field">
+        <label>Suhu Tubuh (°C)</label>
+        <input type="number" step="0.1" id="rmeSuhu" placeholder="36.5">
+      </div>
+      <div class="field">
+        <label>Nadi (x/menit)</label>
+        <input type="number" id="rmeNadi" placeholder="80">
+      </div>
+      <div class="field">
+        <label>Berat Badan (kg)</label>
+        <input type="number" step="0.1" id="rmeBeratBadan" placeholder="60">
+      </div>
+      <div class="field">
+        <label>Tinggi Badan (cm)</label>
+        <input type="number" id="rmeTinggiBadan" placeholder="165">
+      </div>
+      <div class="field full">
+        <label>Riwayat Alergi</label>
+        <input type="text" id="rmeAlergi" placeholder="Contoh: alergi amoxicillin (opsional) - akan memperbarui data pasien">
+      </div>
+    </div>
+
+    <div class="form-grid" style="margin-top:6px;">
       <div class="field full">
         <label>Keluhan</label>
         <textarea id="rmeKeluhan" rows="2" placeholder="Keluhan pasien saat datang"></textarea>
@@ -1058,15 +1118,54 @@
     </div>
 
     <h3 style="margin-top:16px;">💊 Resep Obat (opsional)</h3>
-    <p class="section-hint">Obat yang dipilih di sini akan otomatis muncul di keranjang tab Kasir untuk diproses pembayaran.</p>
+    <p class="section-hint">Obat yang dipilih di sini akan otomatis muncul di keranjang tab Kasir untuk diproses pembayaran. Isi juga aturan pakai untuk keperluan cetak resep formal.</p>
     <div class="search-box">
       <input type="text" id="rmeCariObat" placeholder="Cari nama / kode obat...">
     </div>
     <div class="search-results" id="rmeCariObatResults" style="max-height:180px;margin-bottom:10px;"></div>
     <div id="rmeResepList"></div>
 
+    <h3 style="margin-top:16px;">📄 Cetak Dokumen</h3>
+    <div class="toolbar" style="margin-bottom:0;">
+      <button class="btn" id="btnCetakResepFormal" type="button">🖨️ Cetak Resep</button>
+      <button class="btn" id="btnCetakSuratSakit" type="button">🖨️ Surat Sakit</button>
+      <button class="btn" id="btnCetakSuratRujukan" type="button">🖨️ Surat Rujukan</button>
+    </div>
+
     <button class="btn btn-primary btn-block" id="btnSimpanRme" style="margin-top:14px;">Simpan Rekam Medis & Tandai Selesai</button>
     <button class="cancel" id="btnBatalRme">Batal</button>
+  </div>
+</div>
+
+<div class="modal-overlay hidden" id="suratOptModal">
+  <div class="modal">
+    <h3 id="suratOptTitle">Cetak Surat</h3>
+    <div class="form-grid" id="suratOptFieldsSakit" style="display:none;">
+      <div class="field">
+        <label>Mulai Istirahat</label>
+        <input type="date" id="soSakitMulai">
+      </div>
+      <div class="field">
+        <label>Lama (hari)</label>
+        <input type="number" id="soSakitLama" min="1" value="1">
+      </div>
+      <div class="toggle-row" style="grid-column:1/-1;">
+        <input type="checkbox" id="soSakitTampilDiagnosa">
+        <label for="soSakitTampilDiagnosa">Tampilkan diagnosa di surat</label>
+      </div>
+    </div>
+    <div class="form-grid" id="suratOptFieldsRujukan" style="display:none;">
+      <div class="field full">
+        <label>Dirujuk ke</label>
+        <input type="text" id="soRujTujuan" placeholder="mis. RSUD ... / dr. Sp... / Klinik ...">
+      </div>
+      <div class="field full">
+        <label>Alasan / Catatan Rujukan</label>
+        <textarea id="soRujAlasan" rows="2" placeholder="Mohon pemeriksaan & penanganan lebih lanjut..."></textarea>
+      </div>
+    </div>
+    <button class="btn btn-primary btn-block" id="btnSuratOptCetak" style="margin-top:8px;">🖨️ Cetak</button>
+    <button class="cancel" id="btnSuratOptBatal">Batal</button>
   </div>
 </div>
 
@@ -1415,6 +1514,11 @@
 <!-- Area cetak struk -->
 <div id="strukPrint">
   <div class="struk-box" id="strukContent"></div>
+</div>
+
+<!-- Area cetak surat/dokumen resmi (A4): Surat Keterangan Sakit, Rujukan, Resep Formal -->
+<div id="suratPrint">
+  <div class="surat-a4" id="suratContent"></div>
 </div>
 
 <!-- ========= Firebase Authentication (keamanan database) ========= -->
@@ -2201,8 +2305,15 @@ function openRmeModal(antrian){
   if(!canIsiRme()){ toast('Hanya akun Dokter atau Admin yang bisa mengisi rekam medis.', true); return; }
   rmeAntrianAktif = antrian;
   rmeResepCart = [];
+  const p = pasienList.find(x=>x.id===antrian.pasienId);
   document.getElementById('rmeInfoPasien').innerHTML =
     `<span>🩺 Pasien: <strong>${escapeHtml(antrian.namaPasien)}</strong> — No. Antrian ${antrian.noAntrian}</span>`;
+  document.getElementById('rmeTensi').value = '';
+  document.getElementById('rmeSuhu').value = '';
+  document.getElementById('rmeNadi').value = '';
+  document.getElementById('rmeBeratBadan').value = '';
+  document.getElementById('rmeTinggiBadan').value = '';
+  document.getElementById('rmeAlergi').value = p ? (p.alergi||'') : '';
   document.getElementById('rmeKeluhan').value = antrian.keluhan || '';
   document.getElementById('rmeDiagnosa').value = '';
   document.getElementById('rmeTindakan').value = '';
@@ -2238,14 +2349,14 @@ function tambahObatKeResepRme(obatId){
   if(!o) return;
   const existing = rmeResepCart.find(c=>c.obatId===obatId);
   if(existing){ existing.qty += 1; }
-  else { rmeResepCart.push({ obatId:o.id, nama:o.nama, hargaJual:o.hargaJual, hargaBeli:o.hargaBeli, satuan:o.satuan, qty:1 }); }
+  else { rmeResepCart.push({ obatId:o.id, nama:o.nama, hargaJual:o.hargaJual, hargaBeli:o.hargaBeli, satuan:o.satuan, qty:1, aturan:'' }); }
   renderRmeResepList();
 }
 function renderRmeResepList(){
   const wrap = document.getElementById('rmeResepList');
   if(rmeResepCart.length===0){ wrap.innerHTML = `<p class="muted">Belum ada obat dipilih.</p>`; return; }
   wrap.innerHTML = rmeResepCart.map((c,idx)=>`
-    <div class="cart-item">
+    <div class="cart-item" style="flex-wrap:wrap;">
       <div class="ci-info"><div class="ci-name">${escapeHtml(c.nama)}</div><div class="ci-price">${rupiah(c.hargaJual)} x ${c.qty}</div></div>
       <div class="qty-ctrl">
         <button type="button" class="rme-qty-minus" data-idx="${idx}">−</button>
@@ -2253,6 +2364,7 @@ function renderRmeResepList(){
         <button type="button" class="rme-qty-plus" data-idx="${idx}">+</button>
       </div>
       <button class="ci-del rme-hapus-obat" data-idx="${idx}">✕</button>
+      <input type="text" class="rme-aturan-pakai" data-idx="${idx}" value="${escapeHtml(c.aturan||'')}" placeholder="Aturan pakai, mis. 3x1 sehari sesudah makan" style="flex-basis:100%;margin-top:6px;">
     </div>`).join('');
   wrap.querySelectorAll('.rme-qty-minus').forEach(b=>b.addEventListener('click', e=>{
     const i = Number(e.target.dataset.idx);
@@ -2267,6 +2379,9 @@ function renderRmeResepList(){
   wrap.querySelectorAll('.rme-hapus-obat').forEach(b=>b.addEventListener('click', e=>{
     rmeResepCart.splice(Number(e.target.dataset.idx), 1);
     renderRmeResepList();
+  }));
+  wrap.querySelectorAll('.rme-aturan-pakai').forEach(inp=>inp.addEventListener('input', e=>{
+    rmeResepCart[Number(e.target.dataset.idx)].aturan = e.target.value;
   }));
 }
 
@@ -2285,12 +2400,28 @@ async function simpanRme(){
     diagnosa,
     tindakan: document.getElementById('rmeTindakan').value.trim(),
     catatan: document.getElementById('rmeCatatan').value.trim(),
+    vital: {
+      tensi: document.getElementById('rmeTensi').value.trim(),
+      suhu: document.getElementById('rmeSuhu').value.trim(),
+      nadi: document.getElementById('rmeNadi').value.trim(),
+      beratBadan: document.getElementById('rmeBeratBadan').value.trim(),
+      tinggiBadan: document.getElementById('rmeTinggiBadan').value.trim(),
+    },
+    alergi: document.getElementById('rmeAlergi').value.trim(),
     dokter: currentKasirNama || 'Dokter',
     adaResep: rmeResepCart.length > 0,
   };
   const existing = await sGet('rme-log/' + entry.pasienId) || {};
   existing[entry.id] = entry;
   await sSet('rme-log/' + entry.pasienId, existing);
+  pushPathToCloud('rme-log/' + entry.pasienId); // kirim segera supaya cepat terlihat di komputer lain
+
+  // Perbarui data alergi di data induk pasien juga, kalau ada perubahan/tambahan
+  const pIdx = pasienList.findIndex(x=>x.id===entry.pasienId);
+  if(pIdx > -1 && entry.alergi && pasienList[pIdx].alergi !== entry.alergi){
+    pasienList[pIdx].alergi = entry.alergi;
+    await savePasienList();
+  }
 
   if(rmeResepCart.length > 0){
     const resepEntry = {
@@ -2330,19 +2461,30 @@ async function openRiwayatRmModal(pasienId){
     wrap.innerHTML = `<div class="empty-state">Belum ada riwayat pemeriksaan untuk pasien ini.</div>`;
     return;
   }
-  wrap.innerHTML = list.map(r=>`
+  wrap.innerHTML = list.map(r=>{
+    const v = r.vital || {};
+    const vitalParts = [];
+    if(v.tensi) vitalParts.push(`TD ${v.tensi}`);
+    if(v.suhu) vitalParts.push(`Suhu ${v.suhu}°C`);
+    if(v.nadi) vitalParts.push(`Nadi ${v.nadi}x/mnt`);
+    if(v.beratBadan) vitalParts.push(`BB ${v.beratBadan}kg`);
+    if(v.tinggiBadan) vitalParts.push(`TB ${v.tinggiBadan}cm`);
+    return `
     <div class="card" style="margin-bottom:10px;">
       <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;">
         <strong>${r.tanggal} ${r.waktu}</strong>
         <span class="muted">Oleh: ${escapeHtml(r.dokter||'-')}</span>
       </div>
       <div style="margin-top:6px;font-size:13px;">
+        ${vitalParts.length ? `<div><span class="muted">Vital:</span> ${vitalParts.map(escapeHtml).join(' · ')}</div>` : ''}
+        ${r.alergi ? `<div><span class="muted">Alergi:</span> ${escapeHtml(r.alergi)}</div>` : ''}
         ${r.keluhan ? `<div><span class="muted">Keluhan:</span> ${escapeHtml(r.keluhan)}</div>` : ''}
         <div><span class="muted">Diagnosa:</span> ${escapeHtml(r.diagnosa||'-')}</div>
         ${r.tindakan ? `<div><span class="muted">Tindakan:</span> ${escapeHtml(r.tindakan)}</div>` : ''}
         ${r.catatan ? `<div><span class="muted">Catatan:</span> ${escapeHtml(r.catatan)}</div>` : ''}
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 /* =========================================================
@@ -2408,6 +2550,7 @@ function renderLaporanKlinikChart(kunjungan, startVal, endVal){
     <p class="muted" style="margin-top:6px;">Arahkan kursor ke batang untuk lihat jumlah kunjungan per hari.</p>` : `<p class="muted" style="text-align:center;padding:14px;">Tidak ada data.</p>`;
 }
 
+let lapKlinikCache = { kunjunganSorted: [], diagnosaTop: [], dokterRows: [], startVal:'', endVal:'' };
 async function renderLaporanKlinik(){
   const startVal = document.getElementById('lapKlinikStart').value;
   const endVal = document.getElementById('lapKlinikEnd').value;
@@ -2469,6 +2612,10 @@ async function renderLaporanKlinik(){
         <td>${escapeHtml(k.status||'-')}</td>
       </tr>`;
     }).join('') : `<tr><td colspan="7" class="muted" style="padding:14px;text-align:center;">Tidak ada kunjungan di periode ini.</td></tr>`;
+
+    lapKlinikCache = { kunjunganSorted, diagnosaTop, dokterRows, startVal, endVal,
+      ringkasan: { totalKunjungan, pasienUnik, totalSelesai, totalDiperiksaRme },
+      rmeByAntrianKey };
   }catch(e){
     console.error('Gagal memuat laporan klinik', e);
     document.getElementById('lapKlinikKunjunganBody').innerHTML = `<tr><td colspan="7" style="padding:14px;text-align:center;color:var(--danger);">Gagal memuat data. Cek koneksi internet.</td></tr>`;
@@ -2890,6 +3037,208 @@ function cetakStrukCustom(trx){
   setTimeout(()=> document.body.classList.remove('printing-struk'), 500);
 }
 function fmtDateFull(d){ return `${d.getDate()} ${BULAN[d.getMonth()]} ${d.getFullYear()}`; }
+
+/* =========================================================
+   CETAK SURAT / DOKUMEN RESMI (A4)
+   Surat Keterangan Sakit, Surat Rujukan, Resep Formal
+   ========================================================= */
+function nomorSuratOtomatis(kode){
+  const now = new Date();
+  const rand = Math.floor(100 + Math.random()*900);
+  return `${rand}/${kode}/${pengaturan.namaApotek ? 'KLINIK' : 'KLINIK'}/${BULAN_ROMAWI[now.getMonth()]}/${now.getFullYear()}`;
+}
+const BULAN_ROMAWI = ['I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII'];
+
+function buildSuratKop(){
+  return `
+    <div class="surat-kop">
+      <h3>${escapeHtml(pengaturan.namaApotek || 'Apotek Masema Medika')}</h3>
+      ${pengaturan.alamat ? `<div>${escapeHtml(pengaturan.alamat)}</div>` : ''}
+      ${pengaturan.telp ? `<div>Telp/WA: ${escapeHtml(pengaturan.telp)}</div>` : ''}
+    </div>`;
+}
+function hitungUmur(tglLahir){
+  if(!tglLahir) return '-';
+  const lahir = new Date(tglLahir);
+  if(isNaN(lahir)) return '-';
+  const now = new Date();
+  let umur = now.getFullYear() - lahir.getFullYear();
+  const m = now.getMonth() - lahir.getMonth();
+  if(m < 0 || (m===0 && now.getDate() < lahir.getDate())) umur--;
+  return umur + ' tahun';
+}
+function printSuratContent(html){
+  document.getElementById('suratContent').innerHTML = html;
+  const pageStyle = document.getElementById('printPageSizeStyle');
+  if(pageStyle) pageStyle.textContent = `@media print { @page { size: A4; margin: 14mm 12mm; } }`;
+  document.body.classList.add('printing-surat');
+  window.print();
+  setTimeout(()=> document.body.classList.remove('printing-surat'), 500);
+}
+
+/* --- Surat Keterangan Sakit --- */
+function cetakSuratSakit(pasien, dokter, opts){
+  opts = opts || {};
+  const now = new Date();
+  const html = `
+    ${buildSuratKop()}
+    <h4>SURAT KETERANGAN SAKIT</h4>
+    <div class="surat-nomor">No: ${nomorSuratOtomatis('SKS')}</div>
+    <p>Yang bertanda tangan di bawah ini, dokter yang bertugas di ${escapeHtml(pengaturan.namaApotek || 'klinik ini')}, menerangkan bahwa:</p>
+    <table class="surat-data">
+      <tr><td class="lbl">Nama</td><td>: ${escapeHtml(pasien.nama||'-')}</td></tr>
+      <tr><td class="lbl">Umur</td><td>: ${hitungUmur(pasien.tglLahir)}</td></tr>
+      <tr><td class="lbl">Jenis Kelamin</td><td>: ${pasien.jk==='L'?'Laki-laki':pasien.jk==='P'?'Perempuan':'-'}</td></tr>
+      <tr><td class="lbl">Alamat</td><td>: ${escapeHtml(pasien.alamat||'-')}</td></tr>
+    </table>
+    <p>Berdasarkan hasil pemeriksaan pada tanggal ${fmtDateFull(now)}, yang bersangkutan dinyatakan perlu istirahat selama <b>${escapeHtml(String(opts.lamaHari||'-'))} hari</b>, terhitung mulai tanggal <b>${escapeHtml(opts.mulaiTanggal||'-')}</b> sampai dengan <b>${escapeHtml(opts.sampaiTanggal||'-')}</b>.</p>
+    ${opts.tampilkanDiagnosa && opts.diagnosa ? `<p>Diagnosa: ${escapeHtml(opts.diagnosa)}</p>` : ''}
+    <p>Demikian surat keterangan ini dibuat dengan sebenarnya untuk dipergunakan sebagaimana mestinya.</p>
+    <div class="surat-ttd">
+      <div class="blok">
+        <div>${escapeHtml(pengaturan.alamat ? (pengaturan.alamat.split(',').pop().trim()) : '')}, ${fmtDateFull(now)}</div>
+        <div>Dokter Pemeriksa,</div>
+        <div class="nama-ttd">${escapeHtml(dokter||'-')}</div>
+      </div>
+    </div>`;
+  printSuratContent(html);
+}
+
+/* --- Surat Rujukan --- */
+function cetakSuratRujukan(pasien, dokter, opts){
+  opts = opts || {};
+  const now = new Date();
+  const html = `
+    ${buildSuratKop()}
+    <h4>SURAT RUJUKAN</h4>
+    <div class="surat-nomor">No: ${nomorSuratOtomatis('RJK')}</div>
+    <p>Kepada Yth.<br><b>${escapeHtml(opts.tujuan||'Sejawat Dokter / Fasilitas Kesehatan Tujuan')}</b><br>di tempat</p>
+    <p>Dengan hormat, mohon pemeriksaan dan penanganan lebih lanjut terhadap pasien:</p>
+    <table class="surat-data">
+      <tr><td class="lbl">Nama</td><td>: ${escapeHtml(pasien.nama||'-')}</td></tr>
+      <tr><td class="lbl">Umur</td><td>: ${hitungUmur(pasien.tglLahir)}</td></tr>
+      <tr><td class="lbl">Jenis Kelamin</td><td>: ${pasien.jk==='L'?'Laki-laki':pasien.jk==='P'?'Perempuan':'-'}</td></tr>
+      <tr><td class="lbl">Alamat</td><td>: ${escapeHtml(pasien.alamat||'-')}</td></tr>
+    </table>
+    <table class="surat-data">
+      <tr><td class="lbl">Keluhan</td><td>: ${escapeHtml(opts.keluhan||'-')}</td></tr>
+      <tr><td class="lbl">Diagnosa Kerja</td><td>: ${escapeHtml(opts.diagnosa||'-')}</td></tr>
+      <tr><td class="lbl">Terapi yang diberikan</td><td>: ${escapeHtml(opts.terapi||'-')}</td></tr>
+    </table>
+    <p>${escapeHtml(opts.alasan || 'Mohon kiranya pasien dapat diperiksa dan ditangani lebih lanjut sesuai kondisi di atas.')}</p>
+    <p>Atas perhatian dan kerjasamanya, kami ucapkan terima kasih.</p>
+    <div class="surat-ttd">
+      <div class="blok">
+        <div>${escapeHtml(pengaturan.alamat ? (pengaturan.alamat.split(',').pop().trim()) : '')}, ${fmtDateFull(now)}</div>
+        <div>Dokter Pengirim,</div>
+        <div class="nama-ttd">${escapeHtml(dokter||'-')}</div>
+      </div>
+    </div>`;
+  printSuratContent(html);
+}
+
+/* --- Resep Formal (bukan struk kasir) --- */
+function cetakResepFormal(pasien, dokter, items){
+  const now = new Date();
+  const html = `
+    ${buildSuratKop()}
+    <h4>RESEP OBAT</h4>
+    <table class="surat-data">
+      <tr><td class="lbl">Nama Pasien</td><td>: ${escapeHtml(pasien.nama||'-')}</td></tr>
+      <tr><td class="lbl">Umur</td><td>: ${hitungUmur(pasien.tglLahir)}</td></tr>
+      <tr><td class="lbl">Tanggal</td><td>: ${fmtDateFull(now)}</td></tr>
+    </table>
+    <table class="surat-resep">
+      ${items.map((it,i)=>`
+        <tr>
+          <td class="no-item">${i+1}.</td>
+          <td>
+            <div class="nama-item">${escapeHtml(it.nama)} ${it.qty ? `— ${it.qty} ${escapeHtml(it.satuan||'')}` : ''}</div>
+            ${it.aturan ? `<div class="aturan-item">${escapeHtml(it.aturan)}</div>` : ''}
+          </td>
+        </tr>`).join('')}
+    </table>
+    <div class="surat-ttd">
+      <div class="blok">
+        <div>${escapeHtml(pengaturan.alamat ? (pengaturan.alamat.split(',').pop().trim()) : '')}, ${fmtDateFull(now)}</div>
+        <div>Dokter,</div>
+        <div class="nama-ttd">${escapeHtml(dokter||'-')}</div>
+      </div>
+    </div>`;
+  printSuratContent(html);
+}
+
+let suratOptType = null; // 'sakit' | 'rujukan'
+
+function ambilPasienDokterAktif(){
+  if(!rmeAntrianAktif) return null;
+  const p = pasienList.find(x=>x.id===rmeAntrianAktif.pasienId) || { nama: rmeAntrianAktif.namaPasien };
+  const dokter = currentKasirNama || 'Dokter';
+  return { p, dokter };
+}
+
+document.getElementById('btnCetakResepFormal').addEventListener('click', ()=>{
+  const ctx = ambilPasienDokterAktif();
+  if(!ctx) return;
+  if(rmeResepCart.length===0){ toast('Belum ada obat dipilih di resep.', true); return; }
+  cetakResepFormal(ctx.p, ctx.dokter, rmeResepCart);
+});
+document.getElementById('btnCetakSuratSakit').addEventListener('click', ()=>{
+  if(!ambilPasienDokterAktif()) return;
+  suratOptType = 'sakit';
+  document.getElementById('suratOptTitle').textContent = 'Cetak Surat Keterangan Sakit';
+  document.getElementById('suratOptFieldsSakit').style.display = '';
+  document.getElementById('suratOptFieldsRujukan').style.display = 'none';
+  document.getElementById('soSakitMulai').value = dateKey(new Date());
+  document.getElementById('soSakitLama').value = 1;
+  document.getElementById('soSakitTampilDiagnosa').checked = false;
+  document.getElementById('suratOptModal').classList.remove('hidden');
+});
+document.getElementById('btnCetakSuratRujukan').addEventListener('click', ()=>{
+  if(!ambilPasienDokterAktif()) return;
+  suratOptType = 'rujukan';
+  document.getElementById('suratOptTitle').textContent = 'Cetak Surat Rujukan';
+  document.getElementById('suratOptFieldsSakit').style.display = 'none';
+  document.getElementById('suratOptFieldsRujukan').style.display = '';
+  document.getElementById('soRujTujuan').value = '';
+  document.getElementById('soRujAlasan').value = '';
+  document.getElementById('suratOptModal').classList.remove('hidden');
+});
+document.getElementById('btnSuratOptBatal').addEventListener('click', ()=>{
+  document.getElementById('suratOptModal').classList.add('hidden');
+});
+document.getElementById('btnSuratOptCetak').addEventListener('click', ()=>{
+  const ctx = ambilPasienDokterAktif();
+  if(!ctx) return;
+  if(suratOptType === 'sakit'){
+    const mulai = document.getElementById('soSakitMulai').value;
+    const lama = Number(document.getElementById('soSakitLama').value) || 1;
+    let sampai = mulai;
+    if(mulai){
+      const d = parseDateInput(mulai);
+      d.setDate(d.getDate() + (lama-1));
+      sampai = dateKey(d);
+    }
+    cetakSuratSakit(ctx.p, ctx.dokter, {
+      mulaiTanggal: mulai ? fmtDateFull(parseDateInput(mulai)) : '-',
+      sampaiTanggal: sampai ? fmtDateFull(parseDateInput(sampai)) : '-',
+      lamaHari: lama,
+      tampilkanDiagnosa: document.getElementById('soSakitTampilDiagnosa').checked,
+      diagnosa: document.getElementById('rmeDiagnosa').value.trim(),
+    });
+  } else if(suratOptType === 'rujukan'){
+    const tujuan = document.getElementById('soRujTujuan').value.trim();
+    if(!tujuan){ toast('Isi tujuan rujukan terlebih dulu.', true); return; }
+    cetakSuratRujukan(ctx.p, ctx.dokter, {
+      tujuan,
+      keluhan: document.getElementById('rmeKeluhan').value.trim(),
+      diagnosa: document.getElementById('rmeDiagnosa').value.trim(),
+      terapi: document.getElementById('rmeTindakan').value.trim(),
+      alasan: document.getElementById('soRujAlasan').value.trim(),
+    });
+  }
+  document.getElementById('suratOptModal').classList.add('hidden');
+});
 
 function pratinjauStruk(cfg){
   const now = new Date();
@@ -3759,7 +4108,8 @@ async function renderLaporan(){
 
     document.getElementById('lapTransBody').innerHTML = rows.length ? buildLapTransRows(rows) : `<tr><td colspan="8" class="muted" style="padding:14px;text-align:center;">Tidak ada transaksi.</td></tr>`;
 
-    lapCache = { rows, produk: produkArr, kategori: kategoriArr, range: `${startVal}_sd_${endVal}` };
+    lapCache = { rows, produk: produkArr, kategori: kategoriArr, range: `${startVal}_sd_${endVal}`, startVal, endVal,
+      ringkasan: { totalPenjualan, totalHpp, labaKotor, jumlahTrx } };
     wireLapTransActions();
     const searchInput = document.getElementById('lapTransSearch');
     if(searchInput) searchInput.value = '';
@@ -4064,6 +4414,77 @@ function exportLapCsv(){
   a.download = `Laporan-Keuangan-${lapCache.range}.csv`;
   a.click();
 }
+
+function exportLapExcel(){
+  if(!lapCache.rows.length){ toast('Tidak ada data untuk diunduh.', true); return; }
+  const r = lapCache.ringkasan || {};
+  const wsRingkasan = XLSX.utils.aoa_to_sheet([
+    [pengaturan.namaApotek || 'Apotek Masema Medika'],
+    ['Laporan Keuangan'],
+    [`Periode: ${lapCache.startVal} s/d ${lapCache.endVal}`],
+    [`Dicetak: ${fmtDateFull(new Date())}`],
+    [],
+    ['Total Penjualan', r.totalPenjualan||0],
+    ['Total HPP', r.totalHpp||0],
+    ['Laba Kotor', r.labaKotor||0],
+    ['Jumlah Transaksi', r.jumlahTrx||0],
+  ]);
+  const wsProduk = XLSX.utils.json_to_sheet((lapCache.produk||[]).map(p=>({
+    'Nama Obat': p.nama, 'Qty Terjual': p.qty, 'Total Penjualan': p.total, 'Laba Kotor': p.laba,
+  })));
+  const wsKategori = XLSX.utils.json_to_sheet((lapCache.kategori||[]).map(k=>({
+    'Kategori': k.nama, 'Qty Terjual': k.qty, 'Total Penjualan': k.total, 'Laba Kotor': k.laba,
+  })));
+  const wsTransaksi = XLSX.utils.json_to_sheet(lapCache.rows.map(t=>({
+    'Tanggal': t.tanggal, 'Waktu': t.waktu, 'No Struk': t.noStruk, 'Kasir': t.kasir||'-',
+    'Metode': t.metode, 'Total': t.total||0, 'HPP': t.totalHpp||0,
+    'Laba Kotor': (t.total||0)-(t.totalHpp||0), 'Status': t.dibatalkan?'Dibatalkan':'Aktif',
+  })));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, wsRingkasan, 'Ringkasan');
+  XLSX.utils.book_append_sheet(wb, wsProduk, 'Produk Terlaris');
+  XLSX.utils.book_append_sheet(wb, wsKategori, 'Per Kategori');
+  XLSX.utils.book_append_sheet(wb, wsTransaksi, 'Daftar Transaksi');
+  XLSX.writeFile(wb, `Laporan-Keuangan-${lapCache.range}.xlsx`);
+}
+document.getElementById('btnLapExcel').addEventListener('click', exportLapExcel);
+
+function exportLapKlinikExcel(){
+  if(!lapKlinikCache.kunjunganSorted.length){ toast('Tidak ada data untuk diunduh.', true); return; }
+  const r = lapKlinikCache.ringkasan || {};
+  const wsRingkasan = XLSX.utils.aoa_to_sheet([
+    [pengaturan.namaApotek || 'Apotek Masema Medika'],
+    ['Laporan Klinik'],
+    [`Periode: ${lapKlinikCache.startVal} s/d ${lapKlinikCache.endVal}`],
+    [`Dicetak: ${fmtDateFull(new Date())}`],
+    [],
+    ['Total Kunjungan', r.totalKunjungan||0],
+    ['Pasien Unik', r.pasienUnik||0],
+    ['Kunjungan Selesai', r.totalSelesai||0],
+    ['Rekam Medis Terisi', r.totalDiperiksaRme||0],
+  ]);
+  const wsDiagnosa = XLSX.utils.json_to_sheet((lapKlinikCache.diagnosaTop||[]).map(([dx,jml])=>({
+    'Diagnosa': dx, 'Jumlah Kasus': jml,
+  })));
+  const wsDokter = XLSX.utils.json_to_sheet((lapKlinikCache.dokterRows||[]).map(([nm,d])=>({
+    'Dokter': nm, 'Jumlah Pemeriksaan': d.periksa, 'Resep Dibuat': d.resep,
+  })));
+  const wsKunjungan = XLSX.utils.json_to_sheet(lapKlinikCache.kunjunganSorted.map(k=>{
+    const rme = lapKlinikCache.rmeByAntrianKey[k.pasienId + '|' + k.tanggal];
+    return {
+      'Tanggal': k.tanggal, 'No Antrian': k.noAntrian||'-', 'Pasien': k.namaPasien||'-',
+      'Keluhan': k.keluhan||'-', 'Diagnosa': rme ? (rme.diagnosa||'-') : '-',
+      'Dokter': rme ? (rme.dokter||'-') : '-', 'Status': k.status||'-',
+    };
+  }));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, wsRingkasan, 'Ringkasan');
+  XLSX.utils.book_append_sheet(wb, wsDiagnosa, 'Diagnosa Terbanyak');
+  XLSX.utils.book_append_sheet(wb, wsDokter, 'Per Dokter');
+  XLSX.utils.book_append_sheet(wb, wsKunjungan, 'Riwayat Kunjungan');
+  XLSX.writeFile(wb, `Laporan-Klinik-${lapKlinikCache.startVal}_sd_${lapKlinikCache.endVal}.xlsx`);
+}
+document.getElementById('btnLapKlinikExcel').addEventListener('click', exportLapKlinikExcel);
 
 /* =========================================================
    TAB PENGATURAN
