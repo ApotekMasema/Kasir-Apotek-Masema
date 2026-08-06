@@ -1603,6 +1603,33 @@ async function pushDirtyKeysToCloud(opts){
   return ok;
 }
 
+/* Kirim/hapus SATU entri langsung ke cloud (bukan seluruh koleksi sekaligus).
+   Dipakai untuk data yang bisa ditambah/diproses dari 2 komputer berbeda hampir
+   bersamaan (contoh: resep-pending dari Klinik <-> Kasir), supaya perubahan dari
+   satu komputer tidak menimpa/menghapus perubahan dari komputer lain yang belum
+   sempat disinkron. Kalau sedang offline, ini dilewati saja - data tetap aman
+   tersimpan lokal dan akan menyusul lewat sinkronisasi biasa saat online lagi. */
+async function pushEntryToCloud(path, value){
+  if(!navigator.onLine) return false;
+  try{
+    const q = await authQuery();
+    const res = await fetch(`${DB_URL}/${path}.json${q}`, {
+      method:'PUT',
+      headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify(value === undefined ? null : value),
+    });
+    return res.ok;
+  }catch(e){ console.error('Gagal kirim entri ke cloud', path, e); return false; }
+}
+async function deleteEntryFromCloud(path){
+  if(!navigator.onLine) return false;
+  try{
+    const q = await authQuery();
+    const res = await fetch(`${DB_URL}/${path}.json${q}`, { method:'DELETE' });
+    return res.ok;
+  }catch(e){ console.error('Gagal hapus entri di cloud', path, e); return false; }
+}
+
 async function pullRemoteKeysSilent(){
   if(!navigator.onLine) return false;
   try{
@@ -1611,9 +1638,21 @@ async function pullRemoteKeysSilent(){
     if(!res.ok) throw new Error('HTTP '+res.status);
     const remote = (await res.json()) || {};
     const dirty = new Set(syncMeta.dirtyKeys || []);
+    // Koleksi yang bisa ditambah/dihapus dari 2 komputer berbeda (Klinik & Kasir)
+    // digabung per-entri saat ditarik, bukan ditimpa mentah, supaya entri baru dari
+    // satu komputer tidak hilang gara-gara komputer lain menarik versi yang belum lengkap.
+    const MERGE_KEYS = ['resep-pending'];
     let changed = false;
     Object.keys(remote).forEach(key=>{
       if(dirty.has(key)) return; // ada perubahan lokal yang belum sempat diunggah, jangan ditimpa dulu
+      if(MERGE_KEYS.includes(key) && remote[key] && typeof remote[key]==='object' && !Array.isArray(remote[key])){
+        const merged = { ...(localDB[key] && typeof localDB[key]==='object' ? localDB[key] : {}), ...remote[key] };
+        if(JSON.stringify(localDB[key]) !== JSON.stringify(merged)){
+          localDB[key] = merged;
+          changed = true;
+        }
+        return;
+      }
       if(JSON.stringify(localDB[key]) !== JSON.stringify(remote[key])){
         localDB[key] = remote[key];
         changed = true;
@@ -2230,6 +2269,9 @@ async function simpanRme(){
     const pendingExisting = await sGet('resep-pending') || {};
     pendingExisting[resepEntry.id] = resepEntry;
     await sSet('resep-pending', pendingExisting);
+    // Kirim langsung entri resep ini ke cloud (bukan tunggu sinkron seluruh koleksi),
+    // supaya langsung muncul di komputer Kasir tanpa risiko tertimpa resep lain.
+    pushEntryToCloud('resep-pending/' + resepEntry.id, resepEntry);
   }
 
   const a = antrianList.find(x=>x.id===rmeAntrianAktif.id);
@@ -2464,6 +2506,9 @@ async function prosesResepPending(id){
 
   delete raw[id];
   await sSet('resep-pending', raw);
+  // Hapus langsung entri ini di cloud juga (bukan tunggu sinkron seluruh koleksi),
+  // supaya tidak menimpa balik resep baru lain yang mungkin baru masuk dari Klinik.
+  deleteEntryFromCloud('resep-pending/' + id);
   renderResepPendingBanner();
 
   if(kurang.length){
