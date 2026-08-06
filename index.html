@@ -1555,7 +1555,11 @@ async function sGet(path){
 async function sSet(path, valueObj){
   setAtPath(localDB, path, valueObj);
   persistLocalDB();
-  markDirty(topLevelKey(path));
+  // Tandai PATH LENGKAP yang berubah (bukan cuma nama koleksi teratas), supaya
+  // saat dikirim ke cloud nanti, hanya bagian ini yang digabung ke server -
+  // bagian lain (mis. tanggal/entri lain) yang ditambahkan dari komputer lain
+  // tidak ikut tertimpa/terhapus.
+  markDirty(path);
   return true;
 }
 
@@ -1573,6 +1577,48 @@ async function authQuery(){
   return '';
 }
 
+/* Kirim SATU path (bisa berupa satu koleksi penuh, satu tanggal, atau satu entri
+   tunggal) ke cloud. Kalau nilainya berupa "kumpulan" (object berisi anak-anak,
+   misal daftar pasien / daftar antrian tanggal ini), dikirim pakai method PATCH
+   (bukan PUT) - PATCH di Firebase hanya menggabungkan anak-anak yang dikirim,
+   TIDAK menghapus anak lain yang sudah ada di server tapi belum sempat diketahui
+   komputer ini (misal ditambahkan dari komputer lain). Ini kunci supaya data
+   dari 2 komputer berbeda tidak saling menimpa/menghapus lagi. */
+async function pushPathToCloud(path){
+  if(!navigator.onLine) return false;
+  try{
+    const val = getAtPath(localDB, path);
+    const isMap = val && typeof val === 'object' && !Array.isArray(val);
+    const q = await authQuery();
+    const res = await fetch(`${DB_URL}/${path}.json${q}`, {
+      method: isMap ? 'PATCH' : 'PUT',
+      headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify(val === undefined ? null : val),
+    });
+    if(res.ok){
+      syncMeta.dirtyKeys = (syncMeta.dirtyKeys || []).filter(k=>k!==path);
+      persistSyncMeta();
+    }
+    return res.ok;
+  }catch(e){ console.error('Gagal kirim data ke cloud', path, e); return false; }
+}
+
+/* Hapus SATU entri spesifik di cloud (dipakai saat data itu benar-benar dihapus
+   di komputer ini, misal hapus pasien/antrian/obat/akun), supaya penghapusannya
+   ikut tersebar ke komputer lain juga - bukan cuma hilang di komputer ini saja. */
+async function deleteEntryFromCloud(path){
+  if(!navigator.onLine) return false;
+  try{
+    const q = await authQuery();
+    const res = await fetch(`${DB_URL}/${path}.json${q}`, { method:'DELETE' });
+    if(res.ok){
+      syncMeta.dirtyKeys = (syncMeta.dirtyKeys || []).filter(k=> k!==path && !k.startsWith(path+'/'));
+      persistSyncMeta();
+    }
+    return res.ok;
+  }catch(e){ console.error('Gagal hapus entri di cloud', path, e); return false; }
+}
+
 async function pushDirtyKeysToCloud(opts){
   opts = opts || {};
   if(!navigator.onLine){ if(!opts.silent) toast('Tidak ada koneksi internet. Coba lagi nanti.', true); return false; }
@@ -1580,54 +1626,51 @@ async function pushDirtyKeysToCloud(opts){
   if(keys.length === 0){ if(!opts.silent) toast('Tidak ada perubahan baru untuk disinkron.'); return true; }
   if(!opts.silent) toast('Menyinkronkan data ke cloud...');
   let ok = true;
-  try{
-    const q = await authQuery();
-    for(const key of keys){
-      const res = await fetch(`${DB_URL}/${encodeURIComponent(key)}.json${q}`, {
-        method:'PUT',
-        headers:{ 'Content-Type':'application/json' },
-        body: JSON.stringify(localDB[key] === undefined ? null : localDB[key]),
-      });
-      if(!res.ok) throw new Error('HTTP '+res.status+' saat unggah '+key);
-      syncMeta.dirtyKeys = syncMeta.dirtyKeys.filter(k=>k!==key);
-    }
-    syncMeta.lastSyncAt = new Date().toISOString();
-    persistSyncMeta();
-    if(!opts.silent) toast('Sinkron ke cloud berhasil ✓');
-  }catch(e){
-    console.error('Gagal sinkron ke cloud', e);
-    persistSyncMeta();
-    ok = false;
-    if(!opts.silent) toast('Gagal sinkron ke cloud. Cek koneksi internet, lalu coba lagi.', true);
+  for(const key of keys){
+    const success = await pushPathToCloud(key);
+    if(!success){ ok = false; break; } // sisanya dicoba lagi otomatis di sinkronisasi berikutnya
   }
+  syncMeta.lastSyncAt = new Date().toISOString();
+  persistSyncMeta();
+  if(ok){ if(!opts.silent) toast('Sinkron ke cloud berhasil ✓'); }
+  else { if(!opts.silent) toast('Gagal sinkron ke cloud. Cek koneksi internet, lalu coba lagi.', true); }
   return ok;
 }
 
-/* Kirim/hapus SATU entri langsung ke cloud (bukan seluruh koleksi sekaligus).
-   Dipakai untuk data yang bisa ditambah/diproses dari 2 komputer berbeda hampir
-   bersamaan (contoh: resep-pending dari Klinik <-> Kasir), supaya perubahan dari
-   satu komputer tidak menimpa/menghapus perubahan dari komputer lain yang belum
-   sempat disinkron. Kalau sedang offline, ini dilewati saja - data tetap aman
-   tersimpan lokal dan akan menyusul lewat sinkronisasi biasa saat online lagi. */
-async function pushEntryToCloud(path, value){
-  if(!navigator.onLine) return false;
-  try{
-    const q = await authQuery();
-    const res = await fetch(`${DB_URL}/${path}.json${q}`, {
-      method:'PUT',
-      headers:{ 'Content-Type':'application/json' },
-      body: JSON.stringify(value === undefined ? null : value),
-    });
-    return res.ok;
-  }catch(e){ console.error('Gagal kirim entri ke cloud', path, e); return false; }
+/* Cek apakah "path" ini (atau salah satu turunannya) masih tercatat sebagai
+   perubahan lokal yang belum terkirim ke cloud - kalau iya, jangan ditimpa
+   dulu oleh data dari cloud saat menarik data (supaya perubahan yang belum
+   sempat diunggah tidak hilang). */
+function hasDirtyAt(path, dirtySet){
+  for(const d of dirtySet){ if(d===path || d.startsWith(path+'/')) return true; }
+  return false;
 }
-async function deleteEntryFromCloud(path){
-  if(!navigator.onLine) return false;
-  try{
-    const q = await authQuery();
-    const res = await fetch(`${DB_URL}/${path}.json${q}`, { method:'DELETE' });
-    return res.ok;
-  }catch(e){ console.error('Gagal hapus entri di cloud', path, e); return false; }
+
+/* Gabungkan data dari cloud ke data lokal SECARA BERTAHAP per-bagian (rekursif),
+   bukan menimpa satu koleksi besar sekaligus. Untuk tiap "anak data": kalau ada
+   di cloud, dipakai nilai dari cloud (server sudah berisi gabungan terbaru dari
+   semua komputer berkat PATCH di atas); kalau sudah tidak ada di cloud tapi juga
+   tidak ada perubahan lokal yang masih tertunda untuk data itu, berarti memang
+   sudah dihapus di komputer lain - ikut dihapus di sini juga. Kalau path ini
+   (atau bagian di bawahnya) masih ada perubahan lokal yang belum terkirim,
+   dipertahankan dulu apa adanya sampai berhasil disinkron. */
+function mergeRemoteIntoLocal(localVal, remoteVal, path, dirtySet){
+  if(dirtySet.has(path)) return localVal;
+  const remoteIsMap = remoteVal && typeof remoteVal === 'object' && !Array.isArray(remoteVal);
+  const localIsMap = localVal && typeof localVal === 'object' && !Array.isArray(localVal);
+  if(!remoteIsMap || !localIsMap) return remoteVal;
+  const merged = {};
+  const allKeys = new Set([...Object.keys(localVal), ...Object.keys(remoteVal)]);
+  allKeys.forEach(k=>{
+    const childPath = path + '/' + k;
+    if(Object.prototype.hasOwnProperty.call(remoteVal, k)){
+      merged[k] = mergeRemoteIntoLocal(localVal[k], remoteVal[k], childPath, dirtySet);
+    } else if(hasDirtyAt(childPath, dirtySet)){
+      merged[k] = localVal[k]; // masih ada perubahan lokal yang belum terkirim untuk bagian ini, pertahankan
+    }
+    // kalau tidak ada di cloud & tidak ada perubahan lokal tertunda -> sudah dihapus di komputer lain, tidak dimasukkan lagi
+  });
+  return merged;
 }
 
 async function pullRemoteKeysSilent(){
@@ -1638,23 +1681,11 @@ async function pullRemoteKeysSilent(){
     if(!res.ok) throw new Error('HTTP '+res.status);
     const remote = (await res.json()) || {};
     const dirty = new Set(syncMeta.dirtyKeys || []);
-    // Koleksi yang bisa ditambah/dihapus dari 2 komputer berbeda (Klinik & Kasir)
-    // digabung per-entri saat ditarik, bukan ditimpa mentah, supaya entri baru dari
-    // satu komputer tidak hilang gara-gara komputer lain menarik versi yang belum lengkap.
-    const MERGE_KEYS = ['resep-pending'];
     let changed = false;
     Object.keys(remote).forEach(key=>{
-      if(dirty.has(key)) return; // ada perubahan lokal yang belum sempat diunggah, jangan ditimpa dulu
-      if(MERGE_KEYS.includes(key) && remote[key] && typeof remote[key]==='object' && !Array.isArray(remote[key])){
-        const merged = { ...(localDB[key] && typeof localDB[key]==='object' ? localDB[key] : {}), ...remote[key] };
-        if(JSON.stringify(localDB[key]) !== JSON.stringify(merged)){
-          localDB[key] = merged;
-          changed = true;
-        }
-        return;
-      }
-      if(JSON.stringify(localDB[key]) !== JSON.stringify(remote[key])){
-        localDB[key] = remote[key];
+      const merged = mergeRemoteIntoLocal(localDB[key], remote[key], key, dirty);
+      if(JSON.stringify(localDB[key]) !== JSON.stringify(merged)){
+        localDB[key] = merged;
         changed = true;
       }
     });
@@ -1815,6 +1846,7 @@ async function savePasienList(){
   const obj = {};
   pasienList.forEach(p=> obj[p.id] = p);
   await sSet('pasien-list', obj);
+  pushPathToCloud('pasien-list'); // kirim segera (digabung, bukan ditimpa) supaya cepat terlihat di komputer lain
 }
 function nextNoRm(){
   // Format: RM-000001, urut naik berdasarkan jumlah pasien yang pernah dibuat
@@ -1840,6 +1872,7 @@ async function saveObatList(){
   const obj = {};
   obatList.forEach(o=> obj[o.id] = o);
   await sSet('obat-list', obj);
+  pushPathToCloud('obat-list'); // kirim segera (digabung, bukan ditimpa) supaya cepat terlihat di komputer lain
 }
 
 async function logRestock(entries){
@@ -1906,6 +1939,7 @@ function renderPasienTable(){
       if(!p || !confirm(`Hapus data pasien "${p.nama}"? Riwayat transaksi/resep lama tidak akan terhapus.`)) return;
       pasienList = pasienList.filter(x=>x.id!==id);
       await savePasienList();
+      deleteEntryFromCloud('pasien-list/' + id); // pastikan penghapusan ikut tersebar ke komputer lain
       renderPasienTable();
       toast('Data pasien dihapus.');
     };
@@ -2022,6 +2056,7 @@ async function saveAntrianList(){
   const obj = {};
   antrianList.forEach(a=> obj[a.id] = a);
   await sSet('antrian-log/' + antrianTanggalAktif, obj);
+  pushPathToCloud('antrian-log/' + antrianTanggalAktif); // kirim segera (digabung, bukan ditimpa) supaya cepat terlihat di komputer lain
 }
 
 function renderAntrianSummary(){
@@ -2087,6 +2122,7 @@ function renderAntrianTable(){
     if(!a || !confirm(`Hapus "${a.namaPasien}" dari antrian hari ini?`)) return;
     antrianList = antrianList.filter(x=>x.id!==id);
     await saveAntrianList();
+    deleteEntryFromCloud('antrian-log/' + antrianTanggalAktif + '/' + id); // pastikan penghapusan ikut tersebar ke komputer lain
     renderAntrianTable();
     toast('Dihapus dari antrian.');
   }));
@@ -2271,7 +2307,7 @@ async function simpanRme(){
     await sSet('resep-pending', pendingExisting);
     // Kirim langsung entri resep ini ke cloud (bukan tunggu sinkron seluruh koleksi),
     // supaya langsung muncul di komputer Kasir tanpa risiko tertimpa resep lain.
-    pushEntryToCloud('resep-pending/' + resepEntry.id, resepEntry);
+    pushPathToCloud('resep-pending/' + resepEntry.id);
   }
 
   const a = antrianList.find(x=>x.id===rmeAntrianAktif.id);
@@ -3018,6 +3054,7 @@ function renderStokTable(){
       if(!o || !confirm(`Hapus obat "${o.nama}"? Riwayat transaksi lama tidak akan terhapus.`)) return;
       obatList = obatList.filter(x=>x.id!==id);
       await saveObatList();
+      deleteEntryFromCloud('obat-list/' + id); // pastikan penghapusan ikut tersebar ke komputer lain
       renderStokTable();
       renderStokSummary();
       toast('Obat dihapus.');
@@ -3268,6 +3305,7 @@ async function saveKasirAkunList(){
   const obj = {};
   kasirAkunList.forEach(a=> obj[a.id] = a);
   await sSet('kasir-akun', obj);
+  pushPathToCloud('kasir-akun');
 }
 function renderAkunKasirTable(){
   const body = document.getElementById('akunKasirBody');
@@ -3288,6 +3326,7 @@ async function hapusAkunKasir(id){
   if(!confirm(`Hapus akun kasir "${akun.nama}"?`)) return;
   kasirAkunList = kasirAkunList.filter(a=>a.id!==id);
   await saveKasirAkunList();
+  deleteEntryFromCloud('kasir-akun/' + id);
   renderAkunKasirTable();
   refreshLoginKasirOptions();
   toast('Akun kasir dihapus ✓');
@@ -3312,6 +3351,7 @@ async function saveDokterAkunList(){
   const obj = {};
   dokterAkunList.forEach(a=> obj[a.id] = a);
   await sSet('dokter-akun', obj);
+  pushPathToCloud('dokter-akun');
 }
 function renderAkunDokterTable(){
   const body = document.getElementById('akunDokterBody');
@@ -3332,6 +3372,7 @@ async function hapusAkunDokter(id){
   if(!confirm(`Hapus akun dokter "${akun.nama}"?`)) return;
   dokterAkunList = dokterAkunList.filter(a=>a.id!==id);
   await saveDokterAkunList();
+  deleteEntryFromCloud('dokter-akun/' + id);
   renderAkunDokterTable();
   refreshLoginDokterOptions();
   toast('Akun dokter dihapus ✓');
@@ -3485,6 +3526,7 @@ async function hapusPengeluaran(tanggal, id){
   const existing = await sGet('pengeluaran/' + tanggal) || {};
   delete existing[id];
   await sSet('pengeluaran/' + tanggal, existing);
+  deleteEntryFromCloud('pengeluaran/' + tanggal + '/' + id);
 }
 async function renderPengeluaranList(){
   const body = document.getElementById('pengeluaranBody');
