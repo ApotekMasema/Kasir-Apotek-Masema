@@ -1837,6 +1837,16 @@ async function runAutoSync(){
     if(changed){
       await reloadCachedListsFromLocalDB();
       refreshActiveTabView();
+      // Kalau layar Login sedang terbuka (belum ada yang login), pastikan daftar nama
+      // Kasir/Dokter di dropdown ikut ter-update - sebelumnya dropdown ini cuma diisi
+      // sekali saat halaman pertama dibuka, jadi kalau akun baru ditambahkan dari
+      // komputer lain SAAT layar Login masih terbuka, nama itu tidak muncul sampai
+      // halaman di-refresh manual.
+      const loginModal = document.getElementById('loginGateModal');
+      if(loginModal && !loginModal.classList.contains('hidden')){
+        refreshLoginKasirOptions();
+        refreshLoginDokterOptions();
+      }
     }
   }catch(e){
     console.error('Auto-sync gagal', e);
