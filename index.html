@@ -324,6 +324,7 @@
   </nav>
   <nav class="tabs hidden" id="areaSubTabs-klinik">
     <button class="tab" data-tab="pasien">Pasien</button>
+    <button class="tab" data-tab="booking">Booking</button>
     <button class="tab" data-tab="antrian">Antrian Klinik</button>
     <button class="tab" data-tab="laporanKlinik">Laporan Klinik</button>
   </nav>
@@ -435,33 +436,88 @@
         </div>
 
         <div class="field" style="margin-top:8px;">
-          <label>Metode Pembayaran</label>
-          <select id="metodeBayar">
-            <option value="Tunai">Tunai</option>
-            <option value="Debit">Debit</option>
-            <option value="QRIS">QRIS</option>
-            <option value="Kasbon">Kasbon (Piutang)</option>
-          </select>
+          <label style="display:flex;align-items:center;gap:6px;font-weight:normal;">
+            <input type="checkbox" id="splitBayarToggle" style="width:auto;">
+            Bayar dengan lebih dari 1 metode (split)
+          </label>
         </div>
-        <div id="kasbonFields" style="display:none;">
-          <div class="form-grid" style="margin-bottom:8px;">
-            <div class="field">
-              <label>Nama Pasien</label>
-              <input type="text" id="kasbonNama" placeholder="Nama pasien">
-            </div>
-            <div class="field">
-              <label>No. HP</label>
-              <input type="text" id="kasbonHp" placeholder="08xx...">
+
+        <div id="metodeTunggalWrap">
+          <div class="field" style="margin-top:8px;">
+            <label>Metode Pembayaran</label>
+            <select id="metodeBayar">
+              <option value="Tunai">Tunai</option>
+              <option value="Debit">Debit</option>
+              <option value="QRIS">QRIS</option>
+              <option value="Kasbon">Kasbon (Piutang)</option>
+            </select>
+          </div>
+          <div id="kasbonFields" style="display:none;">
+            <div class="form-grid" style="margin-bottom:8px;">
+              <div class="field">
+                <label>Nama Pasien</label>
+                <input type="text" id="kasbonNama" placeholder="Nama pasien">
+              </div>
+              <div class="field">
+                <label>No. HP</label>
+                <input type="text" id="kasbonHp" placeholder="08xx...">
+              </div>
+              <div class="field">
+                <label>Tanggal Jatuh Tempo (opsional)</label>
+                <input type="date" id="kasbonJatuhTempo">
+              </div>
             </div>
           </div>
+          <div class="field" id="tunaiField" style="margin-top:8px;">
+            <label>Uang Diterima (Rp)</label>
+            <input type="number" id="uangDiterima" min="0" placeholder="0">
+          </div>
+          <div class="total-row" id="kembalianRow" style="display:none;">
+            <span>Kembalian</span>
+            <span id="kembalianVal">Rp 0</span>
+          </div>
         </div>
-        <div class="field" id="tunaiField" style="margin-top:8px;">
-          <label>Uang Diterima (Rp)</label>
-          <input type="number" id="uangDiterima" min="0" placeholder="0">
-        </div>
-        <div class="total-row" id="kembalianRow" style="display:none;">
-          <span>Kembalian</span>
-          <span id="kembalianVal">Rp 0</span>
+
+        <div id="splitBayarWrap" style="display:none;">
+          <p class="section-hint" style="margin:6px 0;">Isi jumlah untuk tiap metode yang dipakai. Sisa yang belum diisi otomatis dianggap Kasbon jika Anda isi Nama & No. HP pasien.</p>
+          <div class="form-grid" style="margin-bottom:6px;">
+            <div class="field">
+              <label>Tunai (Rp)</label>
+              <input type="number" id="splitTunai" min="0" placeholder="0" class="split-input">
+            </div>
+            <div class="field">
+              <label>Debit (Rp)</label>
+              <input type="number" id="splitDebit" min="0" placeholder="0" class="split-input">
+            </div>
+            <div class="field">
+              <label>QRIS (Rp)</label>
+              <input type="number" id="splitQris" min="0" placeholder="0" class="split-input">
+            </div>
+            <div class="field">
+              <label>Kasbon (Rp)</label>
+              <input type="number" id="splitKasbon" min="0" placeholder="0" class="split-input" readonly style="background:var(--surface-alt,#F5F3EE);">
+            </div>
+          </div>
+          <div id="splitKasbonFields" style="display:none;">
+            <div class="form-grid" style="margin-bottom:8px;">
+              <div class="field">
+                <label>Nama Pasien (untuk sisa Kasbon)</label>
+                <input type="text" id="splitKasbonNama" placeholder="Nama pasien">
+              </div>
+              <div class="field">
+                <label>No. HP</label>
+                <input type="text" id="splitKasbonHp" placeholder="08xx...">
+              </div>
+              <div class="field">
+                <label>Tanggal Jatuh Tempo (opsional)</label>
+                <input type="date" id="splitKasbonJatuhTempo">
+              </div>
+            </div>
+          </div>
+          <div class="total-row" id="splitSisaRow">
+            <span>Sisa Belum Dialokasikan</span>
+            <span id="splitSisaVal">Rp 0</span>
+          </div>
         </div>
 
         <button class="btn btn-primary btn-block" id="btnProsesBayar" style="margin-top:10px;">Proses & Cetak Struk</button>
@@ -504,10 +560,47 @@
     </table>
   </section>
 
+  <!-- ===== TAB BOOKING ===== -->
+  <section class="tab-panel" id="tab-booking">
+    <h2>Booking / Jadwal Kunjungan</h2>
+    <p class="section-hint">Jadwalkan kunjungan pasien untuk hari ini atau ke depan. Booking hari ini bisa langsung dijadikan antrian dengan satu klik.</p>
+
+    <div class="toolbar">
+      <div class="field">
+        <label>Dari Tanggal</label>
+        <input type="date" id="bookingStart">
+      </div>
+      <div class="field">
+        <label>Sampai Tanggal</label>
+        <input type="date" id="bookingEnd">
+      </div>
+      <button class="btn" id="btnBookingHariIni">Hari Ini</button>
+      <button class="btn" id="btnBooking7Hari">7 Hari ke Depan</button>
+      <button class="btn btn-primary" id="btnTambahBooking">+ Buat Booking</button>
+    </div>
+
+    <div class="summary-cards" id="bookingSummaryCards"></div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Tanggal</th>
+          <th>Jam</th>
+          <th>Pasien</th>
+          <th>Keluhan</th>
+          <th>Status</th>
+          <th>Aksi</th>
+        </tr>
+      </thead>
+      <tbody id="bookingBody"></tbody>
+    </table>
+  </section>
+
   <!-- ===== TAB ANTRIAN KLINIK ===== -->
   <section class="tab-panel" id="tab-antrian">
     <h2>Antrian Klinik Hari Ini</h2>
     <p class="section-hint" id="antrianTanggalLabel">Daftar pasien yang berkunjung hari ini, urut nomor antrian.</p>
+    <div class="banner-alert" id="bookingHariIniBanner" style="display:none;"></div>
 
     <div class="toolbar">
       <button class="btn btn-primary" id="btnTambahAntrian">+ Daftarkan Pasien</button>
@@ -783,6 +876,7 @@
           <th class="num">Total</th>
           <th class="num">Dibayar</th>
           <th class="num">Sisa</th>
+          <th>Jatuh Tempo</th>
           <th>Status</th>
           <th>Aksi</th>
         </tr>
@@ -932,6 +1026,37 @@
       </div>
       <button class="btn btn-primary" id="btnSimpanPengaturan" style="margin-top:12px;">Simpan Pengaturan</button>
       <button class="btn" id="btnPratinjauStruk" style="margin-top:8px;">👁️ Pratinjau Struk</button>
+    </div>
+
+    <h2 style="margin-top:26px;">Pengingat Otomatis via Telegram</h2>
+    <p class="section-hint">Kirim pengingat otomatis ke Telegram untuk piutang yang jatuh tempo dan jadwal kontrol ulang pasien. Pengecekan berjalan otomatis 1x sehari saat aplikasi dibuka, atau bisa dikirim manual kapan saja.</p>
+    <div class="card" style="padding:16px;">
+      <div class="form-grid">
+        <div class="field full">
+          <label>Token Bot Telegram</label>
+          <input type="text" id="setTelegramToken" placeholder="123456789:AAxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx">
+        </div>
+        <div class="field">
+          <label>Chat ID Tujuan</label>
+          <input type="text" id="setTelegramChatId" placeholder="Contoh: -1001234567890 atau 123456789">
+        </div>
+        <div class="field">
+          <label>Kirim Pengingat H- Berapa Hari</label>
+          <input type="number" id="setTelegramHMin" min="0" max="14" placeholder="2">
+        </div>
+      </div>
+      <div class="toggle-row">
+        <input type="checkbox" id="setTelegramAktifPiutang">
+        <label for="setTelegramAktifPiutang">Aktifkan pengingat Piutang Jatuh Tempo</label>
+      </div>
+      <div class="toggle-row">
+        <input type="checkbox" id="setTelegramAktifKontrol">
+        <label for="setTelegramAktifKontrol">Aktifkan pengingat Jadwal Kontrol Ulang Pasien</label>
+      </div>
+      <button class="btn btn-primary" id="btnSimpanTelegram" style="margin-top:10px;">Simpan Pengaturan Telegram</button>
+      <button class="btn" id="btnTesTelegram" style="margin-top:8px;">📨 Tes Kirim Pesan</button>
+      <button class="btn" id="btnKirimPengingatSekarang" style="margin-top:8px;">🔔 Kirim Pengingat Sekarang</button>
+      <p class="section-hint" style="margin-top:10px;">Cara dapat Token & Chat ID: buat bot lewat <b>@BotFather</b> di Telegram untuk dapat Token, lalu chat bot tersebut atau tambahkan ke grup, buka <code>https://api.telegram.org/bot&lt;TOKEN&gt;/getUpdates</code> di browser untuk melihat Chat ID.</p>
     </div>
 
     <h2>Ubah PIN Admin</h2>
@@ -1115,6 +1240,35 @@
   </div>
 </div>
 
+<div class="modal-overlay hidden" id="bookingModal">
+  <div class="modal wide">
+    <h3>Buat Booking / Jadwal Kunjungan</h3>
+    <div class="field full" style="margin-bottom:10px;">
+      <label>Cari Pasien</label>
+      <input type="text" id="bookingCariPasien" placeholder="Ketik nama / no. RM pasien...">
+      <div id="bookingPasienResults" class="search-results" style="max-height:180px;margin-top:6px;"></div>
+    </div>
+    <div id="bookingPasienTerpilih" class="banner-alert" style="display:none;"></div>
+    <button class="btn" id="btnBookingPasienBaru" style="margin-bottom:10px;">+ Pasien Baru Belum Terdaftar</button>
+    <div class="form-grid">
+      <div class="field">
+        <label>Tanggal Kunjungan</label>
+        <input type="date" id="bookingTanggal">
+      </div>
+      <div class="field">
+        <label>Jam Rencana (opsional)</label>
+        <input type="time" id="bookingJam">
+      </div>
+    </div>
+    <div class="field full">
+      <label>Keluhan / Catatan (opsional)</label>
+      <textarea id="bookingKeluhan" rows="2" placeholder="Contoh: kontrol ulang tekanan darah"></textarea>
+    </div>
+    <button class="btn btn-primary btn-block" id="btnSimpanBooking" style="margin-top:14px;">Simpan Booking</button>
+    <button class="cancel" id="btnBatalBooking">Batal</button>
+  </div>
+</div>
+
 <div class="modal-overlay hidden" id="rmeModal">
   <div class="modal wide">
     <h3>Rekam Medis — Pemeriksaan Pasien</h3>
@@ -1164,6 +1318,10 @@
       <div class="field full">
         <label>Catatan Perkembangan (CPPT)</label>
         <textarea id="rmeCatatan" rows="2" placeholder="Catatan tambahan perkembangan pasien (opsional)"></textarea>
+      </div>
+      <div class="field">
+        <label>Jadwal Kontrol Berikutnya (opsional)</label>
+        <input type="date" id="rmeTglKontrol">
       </div>
     </div>
 
@@ -1872,7 +2030,8 @@ function refreshActiveTabView(){
   if(target === 'kasir'){ renderResepPendingBanner(); }
   else if(target === 'stok'){ renderStokTable(); renderStokSummary(); }
   else if(target === 'pasien'){ renderPasienTable(); }
-  else if(target === 'antrian'){ loadAntrianHariIni().then(renderAntrianTable); }
+  else if(target === 'antrian'){ loadAntrianHariIni().then(renderAntrianTable); renderBookingHariIniBanner(); }
+  else if(target === 'booking'){ renderBooking(); }
   else if(target === 'piutang'){ renderPiutang(); }
   else if(target === 'pengaturan'){ renderAkunKasirTable(); renderAkunDokterTable(); }
 }
@@ -1965,6 +2124,12 @@ function dateKey(d){ return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.g
 function parseDateInput(s){ return new Date(s + 'T00:00:00'); }
 function timeStr(d){ return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`; }
 function rupiah(n){ return 'Rp ' + Math.round(n||0).toLocaleString('id-ID'); }
+function formatMetodeTampil(r){
+  if(r.pembayaran && r.pembayaran.length>1){
+    return 'Campuran (' + r.pembayaran.map(p=>p.metode).join('+') + ')';
+  }
+  return r.metode || '-';
+}
 function escapeHtml(s){
   return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
@@ -2157,6 +2322,11 @@ async function simpanPasien(){
     antrianAwaitingNewPasien = false;
     pilihPasienAntrian(data);
     document.getElementById('antrianModal').classList.remove('hidden');
+  }
+  if(bookingAwaitingNewPasien && !editingPasienId){
+    bookingAwaitingNewPasien = false;
+    pilihPasienBooking(data);
+    document.getElementById('bookingModal').classList.remove('hidden');
   }
 }
 
@@ -2351,6 +2521,190 @@ async function simpanAntrian(){
 }
 
 /* =========================================================
+   BOOKING / JADWAL KUNJUNGAN
+   Data disimpan per tanggal rencana kunjungan: booking-log/{tanggal}
+   ========================================================= */
+let bookingCache = { rows: [] };
+let bookingPasienTerpilih = null;
+let bookingAwaitingNewPasien = false;
+
+function renderBookingPasienResults(query){
+  const wrap = document.getElementById('bookingPasienResults');
+  if(!query){ wrap.innerHTML=''; return; }
+  const q = query.toLowerCase();
+  const results = pasienList.filter(p=>
+    (p.nama||'').toLowerCase().includes(q) || (p.noRm||'').toLowerCase().includes(q)
+  ).slice(0,15);
+  if(results.length===0){
+    wrap.innerHTML = `<div class="search-item"><span class="muted">Pasien tidak ditemukan. Klik "+ Pasien Baru" di bawah.</span></div>`;
+    return;
+  }
+  wrap.innerHTML = results.map(p=>`
+    <div class="search-item pilih-pasien-booking" data-id="${p.id}" style="cursor:pointer;">
+      <div><div class="si-name">${escapeHtml(p.nama)}</div><div class="si-sub">${escapeHtml(p.noRm||'-')} ${p.tglLahir?'· '+calcUmur(p.tglLahir):''}</div></div>
+    </div>`).join('');
+  wrap.querySelectorAll('.pilih-pasien-booking').forEach(el=>el.addEventListener('click', ()=>{
+    const p = pasienList.find(x=>x.id===el.dataset.id);
+    pilihPasienBooking(p);
+  }));
+}
+function pilihPasienBooking(p){
+  bookingPasienTerpilih = { id:p.id, nama:p.nama, noRm:p.noRm };
+  const banner = document.getElementById('bookingPasienTerpilih');
+  banner.style.display = '';
+  banner.innerHTML = `<span>✅ Pasien terpilih: <strong>${escapeHtml(p.nama)}</strong> (${escapeHtml(p.noRm||'-')})</span>`;
+  document.getElementById('bookingCariPasien').value = '';
+  document.getElementById('bookingPasienResults').innerHTML = '';
+}
+function openBookingModal(){
+  bookingPasienTerpilih = null;
+  document.getElementById('bookingPasienTerpilih').style.display='none';
+  document.getElementById('bookingCariPasien').value = '';
+  document.getElementById('bookingPasienResults').innerHTML = '';
+  document.getElementById('bookingKeluhan').value = '';
+  document.getElementById('bookingJam').value = '';
+  document.getElementById('bookingTanggal').value = dateKey(new Date());
+  document.getElementById('bookingModal').classList.remove('hidden');
+}
+function closeBookingModal(){ document.getElementById('bookingModal').classList.add('hidden'); }
+
+async function simpanBooking(){
+  if(!bookingPasienTerpilih){ toast('Pilih pasien terlebih dulu (cari atau tambah pasien baru).', true); return; }
+  const tanggal = document.getElementById('bookingTanggal').value;
+  if(!tanggal){ toast('Isi tanggal kunjungan.', true); return; }
+  const entry = {
+    id: crypto.randomUUID(),
+    pasienId: bookingPasienTerpilih.id,
+    namaPasien: bookingPasienTerpilih.nama,
+    tanggal,
+    jam: document.getElementById('bookingJam').value || '',
+    keluhan: document.getElementById('bookingKeluhan').value.trim(),
+    status: 'Terjadwal',
+    dibuatOleh: currentKasirNama || 'Admin',
+  };
+  const existing = await sGet('booking-log/' + tanggal) || {};
+  existing[entry.id] = entry;
+  await sSet('booking-log/' + tanggal, existing);
+  pushPathToCloud('booking-log/' + tanggal);
+  closeBookingModal();
+  toast(`Booking untuk ${bookingPasienTerpilih.nama} pada ${fmtDateFull(parseDateInput(tanggal))} tersimpan ✓`);
+  if(document.getElementById('tab-booking').classList.contains('active')) renderBooking();
+  if(tanggal === dateKey(new Date())) renderBookingHariIniBanner();
+}
+
+function buildBookingRows(rows){
+  const today = dateKey(new Date());
+  return rows.map(b=>{
+    const statusTag = b.status==='Sudah Jadi Antrian' ? '<span class="tag tag-ok">Sudah Jadi Antrian</span>'
+      : b.status==='Batal' ? '<span class="tag tag-low">Dibatalkan</span>'
+      : '<span class="tag tag-soon">Terjadwal</span>';
+    const bisaJadiAntrian = b.status==='Terjadwal' && b.tanggal===today;
+    return `
+    <tr>
+      <td>${fmtDateFull(parseDateInput(b.tanggal))}</td>
+      <td>${b.jam||'-'}</td>
+      <td>${escapeHtml(b.namaPasien)}</td>
+      <td>${escapeHtml(b.keluhan||'-')}</td>
+      <td>${statusTag}</td>
+      <td>
+        ${bisaJadiAntrian ? `<button class="btn btn-sm btn-primary btn-booking-antrian" data-tanggal="${b.tanggal}" data-id="${b.id}">➡️ Jadikan Antrian</button>` : ''}
+        ${b.status==='Terjadwal' ? `<button class="btn btn-sm btn-danger btn-booking-batal" data-tanggal="${b.tanggal}" data-id="${b.id}">Batalkan</button>` : ''}
+      </td>
+    </tr>`;
+  }).join('');
+}
+function wireBookingActions(){
+  document.querySelectorAll('.btn-booking-antrian').forEach(b=>{
+    b.addEventListener('click', e=>jadikanAntrianDariBooking(e.target.dataset.tanggal, e.target.dataset.id));
+  });
+  document.querySelectorAll('.btn-booking-batal').forEach(b=>{
+    b.addEventListener('click', async e=>{
+      const tanggal = e.target.dataset.tanggal, id = e.target.dataset.id;
+      if(!confirm('Batalkan booking ini?')) return;
+      const existing = await sGet('booking-log/' + tanggal) || {};
+      if(existing[id]){ existing[id].status = 'Batal'; }
+      await sSet('booking-log/' + tanggal, existing);
+      pushPathToCloud('booking-log/' + tanggal);
+      renderBooking();
+      renderBookingHariIniBanner();
+      toast('Booking dibatalkan.');
+    });
+  });
+}
+async function jadikanAntrianDariBooking(tanggal, id){
+  const existing = await sGet('booking-log/' + tanggal) || {};
+  const b = existing[id];
+  if(!b){ toast('Booking tidak ditemukan.', true); return; }
+  if(dateKey(new Date()) !== tanggal){ toast('Booking hanya bisa dijadikan antrian pada tanggal kunjungannya.', true); return; }
+  if(antrianTanggalAktif !== tanggal){ await loadAntrianHariIni(); }
+  const noAntrian = antrianList.length ? Math.max(...antrianList.map(a=>a.noAntrian)) + 1 : 1;
+  antrianList.push({
+    id: crypto.randomUUID(),
+    pasienId: b.pasienId,
+    namaPasien: b.namaPasien,
+    noAntrian,
+    keluhan: b.keluhan || '',
+    status: 'Menunggu',
+    waktuDaftar: timeStr(new Date()),
+    dariBookingId: b.id,
+  });
+  await saveAntrianList();
+  b.status = 'Sudah Jadi Antrian';
+  existing[id] = b;
+  await sSet('booking-log/' + tanggal, existing);
+  pushPathToCloud('booking-log/' + tanggal);
+  toast(`${b.namaPasien} dipindahkan ke Antrian (No. ${noAntrian}) ✓`);
+  if(document.getElementById('tab-booking').classList.contains('active')) renderBooking();
+  if(document.getElementById('tab-antrian').classList.contains('active')) renderAntrianTable();
+  renderBookingHariIniBanner();
+}
+async function renderBooking(){
+  const startVal = document.getElementById('bookingStart').value;
+  const endVal = document.getElementById('bookingEnd').value;
+  if(!startVal || !endVal) return;
+  if(startVal > endVal){ toast('Tanggal "Dari" tidak boleh lebih besar dari "Sampai".', true); return; }
+  document.getElementById('bookingBody').innerHTML = `<tr><td colspan="6" class="muted">Memuat booking...</td></tr>`;
+  try{
+    const dates = [];
+    let d = parseDateInput(startVal);
+    const end = parseDateInput(endVal);
+    while(d <= end){ dates.push(dateKey(d)); d.setDate(d.getDate()+1); }
+    const results = await Promise.all(dates.map(tgl => sGet('booking-log/' + tgl)));
+    let rows = [];
+    results.forEach(raw => { if(raw) rows = rows.concat(Object.values(raw)); });
+    rows.sort((a,b)=> (a.tanggal+(a.jam||'99:99')).localeCompare(b.tanggal+(b.jam||'99:99')));
+    bookingCache = { rows };
+    const terjadwal = rows.filter(b=>b.status==='Terjadwal').length;
+    document.getElementById('bookingSummaryCards').innerHTML = `
+      <div class="s-card"><div class="k">Total Booking (periode ini)</div><div class="v">${rows.length}</div></div>
+      <div class="s-card"><div class="k">Terjadwal</div><div class="v">${terjadwal}</div></div>
+    `;
+    document.getElementById('bookingBody').innerHTML = rows.length ? buildBookingRows(rows) : `<tr><td colspan="6" class="muted" style="padding:14px;text-align:center;">Tidak ada booking di periode ini.</td></tr>`;
+    wireBookingActions();
+  }catch(e){
+    console.error('Gagal memuat booking', e);
+    document.getElementById('bookingBody').innerHTML = `<tr><td colspan="6" style="padding:14px;text-align:center;">
+      <span style="color:var(--danger);">Gagal memuat data booking. Cek koneksi internet Anda.</span><br>
+      <button class="btn btn-sm" id="btnRetryBooking" style="margin-top:8px;">🔄 Coba Lagi</button>
+    </td></tr>`;
+    const retryBtn = document.getElementById('btnRetryBooking');
+    if(retryBtn) retryBtn.addEventListener('click', renderBooking);
+  }
+}
+async function renderBookingHariIniBanner(){
+  const banner = document.getElementById('bookingHariIniBanner');
+  if(!banner) return;
+  const today = dateKey(new Date());
+  const raw = await sGet('booking-log/' + today) || {};
+  const pending = Object.values(raw).filter(b=>b.status==='Terjadwal');
+  if(pending.length===0){ banner.style.display='none'; return; }
+  banner.style.display='';
+  banner.innerHTML = `<span>📅 Ada <strong>${pending.length}</strong> booking hari ini yang belum dijadikan antrian. <button class="btn btn-sm" id="btnLihatBookingHariIni" style="margin-left:8px;">Lihat</button></span>`;
+  const btn = document.getElementById('btnLihatBookingHariIni');
+  if(btn) btn.addEventListener('click', ()=>activateTab('booking'));
+}
+
+/* =========================================================
    REKAM MEDIS ELEKTRONIK (RME)
    Data disimpan per pasien: rme-log/{pasienId}/{id}
    ========================================================= */
@@ -2378,6 +2732,7 @@ function openRmeModal(antrian){
   document.getElementById('rmeDiagnosa').value = '';
   document.getElementById('rmeTindakan').value = '';
   document.getElementById('rmeCatatan').value = '';
+  document.getElementById('rmeTglKontrol').value = '';
   document.getElementById('rmeCariObat').value = '';
   document.getElementById('rmeCariObatResults').innerHTML = '';
   renderRmeResepList();
@@ -2468,6 +2823,7 @@ async function simpanRme(){
       tinggiBadan: document.getElementById('rmeTinggiBadan').value.trim(),
     },
     alergi: document.getElementById('rmeAlergi').value.trim(),
+    tglKontrolBerikutnya: document.getElementById('rmeTglKontrol').value || '',
     dokter: currentKasirNama || 'Dokter',
     adaResep: rmeResepCart.length > 0,
   };
@@ -2476,11 +2832,13 @@ async function simpanRme(){
   await sSet('rme-log/' + entry.pasienId, existing);
   pushPathToCloud('rme-log/' + entry.pasienId); // kirim segera supaya cepat terlihat di komputer lain
 
-  // Perbarui data alergi di data induk pasien juga, kalau ada perubahan/tambahan
+  // Perbarui data alergi & jadwal kontrol berikutnya di data induk pasien juga (denormalisasi supaya pengecekan pengingat cepat, tanpa perlu fetch rme-log tiap pasien)
   const pIdx = pasienList.findIndex(x=>x.id===entry.pasienId);
-  if(pIdx > -1 && entry.alergi && pasienList[pIdx].alergi !== entry.alergi){
-    pasienList[pIdx].alergi = entry.alergi;
-    await savePasienList();
+  if(pIdx > -1){
+    let berubah = false;
+    if(entry.alergi && pasienList[pIdx].alergi !== entry.alergi){ pasienList[pIdx].alergi = entry.alergi; berubah = true; }
+    if(pasienList[pIdx].tglKontrolBerikutnya !== entry.tglKontrolBerikutnya){ pasienList[pIdx].tglKontrolBerikutnya = entry.tglKontrolBerikutnya; berubah = true; }
+    if(berubah) await savePasienList();
   }
 
   if(rmeResepCart.length > 0){
@@ -2926,6 +3284,39 @@ function updateKembalian(){
   document.getElementById('kembalianVal').textContent = rupiah(kembalian);
   document.getElementById('kembalianVal').style.color = kembalian<0 ? 'var(--danger)' : 'var(--primary-dark)';
 }
+
+function toggleSplitBayar(){
+  const aktif = document.getElementById('splitBayarToggle').checked;
+  document.getElementById('metodeTunggalWrap').style.display = aktif ? 'none' : '';
+  document.getElementById('splitBayarWrap').style.display = aktif ? '' : 'none';
+  if(aktif) updateSplitBayar();
+}
+function updateSplitBayar(){
+  const { total } = hitungTotalDiskon();
+  const tunai = Number(document.getElementById('splitTunai').value)||0;
+  const debit = Number(document.getElementById('splitDebit').value)||0;
+  const qris = Number(document.getElementById('splitQris').value)||0;
+  const terisi = tunai + debit + qris;
+  const kasbon = Math.max(0, total - terisi);
+  document.getElementById('splitKasbon').value = kasbon > 0 ? kasbon : '';
+  document.getElementById('splitKasbonFields').style.display = kasbon > 0 ? '' : 'none';
+  const sisaRow = document.getElementById('splitSisaRow');
+  const sisaVal = document.getElementById('splitSisaVal');
+  if(terisi > total){
+    const lebih = terisi - total;
+    sisaVal.textContent = '-' + rupiah(lebih) + ' (kelebihan, kurangi input)';
+    sisaVal.style.color = 'var(--danger)';
+    sisaRow.style.display = '';
+  } else {
+    sisaVal.textContent = rupiah(0);
+    sisaVal.style.color = 'var(--primary-dark)';
+    sisaRow.style.display = kasbon > 0 ? 'none' : '';
+  }
+}
+document.querySelectorAll('.split-input').forEach(el=>{
+  if(el.id !== 'splitKasbon') el.addEventListener('input', updateSplitBayar);
+});
+document.getElementById('splitBayarToggle').addEventListener('change', toggleSplitBayar);
 document.getElementById('diskonTipe').addEventListener('change', refreshTotalTampilan);
 document.getElementById('diskonNilai').addEventListener('input', refreshTotalTampilan);
 
@@ -2936,16 +3327,50 @@ async function prosesBayar(){
   const pakaiResep = document.getElementById('pakaiResep').checked;
   const dokter = document.getElementById('resepDokter').value.trim();
   const pasien = document.getElementById('resepPasien').value.trim();
-  const metode = document.getElementById('metodeBayar').value;
   const { subtotal, diskonNilai, tipe: diskonTipe, nilaiInput: diskonNilaiInput, total } = hitungTotalDiskon();
   const totalHpp = cart.reduce((s,c)=>s+c.hargaBeli*c.qty, 0);
-  const diterima = Number(document.getElementById('uangDiterima').value)||0;
-  const kasbonNama = document.getElementById('kasbonNama').value.trim();
-  const kasbonHp = document.getElementById('kasbonHp').value.trim();
+  const splitAktif = document.getElementById('splitBayarToggle').checked;
 
   if(pakaiResep && !dokter){ toast('Isi nama dokter untuk transaksi resep.', true); return; }
-  if(metode==='Tunai' && diterima < total){ toast('Uang diterima kurang dari total.', true); return; }
-  if(metode==='Kasbon' && (!kasbonNama || !kasbonHp)){ toast('Isi nama pasien & no. HP untuk transaksi kasbon.', true); return; }
+
+  let metode, diterima, kembalian, pembayaran, piutangObj;
+
+  if(splitAktif){
+    const tunai = Number(document.getElementById('splitTunai').value)||0;
+    const debit = Number(document.getElementById('splitDebit').value)||0;
+    const qris = Number(document.getElementById('splitQris').value)||0;
+    const kasbon = Math.max(0, total - (tunai+debit+qris));
+    const kasbonNama = document.getElementById('splitKasbonNama').value.trim();
+    const kasbonHp = document.getElementById('splitKasbonHp').value.trim();
+
+    if((tunai+debit+qris) > total){ toast('Total input metode bayar melebihi total transaksi. Cek kembali.', true); return; }
+    if(tunai+debit+qris+kasbon <= 0){ toast('Isi minimal 1 metode pembayaran.', true); return; }
+    if(kasbon > 0 && (!kasbonNama || !kasbonHp)){ toast('Isi nama pasien & no. HP untuk sisa Kasbon.', true); return; }
+
+    pembayaran = [];
+    if(tunai>0) pembayaran.push({ metode:'Tunai', jumlah: tunai });
+    if(debit>0) pembayaran.push({ metode:'Debit', jumlah: debit });
+    if(qris>0) pembayaran.push({ metode:'QRIS', jumlah: qris });
+    if(kasbon>0) pembayaran.push({ metode:'Kasbon', jumlah: kasbon });
+
+    metode = pembayaran.length === 1 ? pembayaran[0].metode : 'Campuran';
+    diterima = total;
+    kembalian = 0;
+    piutangObj = kasbon > 0 ? { namaPasien: kasbonNama, noHp: kasbonHp, totalPiutang: kasbon, totalDibayar: 0, sisaPiutang: kasbon, lunas: false, cicilan: [], jatuhTempo: document.getElementById('splitKasbonJatuhTempo').value || '' } : null;
+  } else {
+    metode = document.getElementById('metodeBayar').value;
+    diterima = Number(document.getElementById('uangDiterima').value)||0;
+    const kasbonNama = document.getElementById('kasbonNama').value.trim();
+    const kasbonHp = document.getElementById('kasbonHp').value.trim();
+
+    if(metode==='Tunai' && diterima < total){ toast('Uang diterima kurang dari total.', true); return; }
+    if(metode==='Kasbon' && (!kasbonNama || !kasbonHp)){ toast('Isi nama pasien & no. HP untuk transaksi kasbon.', true); return; }
+
+    diterima = metode==='Tunai' ? diterima : total;
+    kembalian = metode==='Tunai' ? (diterima-total) : 0;
+    pembayaran = [{ metode, jumlah: total }];
+    piutangObj = metode==='Kasbon' ? { namaPasien: kasbonNama, noHp: kasbonHp, totalPiutang: total, totalDibayar: 0, sisaPiutang: total, lunas: false, cicilan: [], jatuhTempo: document.getElementById('kasbonJatuhTempo').value || '' } : null;
+  }
 
   // Cek ulang stok terbaru sebelum simpan (jaga-jaga ada transaksi dari perangkat lain)
   const latestObatRaw = await sGet('obat-list');
@@ -2965,11 +3390,11 @@ async function prosesBayar(){
   const trx = {
     id, noStruk, waktu: timeStr(now), tanggal: dateKey(now),
     items: cart.map(c=>({obatId:c.obatId, nama:c.nama, satuan:c.satuan||'', qty:c.qty, hargaJual:c.hargaJual, hargaBeli:c.hargaBeli, subtotal:c.hargaJual*c.qty, isCustom: !!c.isCustom})),
-    subtotal, total, totalHpp, metode, diterima: metode==='Tunai'?diterima:total, kembalian: metode==='Tunai'?(diterima-total):0,
+    subtotal, total, totalHpp, metode, pembayaran, diterima, kembalian,
     pakaiResep, dokter: pakaiResep?dokter:'', pasien: pakaiResep?pasien:'',
     kasir: namaKasir,
     diskon: diskonNilai>0 ? { tipe: diskonTipe, nilaiInput: diskonNilaiInput, nilaiPotongan: diskonNilai } : null,
-    piutang: metode==='Kasbon' ? { namaPasien: kasbonNama, noHp: kasbonHp, totalDibayar: 0, sisaPiutang: total, lunas: false, cicilan: [] } : null,
+    piutang: piutangObj,
   };
 
   // update stok (item custom otomatis dilewati karena obatId null / tidak ditemukan)
@@ -2995,9 +3420,19 @@ async function prosesBayar(){
   document.getElementById('uangDiterima').value='';
   document.getElementById('kasbonNama').value='';
   document.getElementById('kasbonHp').value='';
+  document.getElementById('kasbonJatuhTempo').value='';
   document.getElementById('metodeBayar').value='Tunai';
   document.getElementById('diskonNilai').value='';
   document.getElementById('diskonTipe').value='persen';
+  document.getElementById('splitBayarToggle').checked = false;
+  document.getElementById('splitTunai').value='';
+  document.getElementById('splitDebit').value='';
+  document.getElementById('splitQris').value='';
+  document.getElementById('splitKasbon').value='';
+  document.getElementById('splitKasbonNama').value='';
+  document.getElementById('splitKasbonHp').value='';
+  document.getElementById('splitKasbonJatuhTempo').value='';
+  toggleSplitBayar();
   renderCart();
   renderStokTable();
   renderStokSummary();
@@ -3062,9 +3497,9 @@ function cetakStruk(trx){
       ${trx.diskon ? `<tr><td>Diskon${trx.diskon.tipe==='persen'?` (${trx.diskon.nilaiInput}%)`:''}</td><td style="text-align:right;">-${rupiah(trx.diskon.nilaiPotongan)}</td></tr>` : ''}
       ${totalRetur>0 ? `<tr><td>Retur</td><td style="text-align:right;">-${rupiah(totalRetur)}</td></tr>` : ''}
       <tr><td><b>TOTAL${totalRetur>0?' (Bersih)':''}</b></td><td style="text-align:right;"><b>${rupiah(trx.total)}</b></td></tr>
-      <tr><td>${trx.metode}</td><td style="text-align:right;">${rupiah(trx.diterima)}</td></tr>
-      ${trx.metode==='Tunai' ? `<tr><td>Kembali</td><td style="text-align:right;">${rupiah(trx.kembalian)}</td></tr>` : ''}
-      ${trx.piutang ? `<tr><td colspan="2" style="text-align:center;"><b>*** BELUM LUNAS - KASBON ***</b></td></tr>` : ''}
+      ${(trx.pembayaran && trx.pembayaran.length>1) ? trx.pembayaran.map(p=>`<tr><td>${p.metode}</td><td style="text-align:right;">${rupiah(p.jumlah)}</td></tr>`).join('') : `<tr><td>${trx.metode}</td><td style="text-align:right;">${rupiah(trx.diterima)}</td></tr>`}
+      ${(trx.metode==='Tunai' && (!trx.pembayaran || trx.pembayaran.length<=1)) ? `<tr><td>Kembali</td><td style="text-align:right;">${rupiah(trx.kembalian)}</td></tr>` : ''}
+      ${trx.piutang ? `<tr><td colspan="2" style="text-align:center;"><b>*** ${trx.pembayaran && trx.pembayaran.length>1 ? 'SEBAGIAN KASBON' : 'BELUM LUNAS - KASBON'} (Rp ${rupiah(trx.piutang.sisaPiutang).replace('Rp ','')}) ***</b></td></tr>` : ''}
     </table>
     <hr>
     <div class="center">${escapeHtml(pengaturan.pesanStruk||'Terima kasih atas kunjungan Anda')}</div>
@@ -4014,8 +4449,14 @@ async function hitungTunaiSistemShift(shift){
   let tunaiTransaksi = 0;
   if(raw){
     tunaiTransaksi = Object.values(raw)
-      .filter(trx => trx.kasir === shift.kasir && trx.metode === 'Tunai' && !trx.dibatalkan && trx.waktu >= shift.waktuMulai)
-      .reduce((s,trx)=>s+(trx.total||0), 0);
+      .filter(trx => trx.kasir === shift.kasir && !trx.dibatalkan && trx.waktu >= shift.waktuMulai)
+      .reduce((s,trx)=>{
+        if(trx.pembayaran && trx.pembayaran.length){
+          const tunaiPortion = trx.pembayaran.filter(p=>p.metode==='Tunai').reduce((a,p)=>a+(p.jumlah||0),0);
+          return s + tunaiPortion;
+        }
+        return s + (trx.metode==='Tunai' ? (trx.total||0) : 0);
+      }, 0);
   }
   const cicilanRaw = await sGet('piutang-pembayaran/' + shift.tanggal);
   let tunaiCicilan = 0;
@@ -4221,7 +4662,7 @@ function buildLapTransRows(rows){
       <td>${fmtDateFull(parseDateInput(r.tanggal))} ${r.waktu}</td>
       <td>${r.noStruk} ${isVoid?'<span class="tag tag-low">Dibatalkan</span>':''} ${adaRetur?'<span class="tag tag-soon">Retur Sebagian</span>':''} ${r.diskon?'<span class="tag tag-ok">Diskon</span>':''}</td>
       <td>${escapeHtml(r.kasir||'-')}</td>
-      <td>${r.metode||'-'}${r.pakaiResep?' (Resep)':''}</td>
+      <td>${formatMetodeTampil(r)}${r.pakaiResep?' (Resep)':''}</td>
       <td class="num">${rupiah(r.total)}</td>
       <td class="num">${rupiah(r.totalHpp)}</td>
       <td class="num">${rupiah((r.total||0)-(r.totalHpp||0))}</td>
@@ -4374,10 +4815,18 @@ async function prosesRetur(retList, alasan){
 
   const subtotalNet = (trx.items||[]).reduce((s,it)=> s + Math.max(0,(it.qty||0)-(it.qtyRetur||0))*it.hargaJual, 0);
   const diskonNilai = Math.min(trx.diskon?.nilaiPotongan||0, subtotalNet);
+  const totalSebelumRetur = trx.total;
   trx.total = subtotalNet - diskonNilai;
   trx.totalHpp = (trx.items||[]).reduce((s,it)=> s + Math.max(0,(it.qty||0)-(it.qtyRetur||0))*it.hargaBeli, 0);
   trx.returLog = trx.returLog || [];
   trx.returLog.push({ waktu: new Date().toISOString(), items: retList.map(r=>({nama: trx.items[r.idx]?.nama, qty: r.qty})), alasan, nilai: nilaiRetur });
+
+  if(trx.piutang){
+    const totalPiutangLama = trx.piutang.totalPiutang != null ? trx.piutang.totalPiutang : totalSebelumRetur;
+    trx.piutang.totalPiutang = Math.max(trx.piutang.totalDibayar||0, totalPiutangLama - nilaiRetur);
+    trx.piutang.sisaPiutang = Math.max(0, trx.piutang.totalPiutang - (trx.piutang.totalDibayar||0));
+    trx.piutang.lunas = trx.piutang.sisaPiutang <= 0;
+  }
 
   const existingTrx = await sGet('transaksi/' + trx.tanggal) || {};
   existingTrx[trx.id] = trx;
@@ -4399,7 +4848,7 @@ function buildRiwayatRows(rows){
       <td>${fmtDateFull(parseDateInput(r.tanggal))} ${r.waktu}</td>
       <td>${r.noStruk} ${isVoid?'<span class="tag tag-low">Dibatalkan</span>':''} ${adaRetur?'<span class="tag tag-soon">Retur Sebagian</span>':''} ${r.diskon?'<span class="tag tag-ok">Diskon</span>':''}</td>
       <td>${escapeHtml(r.kasir||'-')}</td>
-      <td>${r.metode||'-'}${r.pakaiResep?' (Resep)':''}</td>
+      <td>${formatMetodeTampil(r)}${r.pakaiResep?' (Resep)':''}</td>
       <td class="num">${rupiah(r.total)}</td>
       <td>
         <button class="btn btn-riwayat-reprint" data-nostruk="${r.noStruk}">🖨️ Cetak Ulang</button>
@@ -4589,7 +5038,7 @@ function exportLapCsv(){
   csv += `Laba Bersih,${r.labaBersih||0}\n\n`;
   csv += 'Tanggal,Waktu,No Struk,Kasir,Metode,Total,HPP,Laba Kotor,Status\n';
   lapCache.rows.forEach(r=>{
-    csv += `${r.tanggal},${r.waktu},${r.noStruk},${r.kasir||'-'},${r.metode},${r.total||0},${r.totalHpp||0},${(r.total||0)-(r.totalHpp||0)},${r.dibatalkan?'Dibatalkan':'Aktif'}\n`;
+    csv += `${r.tanggal},${r.waktu},${r.noStruk},${r.kasir||'-'},${formatMetodeTampil(r)},${r.total||0},${r.totalHpp||0},${(r.total||0)-(r.totalHpp||0)},${r.dibatalkan?'Dibatalkan':'Aktif'}\n`;
   });
   csv += '\nRiwayat Pengeluaran\nTanggal,Waktu,Keterangan,Kasir,Jumlah\n';
   (lapCache.pengeluaranRows||[]).slice().sort((a,b)=>(a.tanggal+a.waktu).localeCompare(b.tanggal+b.waktu)).forEach(p=>{
@@ -4628,7 +5077,7 @@ function exportLapExcel(){
   })));
   const wsTransaksi = XLSX.utils.json_to_sheet(lapCache.rows.map(t=>({
     'Tanggal': t.tanggal, 'Waktu': t.waktu, 'No Struk': t.noStruk, 'Kasir': t.kasir||'-',
-    'Metode': t.metode, 'Total': t.total||0, 'HPP': t.totalHpp||0,
+    'Metode': formatMetodeTampil(t), 'Total': t.total||0, 'HPP': t.totalHpp||0,
     'Laba Kotor': (t.total||0)-(t.totalHpp||0), 'Status': t.dibatalkan?'Dibatalkan':'Aktif',
   })));
   const wsPengeluaran = XLSX.utils.json_to_sheet((lapCache.pengeluaranRows||[]).slice().sort((a,b)=>(a.tanggal+a.waktu).localeCompare(b.tanggal+b.waktu)).map(p=>({
@@ -4697,6 +5146,11 @@ function fillPengaturanForm(){
   document.getElementById('setTampilkanAlamat').checked = pengaturan.tampilkanAlamat !== false;
   document.getElementById('setTampilkanTelp').checked = pengaturan.tampilkanTelp !== false;
   document.getElementById('setTampilkanKasir').checked = pengaturan.tampilkanKasir !== false;
+  document.getElementById('setTelegramToken').value = pengaturan.telegramToken || '';
+  document.getElementById('setTelegramChatId').value = pengaturan.telegramChatId || '';
+  document.getElementById('setTelegramHMin').value = pengaturan.telegramHMin != null ? pengaturan.telegramHMin : 2;
+  document.getElementById('setTelegramAktifPiutang').checked = !!pengaturan.telegramAktifPiutang;
+  document.getElementById('setTelegramAktifKontrol').checked = !!pengaturan.telegramAktifKontrol;
   document.getElementById('recoveryQuestion').value = adminRecovery.question||'';
   document.getElementById('recoveryAnswer').value = '';
   renderAkunKasirTable();
@@ -4709,6 +5163,7 @@ async function simpanPengaturan(){
     return;
   }
   pengaturan = {
+    ...pengaturan,
     namaApotek: document.getElementById('setNamaApotek').value.trim(),
     alamat: document.getElementById('setAlamat').value.trim(),
     telp: document.getElementById('setTelp').value.trim(),
@@ -4725,8 +5180,137 @@ async function simpanPengaturan(){
   renderStokTable();
   renderStokSummary();
 }
+
+/* =========================================================
+   PENGINGAT OTOMATIS VIA TELEGRAM
+   Piutang jatuh tempo & jadwal kontrol ulang pasien
+   ========================================================= */
+async function simpanTelegramSettings(){
+  pengaturan = {
+    ...pengaturan,
+    telegramToken: document.getElementById('setTelegramToken').value.trim(),
+    telegramChatId: document.getElementById('setTelegramChatId').value.trim(),
+    telegramHMin: Number(document.getElementById('setTelegramHMin').value) || 0,
+    telegramAktifPiutang: document.getElementById('setTelegramAktifPiutang').checked,
+    telegramAktifKontrol: document.getElementById('setTelegramAktifKontrol').checked,
+  };
+  await sSet('pengaturan', pengaturan);
+  toast('Pengaturan Telegram disimpan ✓');
+}
+
+async function kirimPesanTelegram(text){
+  if(!pengaturan.telegramToken || !pengaturan.telegramChatId){
+    return { ok:false, error:'Token Bot / Chat ID belum diisi.' };
+  }
+  try{
+    const res = await fetch(`https://api.telegram.org/bot${pengaturan.telegramToken}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: pengaturan.telegramChatId, text, parse_mode: 'HTML' }),
+    });
+    const data = await res.json();
+    if(!data.ok) return { ok:false, error: data.description || 'Gagal mengirim pesan.' };
+    return { ok:true };
+  }catch(e){
+    console.error('Gagal kirim Telegram', e);
+    return { ok:false, error: 'Gagal terhubung ke Telegram. Cek koneksi internet.' };
+  }
+}
+
+function tambahHari(dateStr, n){
+  const d = parseDateInput(dateStr);
+  d.setDate(d.getDate()+n);
+  return dateKey(d);
+}
+
+async function cekPiutangJatuhTempo(){
+  const hMin = pengaturan.telegramHMin != null ? pengaturan.telegramHMin : 2;
+  const today = dateKey(new Date());
+  const batasAtas = tambahHari(today, hMin);
+  // Scan transaksi 90 hari ke belakang (piutang lama yang belum lunas tetap tercatat di tanggal transaksi aslinya)
+  const end = new Date();
+  const start = new Date(); start.setDate(start.getDate()-90);
+  const { rows } = await buildLaporan(dateKey(start), dateKey(end));
+  const jatuhTempoList = rows.filter(r=>
+    r.piutang && !r.dibatalkan && !r.piutang.lunas && r.piutang.jatuhTempo &&
+    r.piutang.jatuhTempo <= batasAtas
+  );
+  return jatuhTempoList;
+}
+
+function cekPasienKontrolUlang(){
+  const hMin = pengaturan.telegramHMin != null ? pengaturan.telegramHMin : 2;
+  const today = dateKey(new Date());
+  const batasAtas = tambahHari(today, hMin);
+  return pasienList.filter(p => p.tglKontrolBerikutnya && p.tglKontrolBerikutnya <= batasAtas);
+}
+
+async function kirimPengingatSekarang(manual){
+  if(!pengaturan.telegramToken || !pengaturan.telegramChatId){
+    if(manual) toast('Isi & simpan Token Bot dan Chat ID terlebih dahulu.', true);
+    return;
+  }
+  let pesanList = [];
+
+  if(pengaturan.telegramAktifPiutang){
+    const jatuhTempo = await cekPiutangJatuhTempo();
+    if(jatuhTempo.length){
+      let msg = `💰 <b>Pengingat Piutang Jatuh Tempo</b>\n(${jatuhTempo.length} transaksi)\n\n`;
+      jatuhTempo.forEach(r=>{
+        const telat = r.piutang.jatuhTempo < dateKey(new Date());
+        msg += `• ${r.piutang.namaPasien} (${r.piutang.noHp||'-'})\n  Sisa: Rp ${Math.round(r.piutang.sisaPiutang).toLocaleString('id-ID')} — Jatuh tempo ${fmtDateFull(parseDateInput(r.piutang.jatuhTempo))}${telat?' ⚠️ TELAT':''}\n  No. Struk: ${r.noStruk}\n\n`;
+      });
+      pesanList.push(msg.trim());
+    }
+  }
+  if(pengaturan.telegramAktifKontrol){
+    const kontrol = cekPasienKontrolUlang();
+    if(kontrol.length){
+      let msg = `🩺 <b>Pengingat Jadwal Kontrol Ulang Pasien</b>\n(${kontrol.length} pasien)\n\n`;
+      kontrol.forEach(p=>{
+        const telat = p.tglKontrolBerikutnya < dateKey(new Date());
+        msg += `• ${p.nama} (${p.noRm||'-'})\n  HP: ${p.hp||'-'} — Jadwal ${fmtDateFull(parseDateInput(p.tglKontrolBerikutnya))}${telat?' ⚠️ TELAT':''}\n\n`;
+      });
+      pesanList.push(msg.trim());
+    }
+  }
+
+  if(pesanList.length === 0){
+    if(manual) toast('Tidak ada piutang/jadwal kontrol yang perlu diingatkan saat ini.');
+    return;
+  }
+
+  for(const pesan of pesanList){
+    const hasil = await kirimPesanTelegram(`🏥 <b>${escapeHtml(pengaturan.namaApotek||'Apotek Masema Medika')}</b>\n\n${pesan}`);
+    if(!hasil.ok && manual){ toast('Gagal mengirim pengingat: ' + hasil.error, true); return; }
+  }
+  localStorage.setItem('lastPengingatTelegramDate', dateKey(new Date()));
+  if(manual) toast(`Pengingat berhasil dikirim ke Telegram ✓ (${pesanList.length} pesan)`);
+}
+
+async function cekPengingatOtomatisHarian(){
+  if(!pengaturan.telegramAktifPiutang && !pengaturan.telegramAktifKontrol) return;
+  if(!pengaturan.telegramToken || !pengaturan.telegramChatId) return;
+  const today = dateKey(new Date());
+  const last = localStorage.getItem('lastPengingatTelegramDate');
+  if(last === today) return; // sudah dicek hari ini
+  await kirimPengingatSekarang(false);
+}
+
 document.getElementById('setStrukWidth').addEventListener('change', e=>{
   document.getElementById('strukWidthCustomField').style.display = (e.target.value==='custom') ? '' : 'none';
+});
+document.getElementById('btnSimpanTelegram').addEventListener('click', simpanTelegramSettings);
+document.getElementById('btnTesTelegram').addEventListener('click', async ()=>{
+  await simpanTelegramSettings();
+  const hasil = await kirimPesanTelegram(`✅ Tes koneksi Telegram dari aplikasi Kasir ${escapeHtml(pengaturan.namaApotek||'Apotek Masema Medika')} berhasil!`);
+  if(hasil.ok) toast('Pesan tes berhasil terkirim ✓ Cek Telegram Anda.');
+  else toast('Gagal: ' + hasil.error, true);
+});
+document.getElementById('btnKirimPengingatSekarang').addEventListener('click', async ()=>{
+  await simpanTelegramSettings();
+  toast('Mengecek & mengirim pengingat...');
+  await kirimPengingatSekarang(true);
 });
 
 document.getElementById('pinForm').addEventListener('submit', async (e)=>{
@@ -4850,7 +5434,7 @@ async function renderPiutang(){
   if(!startVal || !endVal) return;
   const tampilkanLunas = document.getElementById('piutangTampilkanLunas').checked;
   const { rows } = await buildLaporan(startVal, endVal);
-  const semuaKasbon = rows.filter(r=>r.metode==='Kasbon' && r.piutang && !r.dibatalkan);
+  const semuaKasbon = rows.filter(r=>r.piutang && !r.dibatalkan);
   let kasbonRows = tampilkanLunas ? semuaKasbon : semuaKasbon.filter(r=>!r.piutang.lunas);
   kasbonRows.sort((a,b)=> (b.tanggal+b.waktu).localeCompare(a.tanggal+a.waktu));
   piutangCache = { rows: kasbonRows };
@@ -4866,8 +5450,14 @@ async function renderPiutang(){
   `;
 
   const body = document.getElementById('piutangBody');
+  const today = dateKey(new Date());
   body.innerHTML = kasbonRows.length ? kasbonRows.map(r=>{
     const p = r.piutang;
+    let jatuhTempoTampil = `<input type="date" class="jatuh-tempo-input" data-nostruk="${r.noStruk}" data-tanggal="${r.tanggal}" value="${p.jatuhTempo||''}" style="width:145px;">`;
+    if(p.jatuhTempo && !p.lunas){
+      if(p.jatuhTempo < today) jatuhTempoTampil += ' <span class="tag tag-low">Lewat Jatuh Tempo</span>';
+      else if(p.jatuhTempo <= today) jatuhTempoTampil += ' <span class="tag tag-soon">Hari Ini</span>';
+    }
     return `
     <tr>
       <td>${fmtDateFull(parseDateInput(r.tanggal))}</td>
@@ -4877,13 +5467,27 @@ async function renderPiutang(){
       <td class="num">${rupiah(r.total)}</td>
       <td class="num">${rupiah(p.totalDibayar)}</td>
       <td class="num">${rupiah(p.sisaPiutang)}</td>
+      <td>${jatuhTempoTampil}</td>
       <td>${p.lunas ? '<span class="tag tag-ok">Lunas</span>' : '<span class="tag tag-low">Belum Lunas</span>'}</td>
       <td>${!p.lunas ? `<button class="btn btn-sm btn-bayar-piutang" data-nostruk="${r.noStruk}">💰 Catat Pembayaran</button>` : '-'}</td>
     </tr>`;
-  }).join('') : `<tr><td colspan="9" class="muted" style="padding:14px;text-align:center;">Tidak ada data piutang pada periode ini.</td></tr>`;
+  }).join('') : `<tr><td colspan="10" class="muted" style="padding:14px;text-align:center;">Tidak ada data piutang pada periode ini.</td></tr>`;
 
   document.querySelectorAll('.btn-bayar-piutang').forEach(b=>{
     b.addEventListener('click', e=>openBayarPiutangModal(e.target.dataset.nostruk));
+  });
+  document.querySelectorAll('.jatuh-tempo-input').forEach(inp=>{
+    inp.addEventListener('change', async e=>{
+      const noStruk = e.target.dataset.nostruk;
+      const tanggal = e.target.dataset.tanggal;
+      const existingTrx = await sGet('transaksi/' + tanggal) || {};
+      const trxEntry = Object.values(existingTrx).find(t=>t.noStruk===noStruk);
+      if(!trxEntry || !trxEntry.piutang) return;
+      trxEntry.piutang.jatuhTempo = e.target.value || '';
+      existingTrx[trxEntry.id] = trxEntry;
+      await sSet('transaksi/' + tanggal, existingTrx);
+      toast('Tanggal jatuh tempo diperbarui ✓');
+    });
   });
 }
 document.getElementById('piutangStart').addEventListener('change', renderPiutang);
@@ -4933,7 +5537,7 @@ document.getElementById('btnSimpanBayarPiutang').addEventListener('click', async
   trx.piutang.cicilan = trx.piutang.cicilan || [];
   trx.piutang.cicilan.push({ waktu: new Date().toISOString(), jumlah, metode });
   trx.piutang.totalDibayar = Number(trx.piutang.totalDibayar||0) + jumlah;
-  trx.piutang.sisaPiutang = Math.max(0, trx.total - trx.piutang.totalDibayar);
+  trx.piutang.sisaPiutang = Math.max(0, (trx.piutang.totalPiutang!=null ? trx.piutang.totalPiutang : trx.total) - trx.piutang.totalDibayar);
   trx.piutang.lunas = trx.piutang.sisaPiutang <= 0;
 
   const existingTrx = await sGet('transaksi/' + trx.tanggal) || {};
@@ -5025,7 +5629,7 @@ document.getElementById('btnGoStokMenipis').addEventListener('click', ()=> goToT
 document.getElementById('btnGoKadaluarsa').addEventListener('click', ()=> goToTab('stok'));
 document.getElementById('btnGoPengaturanPin').addEventListener('click', ()=> goToTab('pengaturan'));
 
-const TAB_AREA = { kasir:'kasir', riwayat:'kasir', riwayatPengeluaran:'kasir', stok:'kasir', resep:'kasir', piutang:'kasir', laporan:'kasir', pengaturan:'kasir', pasien:'klinik', antrian:'klinik', laporanKlinik:'klinik' };
+const TAB_AREA = { kasir:'kasir', riwayat:'kasir', riwayatPengeluaran:'kasir', stok:'kasir', resep:'kasir', piutang:'kasir', laporan:'kasir', pengaturan:'kasir', pasien:'klinik', booking:'klinik', antrian:'klinik', laporanKlinik:'klinik' };
 
 function activateArea(area){
   document.querySelectorAll('.area-tab').forEach(b=>b.classList.toggle('active', b.dataset.area===area));
@@ -5042,7 +5646,16 @@ function activateTab(target){
   if(target === 'stok'){ renderStokTable(); renderStokSummary(); }
   if(target === 'kasir'){ renderResepPendingBanner(); }
   if(target === 'pasien'){ renderPasienTable(); }
-  if(target === 'antrian'){ loadAntrianHariIni().then(renderAntrianTable); }
+  if(target === 'antrian'){ loadAntrianHariIni().then(renderAntrianTable); renderBookingHariIniBanner(); }
+  if(target === 'booking'){
+    if(!document.getElementById('bookingStart').value){
+      const now = new Date();
+      const depan = new Date(now); depan.setDate(now.getDate()+6);
+      document.getElementById('bookingStart').value = dateKey(now);
+      document.getElementById('bookingEnd').value = dateKey(depan);
+    }
+    renderBooking();
+  }
   if(target === 'laporanKlinik'){
     if(!document.getElementById('lapKlinikStart').value){
       const now = new Date();
@@ -5381,6 +5994,30 @@ document.getElementById('btnAntrianPasienBaru').addEventListener('click', ()=>{
   closeAntrianModal();
   openPasienModal(null);
 });
+document.getElementById('btnTambahBooking').addEventListener('click', openBookingModal);
+document.getElementById('btnBatalBooking').addEventListener('click', closeBookingModal);
+document.getElementById('btnSimpanBooking').addEventListener('click', simpanBooking);
+document.getElementById('bookingCariPasien').addEventListener('input', e=>renderBookingPasienResults(e.target.value));
+document.getElementById('btnBookingPasienBaru').addEventListener('click', ()=>{
+  bookingAwaitingNewPasien = true;
+  closeBookingModal();
+  openPasienModal(null);
+});
+document.getElementById('bookingStart').addEventListener('change', renderBooking);
+document.getElementById('bookingEnd').addEventListener('change', renderBooking);
+document.getElementById('btnBookingHariIni').addEventListener('click', ()=>{
+  const today = dateKey(new Date());
+  document.getElementById('bookingStart').value = today;
+  document.getElementById('bookingEnd').value = today;
+  renderBooking();
+});
+document.getElementById('btnBooking7Hari').addEventListener('click', ()=>{
+  const now = new Date();
+  const depan = new Date(now); depan.setDate(now.getDate()+6);
+  document.getElementById('bookingStart').value = dateKey(now);
+  document.getElementById('bookingEnd').value = dateKey(depan);
+  renderBooking();
+});
 document.getElementById('btnBatalRme').addEventListener('click', closeRmeModal);
 document.getElementById('btnSimpanRme').addEventListener('click', simpanRme);
 document.getElementById('rmeCariObat').addEventListener('input', e=>renderRmeCariObatResults(e.target.value));
@@ -5515,6 +6152,7 @@ document.getElementById('connStatusBadge').addEventListener('click', ()=> goToTa
   renderCart();
   renderResepPendingBanner();
   startAutoSync();
+  cekPengingatOtomatisHarian(); // jalan di background, tidak perlu ditunggu (tidak menghambat tampilan awal)
 })();
 </script>
 </body>
