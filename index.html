@@ -138,6 +138,7 @@
   tr.row-void{opacity:0.55;}
   tr.row-void td{text-decoration:line-through;}
   tr.row-void td:last-child{text-decoration:none;}
+  tr.row-subtotal td{border-top:2px solid var(--border);background:var(--surface-alt,#F5F3EE);}
 
   .empty-state{border:1px dashed var(--border);border-radius:var(--radius);padding:34px;text-align:center;color:var(--ink-soft);}
 
@@ -314,6 +315,7 @@
   <nav class="tabs" id="areaSubTabs-kasir">
     <button class="tab active" data-tab="kasir">Kasir</button>
     <button class="tab" data-tab="riwayat">Riwayat Transaksi</button>
+    <button class="tab" data-tab="riwayatPengeluaran">Riwayat Pengeluaran</button>
     <button class="tab" data-tab="stok">Stok Obat</button>
     <button class="tab" data-tab="resep">Resep Dokter</button>
     <button class="tab" data-tab="piutang">Piutang</button>
@@ -633,6 +635,49 @@
     </table>
   </section>
 
+  <!-- ===== TAB RIWAYAT PENGELUARAN ===== -->
+  <section class="tab-panel" id="tab-riwayatPengeluaran">
+    <h2>Riwayat Pengeluaran</h2>
+    <p class="section-hint">Catat & lihat semua pengeluaran kas kapan saja, tidak perlu menunggu shift/tutup kasir. Menghapus tetap memerlukan PIN Admin.</p>
+
+    <div class="toolbar">
+      <div class="field">
+        <label>Dari Tanggal</label>
+        <input type="date" id="rpStart">
+      </div>
+      <div class="field">
+        <label>Sampai Tanggal</label>
+        <input type="date" id="rpEnd">
+      </div>
+      <button class="btn" id="btnRpHariIni">Hari Ini</button>
+      <button class="btn" id="btnRp7Hari">7 Hari Terakhir</button>
+      <button class="btn btn-primary" id="btnRpTambah">+ Tambah Pengeluaran</button>
+    </div>
+
+    <div class="toolbar" style="margin-bottom:10px;">
+      <div class="field search-inline">
+        <label>Cari Keterangan</label>
+        <input type="text" id="rpSearch" placeholder="Ketik keterangan pengeluaran...">
+      </div>
+    </div>
+
+    <div class="summary-cards" id="rpSummaryCards"></div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Tanggal</th>
+          <th>Waktu</th>
+          <th>Keterangan</th>
+          <th>Kasir</th>
+          <th class="num">Jumlah</th>
+          <th>Aksi</th>
+        </tr>
+      </thead>
+      <tbody id="rpBody"></tbody>
+    </table>
+  </section>
+
   <!-- ===== TAB STOK OBAT ===== -->
   <section class="tab-panel" id="tab-stok">
     <h2>Stok Obat</h2>
@@ -767,6 +812,11 @@
     </div>
 
     <div class="summary-cards" id="lapSummaryCards"></div>
+
+    <h2 style="margin-top:22px;">Laba Rugi Sederhana</h2>
+    <table>
+      <tbody id="lapLabaRugiBody"></tbody>
+    </table>
 
     <h2 style="margin-top:22px;">Tren Penjualan Harian</h2>
     <div class="card" id="lapChartCard">
@@ -1277,7 +1327,7 @@
       </div>
     </div>
     <button class="btn btn-primary btn-block" id="btnSimpanPengeluaran">Tambah Pengeluaran</button>
-    <h4 style="margin-top:16px;text-align:left;">Pengeluaran Shift Ini</h4>
+    <h4 style="margin-top:16px;text-align:left;" id="pengeluaranListLabel">Pengeluaran Shift Ini</h4>
     <table>
       <thead><tr><th>Waktu</th><th>Keterangan</th><th class="num">Jumlah</th><th></th></tr></thead>
       <tbody id="pengeluaranBody"><tr><td colspan="4" class="muted" style="padding:12px;text-align:center;">Belum ada pengeluaran tercatat.</td></tr></tbody>
@@ -3608,7 +3658,7 @@ async function renderResep(){
    ========================================================= */
 let lapCache = { rows: [], produk: {}, range: '' };
 
-async function buildLaporan(startStr, endStr){
+async function buildLaporan(startStr, endStr, includePengeluaran){
   const start = parseDateInput(startStr);
   const end = parseDateInput(endStr);
   const rows = [];
@@ -3624,7 +3674,23 @@ async function buildLaporan(startStr, endStr){
     cur.setDate(cur.getDate()+1);
   }
 
-  const rawResults = await Promise.all(dateKeys.map(ds => sGet('transaksi/' + ds)));
+  const [rawResults, pengeluaranResults] = await Promise.all([
+    Promise.all(dateKeys.map(ds => sGet('transaksi/' + ds))),
+    includePengeluaran ? Promise.all(dateKeys.map(ds => sGet('pengeluaran/' + ds))) : Promise.resolve(null),
+  ]);
+
+  let totalPengeluaran = 0;
+  const pengeluaranRows = [];
+  if(pengeluaranResults){
+    pengeluaranResults.forEach(raw=>{
+      if(raw){
+        Object.values(raw).forEach(p=>{
+          totalPengeluaran += Number(p.jumlah||0);
+          pengeluaranRows.push(p);
+        });
+      }
+    });
+  }
 
   rawResults.forEach(raw=>{
     if(raw){
@@ -3656,7 +3722,7 @@ async function buildLaporan(startStr, endStr){
     }
   });
   rows.sort((a,b)=> (a.tanggal+a.waktu).localeCompare(b.tanggal+b.waktu));
-  return { rows, produk, kategori };
+  return { rows, produk, kategori, totalPengeluaran, pengeluaranRows };
 }
 
 /* ---------------- akun kasir (login) ---------------- */
@@ -3889,15 +3955,13 @@ async function hapusPengeluaran(tanggal, id){
 }
 async function renderPengeluaranList(){
   const body = document.getElementById('pengeluaranBody');
-  if(!currentShift){
-    body.innerHTML = `<tr><td colspan="4" class="muted" style="padding:12px;text-align:center;">Belum mulai shift.</td></tr>`;
-    document.getElementById('pengeluaranTotal').textContent = rupiah(0);
-    return;
+  const tanggal = currentShift ? currentShift.tanggal : dateKey(new Date());
+  const raw = await sGet('pengeluaran/' + tanggal) || {};
+  let rows = Object.values(raw);
+  if(currentShift){
+    rows = rows.filter(p => p.kasir === currentShift.kasir && p.waktu >= currentShift.waktuMulai);
   }
-  const raw = await sGet('pengeluaran/' + currentShift.tanggal) || {};
-  const rows = Object.values(raw)
-    .filter(p => p.kasir === currentShift.kasir && p.waktu >= currentShift.waktuMulai)
-    .sort((a,b)=> b.waktu.localeCompare(a.waktu));
+  rows = rows.sort((a,b)=> b.waktu.localeCompare(a.waktu));
   const total = rows.reduce((s,p)=>s+(p.jumlah||0),0);
   document.getElementById('pengeluaranTotal').textContent = rupiah(total);
   body.innerHTML = rows.length ? rows.map(p=>`
@@ -3911,8 +3975,10 @@ async function renderPengeluaranList(){
     btn.addEventListener('click', ()=>{
       const id = btn.dataset.id;
       pinCallback = async ()=>{
-        await hapusPengeluaran(currentShift.tanggal, id);
+        const tanggal = currentShift ? currentShift.tanggal : dateKey(new Date());
+        await hapusPengeluaran(tanggal, id);
         renderPengeluaranList();
+        if(document.getElementById('tab-riwayatPengeluaran').classList.contains('active')) renderRiwayatPengeluaran();
         toast('Pengeluaran dihapus.');
       };
       openPinModal('Masukkan PIN untuk menghapus pengeluaran ini.');
@@ -3920,9 +3986,9 @@ async function renderPengeluaranList(){
   });
 }
 function openPengeluaranModal(){
-  if(!currentShift){ toast('Mulai shift terlebih dahulu.', true); return; }
   document.getElementById('pengeluaranJumlah').value = '';
   document.getElementById('pengeluaranKeterangan').value = '';
+  document.getElementById('pengeluaranListLabel').textContent = currentShift ? 'Pengeluaran Shift Ini' : 'Pengeluaran Hari Ini';
   document.getElementById('pengeluaranModal').classList.remove('hidden');
   renderPengeluaranList();
 }
@@ -3940,6 +4006,7 @@ document.getElementById('btnSimpanPengeluaran').addEventListener('click', async 
   document.getElementById('pengeluaranKeterangan').value = '';
   toast('Pengeluaran dicatat ✓');
   renderPengeluaranList();
+  if(document.getElementById('tab-riwayatPengeluaran').classList.contains('active')) renderRiwayatPengeluaran();
 });
 
 async function hitungTunaiSistemShift(shift){
@@ -4080,7 +4147,7 @@ async function renderLaporan(){
   document.getElementById('lapTransBody').innerHTML = `<tr><td colspan="8" class="muted">Menghitung laporan...</td></tr>`;
   document.getElementById('lapProdukBody').innerHTML = '';
   try{
-    const { rows, produk, kategori } = await buildLaporan(startVal, endVal);
+    const { rows, produk, kategori, totalPengeluaran, pengeluaranRows } = await buildLaporan(startVal, endVal, true);
     const rowsAktif = rows.filter(r=>!r.dibatalkan);
     renderTrendChart(rowsAktif, startVal, endVal);
     rows.sort((a,b)=> (b.tanggal+b.waktu).localeCompare(a.tanggal+a.waktu)); // tampilkan transaksi terbaru di atas
@@ -4088,13 +4155,24 @@ async function renderLaporan(){
     const totalPenjualan = rowsAktif.reduce((s,r)=>s+(r.total||0),0);
     const totalHpp = rowsAktif.reduce((s,r)=>s+(r.totalHpp||0),0);
     const labaKotor = totalPenjualan - totalHpp;
+    const labaBersih = labaKotor - totalPengeluaran;
     const jumlahTrx = rowsAktif.length;
 
     document.getElementById('lapSummaryCards').innerHTML = `
       <div class="s-card"><div class="k">Total Penjualan</div><div class="v">${rupiah(totalPenjualan)}</div></div>
       <div class="s-card"><div class="k">Total HPP</div><div class="v">${rupiah(totalHpp)}</div></div>
       <div class="s-card"><div class="k">Laba Kotor</div><div class="v" style="color:${labaKotor>=0?'#0E4A41':'#B3261E'};">${rupiah(labaKotor)}</div></div>
+      <div class="s-card"><div class="k">Total Pengeluaran</div><div class="v" style="color:#B3261E;">${rupiah(totalPengeluaran)}</div></div>
+      <div class="s-card"><div class="k">Laba Bersih</div><div class="v" style="color:${labaBersih>=0?'#0E4A41':'#B3261E'};">${rupiah(labaBersih)}</div></div>
       <div class="s-card"><div class="k">Jumlah Transaksi</div><div class="v">${jumlahTrx}</div></div>
+    `;
+
+    document.getElementById('lapLabaRugiBody').innerHTML = `
+      <tr><td>Pendapatan (Total Penjualan)</td><td class="num">${rupiah(totalPenjualan)}</td></tr>
+      <tr><td>Harga Pokok Penjualan (HPP)</td><td class="num">(${rupiah(totalHpp)})</td></tr>
+      <tr class="row-subtotal"><td><strong>Laba Kotor</strong></td><td class="num"><strong>${rupiah(labaKotor)}</strong></td></tr>
+      <tr><td>Pengeluaran Operasional</td><td class="num">(${rupiah(totalPengeluaran)})</td></tr>
+      <tr class="row-subtotal"><td><strong>Laba Bersih</strong></td><td class="num" style="color:${labaBersih>=0?'#0E4A41':'#B3261E'};"><strong>${rupiah(labaBersih)}</strong></td></tr>
     `;
 
     const produkArr = Object.entries(produk).map(([nama,v])=>({nama,...v})).sort((a,b)=>b.total-a.total);
@@ -4119,7 +4197,7 @@ async function renderLaporan(){
     document.getElementById('lapTransBody').innerHTML = rows.length ? buildLapTransRows(rows) : `<tr><td colspan="8" class="muted" style="padding:14px;text-align:center;">Tidak ada transaksi.</td></tr>`;
 
     lapCache = { rows, produk: produkArr, kategori: kategoriArr, range: `${startVal}_sd_${endVal}`, startVal, endVal,
-      ringkasan: { totalPenjualan, totalHpp, labaKotor, jumlahTrx } };
+      ringkasan: { totalPenjualan, totalHpp, labaKotor, totalPengeluaran, labaBersih, jumlahTrx }, pengeluaranRows };
     wireLapTransActions();
     const searchInput = document.getElementById('lapTransSearch');
     if(searchInput) searchInput.value = '';
@@ -4382,6 +4460,94 @@ function filterRiwayat(query){
   body.innerHTML = filtered.length ? buildRiwayatRows(filtered) : `<tr><td colspan="6" class="muted" style="padding:14px;text-align:center;">Tidak ditemukan.</td></tr>`;
   wireRiwayatActions();
 }
+let rpCache = { rows: [] };
+function buildPengeluaranRows(rows){
+  return rows.map(p=>`
+    <tr>
+      <td>${fmtDateFull(parseDateInput(p.tanggal))}</td>
+      <td>${p.waktu}</td>
+      <td>${escapeHtml(p.keterangan||'-')}</td>
+      <td>${escapeHtml(p.kasir||'-')}</td>
+      <td class="num">${rupiah(p.jumlah)}</td>
+      <td><button class="btn btn-sm btn-danger btn-rp-hapus" data-tanggal="${p.tanggal}" data-id="${p.id}">🗑️ Hapus</button></td>
+    </tr>`).join('');
+}
+function wireRpActions(){
+  document.querySelectorAll('.btn-rp-hapus').forEach(b=>{
+    b.addEventListener('click', e=>{
+      const tanggal = e.target.dataset.tanggal;
+      const id = e.target.dataset.id;
+      pinCallback = async ()=>{
+        await hapusPengeluaran(tanggal, id);
+        toast('Pengeluaran dihapus.');
+        renderRiwayatPengeluaran();
+      };
+      openPinModal('Masukkan PIN Admin untuk menghapus pengeluaran ini.');
+    });
+  });
+}
+async function renderRiwayatPengeluaran(){
+  const startVal = document.getElementById('rpStart').value;
+  const endVal = document.getElementById('rpEnd').value;
+  if(!startVal || !endVal) return;
+  if(startVal > endVal){ toast('Tanggal "Dari" tidak boleh lebih besar dari "Sampai".', true); return; }
+
+  document.getElementById('rpBody').innerHTML = `<tr><td colspan="6" class="muted">Memuat riwayat pengeluaran...</td></tr>`;
+  try{
+    const dates = [];
+    let d = parseDateInput(startVal);
+    const end = parseDateInput(endVal);
+    while(d <= end){ dates.push(dateKey(d)); d.setDate(d.getDate()+1); }
+    const results = await Promise.all(dates.map(tgl => sGet('pengeluaran/' + tgl)));
+    let rows = [];
+    results.forEach(raw => { if(raw) rows = rows.concat(Object.values(raw)); });
+    rows.sort((a,b)=> (b.tanggal+b.waktu).localeCompare(a.tanggal+a.waktu));
+    rpCache = { rows };
+    const total = rows.reduce((s,p)=>s+(p.jumlah||0),0);
+    document.getElementById('rpSummaryCards').innerHTML = `
+      <div class="s-card"><div class="k">Jumlah Pengeluaran</div><div class="v">${rows.length}</div></div>
+      <div class="s-card"><div class="k">Total Pengeluaran</div><div class="v" style="color:#B3261E;">${rupiah(total)}</div></div>
+    `;
+    document.getElementById('rpBody').innerHTML = rows.length ? buildPengeluaranRows(rows) : `<tr><td colspan="6" class="muted" style="padding:14px;text-align:center;">Tidak ada pengeluaran.</td></tr>`;
+    wireRpActions();
+  }catch(e){
+    console.error('Gagal memuat riwayat pengeluaran', e);
+    document.getElementById('rpBody').innerHTML = `<tr><td colspan="6" style="padding:14px;text-align:center;">
+      <span style="color:var(--danger);">Gagal memuat riwayat pengeluaran. Cek koneksi internet Anda.</span><br>
+      <button class="btn btn-sm" id="btnRetryRp" style="margin-top:8px;">🔄 Coba Lagi</button>
+    </td></tr>`;
+    const retryBtn = document.getElementById('btnRetryRp');
+    if(retryBtn) retryBtn.addEventListener('click', renderRiwayatPengeluaran);
+  }
+  const searchInput = document.getElementById('rpSearch');
+  if(searchInput) searchInput.value = '';
+}
+function filterRp(query){
+  query = query.trim().toLowerCase();
+  const body = document.getElementById('rpBody');
+  if(!query){ body.innerHTML = buildPengeluaranRows(rpCache.rows); wireRpActions(); return; }
+  const filtered = rpCache.rows.filter(p=>(p.keterangan||'').toLowerCase().includes(query));
+  body.innerHTML = filtered.length ? buildPengeluaranRows(filtered) : `<tr><td colspan="6" class="muted" style="padding:14px;text-align:center;">Tidak ditemukan.</td></tr>`;
+  wireRpActions();
+}
+document.getElementById('rpSearch').addEventListener('input', e=>filterRp(e.target.value));
+document.getElementById('rpStart').addEventListener('change', renderRiwayatPengeluaran);
+document.getElementById('rpEnd').addEventListener('change', renderRiwayatPengeluaran);
+document.getElementById('btnRpHariIni').addEventListener('click', ()=>{
+  const today = dateKey(new Date());
+  document.getElementById('rpStart').value = today;
+  document.getElementById('rpEnd').value = today;
+  renderRiwayatPengeluaran();
+});
+document.getElementById('btnRp7Hari').addEventListener('click', ()=>{
+  const now = new Date();
+  const week = new Date(now); week.setDate(now.getDate()-6);
+  document.getElementById('rpStart').value = dateKey(week);
+  document.getElementById('rpEnd').value = dateKey(now);
+  renderRiwayatPengeluaran();
+});
+document.getElementById('btnRpTambah').addEventListener('click', openPengeluaranModal);
+
 document.getElementById('riwayatSearch').addEventListener('input', e=>filterRiwayat(e.target.value));
 document.getElementById('riwayatStart').addEventListener('change', renderRiwayat);
 document.getElementById('riwayatEnd').addEventListener('change', renderRiwayat);
@@ -4414,9 +4580,20 @@ function filterLapTrans(query){
 
 function exportLapCsv(){
   if(!lapCache.rows.length){ toast('Tidak ada data untuk diunduh.', true); return; }
-  let csv = 'Tanggal,Waktu,No Struk,Kasir,Metode,Total,HPP,Laba Kotor,Status\n';
+  const r = lapCache.ringkasan || {};
+  let csv = 'Laba Rugi Sederhana\n';
+  csv += `Pendapatan (Total Penjualan),${r.totalPenjualan||0}\n`;
+  csv += `Harga Pokok Penjualan (HPP),${-(r.totalHpp||0)}\n`;
+  csv += `Laba Kotor,${r.labaKotor||0}\n`;
+  csv += `Pengeluaran Operasional,${-(r.totalPengeluaran||0)}\n`;
+  csv += `Laba Bersih,${r.labaBersih||0}\n\n`;
+  csv += 'Tanggal,Waktu,No Struk,Kasir,Metode,Total,HPP,Laba Kotor,Status\n';
   lapCache.rows.forEach(r=>{
     csv += `${r.tanggal},${r.waktu},${r.noStruk},${r.kasir||'-'},${r.metode},${r.total||0},${r.totalHpp||0},${(r.total||0)-(r.totalHpp||0)},${r.dibatalkan?'Dibatalkan':'Aktif'}\n`;
+  });
+  csv += '\nRiwayat Pengeluaran\nTanggal,Waktu,Keterangan,Kasir,Jumlah\n';
+  (lapCache.pengeluaranRows||[]).slice().sort((a,b)=>(a.tanggal+a.waktu).localeCompare(b.tanggal+b.waktu)).forEach(p=>{
+    csv += `${p.tanggal},${p.waktu},"${(p.keterangan||'-').replace(/"/g,'""')}",${p.kasir||'-'},${p.jumlah||0}\n`;
   });
   const blob = new Blob([csv], { type:'text/csv;charset=utf-8;' });
   const a = document.createElement('a');
@@ -4434,9 +4611,13 @@ function exportLapExcel(){
     [`Periode: ${lapCache.startVal} s/d ${lapCache.endVal}`],
     [`Dicetak: ${fmtDateFull(new Date())}`],
     [],
-    ['Total Penjualan', r.totalPenjualan||0],
-    ['Total HPP', r.totalHpp||0],
+    ['Laba Rugi Sederhana'],
+    ['Pendapatan (Total Penjualan)', r.totalPenjualan||0],
+    ['Harga Pokok Penjualan (HPP)', -(r.totalHpp||0)],
     ['Laba Kotor', r.labaKotor||0],
+    ['Pengeluaran Operasional', -(r.totalPengeluaran||0)],
+    ['Laba Bersih', r.labaBersih||0],
+    [],
     ['Jumlah Transaksi', r.jumlahTrx||0],
   ]);
   const wsProduk = XLSX.utils.json_to_sheet((lapCache.produk||[]).map(p=>({
@@ -4450,11 +4631,15 @@ function exportLapExcel(){
     'Metode': t.metode, 'Total': t.total||0, 'HPP': t.totalHpp||0,
     'Laba Kotor': (t.total||0)-(t.totalHpp||0), 'Status': t.dibatalkan?'Dibatalkan':'Aktif',
   })));
+  const wsPengeluaran = XLSX.utils.json_to_sheet((lapCache.pengeluaranRows||[]).slice().sort((a,b)=>(a.tanggal+a.waktu).localeCompare(b.tanggal+b.waktu)).map(p=>({
+    'Tanggal': p.tanggal, 'Waktu': p.waktu, 'Keterangan': p.keterangan||'-', 'Kasir': p.kasir||'-', 'Jumlah': p.jumlah||0,
+  })));
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, wsRingkasan, 'Ringkasan');
   XLSX.utils.book_append_sheet(wb, wsProduk, 'Produk Terlaris');
   XLSX.utils.book_append_sheet(wb, wsKategori, 'Per Kategori');
   XLSX.utils.book_append_sheet(wb, wsTransaksi, 'Daftar Transaksi');
+  XLSX.utils.book_append_sheet(wb, wsPengeluaran, 'Pengeluaran');
   XLSX.writeFile(wb, `Laporan-Keuangan-${lapCache.range}.xlsx`);
 }
 document.getElementById('btnLapExcel').addEventListener('click', exportLapExcel);
@@ -4840,7 +5025,7 @@ document.getElementById('btnGoStokMenipis').addEventListener('click', ()=> goToT
 document.getElementById('btnGoKadaluarsa').addEventListener('click', ()=> goToTab('stok'));
 document.getElementById('btnGoPengaturanPin').addEventListener('click', ()=> goToTab('pengaturan'));
 
-const TAB_AREA = { kasir:'kasir', riwayat:'kasir', stok:'kasir', resep:'kasir', piutang:'kasir', laporan:'kasir', pengaturan:'kasir', pasien:'klinik', antrian:'klinik', laporanKlinik:'klinik' };
+const TAB_AREA = { kasir:'kasir', riwayat:'kasir', riwayatPengeluaran:'kasir', stok:'kasir', resep:'kasir', piutang:'kasir', laporan:'kasir', pengaturan:'kasir', pasien:'klinik', antrian:'klinik', laporanKlinik:'klinik' };
 
 function activateArea(area){
   document.querySelectorAll('.area-tab').forEach(b=>b.classList.toggle('active', b.dataset.area===area));
@@ -4875,6 +5060,15 @@ function activateTab(target){
       document.getElementById('riwayatEnd').value = dateKey(now);
     }
     renderRiwayat();
+  }
+  if(target === 'riwayatPengeluaran'){
+    if(!document.getElementById('rpStart').value){
+      const now = new Date();
+      const week = new Date(now); week.setDate(now.getDate()-6);
+      document.getElementById('rpStart').value = dateKey(week);
+      document.getElementById('rpEnd').value = dateKey(now);
+    }
+    renderRiwayatPengeluaran();
   }
   if(target === 'resep'){
     if(!document.getElementById('resepStart').value){
