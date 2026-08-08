@@ -539,6 +539,8 @@
       <button class="btn btn-primary" id="btnTambahPasien">+ Pasien Baru</button>
       <button class="btn" id="btnImportPasienExcel">⬆️ Import dari Excel</button>
       <input type="file" id="fileImportPasienExcel" accept=".xlsx,.xls,.csv" style="display:none;">
+      <button class="btn" id="btnImportRiwayatExcel">📋 Import Riwayat Kunjungan Lama</button>
+      <input type="file" id="fileImportRiwayatExcel" accept=".xlsx,.xls,.csv" style="display:none;">
     </div>
 
     <div class="summary-cards" id="pasienSummaryCards"></div>
@@ -2376,6 +2378,139 @@ async function handleImportPasienFile(file){
   await savePasienList();
   renderPasienTable();
   toast(`${count} pasien berhasil diimpor ✓`);
+}
+
+/* =========================================================
+   IMPORT RIWAYAT KUNJUNGAN LAMA (dari laporan kunjungan lama, mis. dari sistem klinik sebelumnya)
+   Beda dengan Import Pasien di atas: fitur ini membaca file per-KUNJUNGAN (bisa banyak baris
+   per satu pasien yang sama), lalu:
+   1) Mengelompokkan baris-baris per pasien historis (pakai No. Dokumen RM/No. RM Lama/No eRM di
+      file sebagai kunci, BUKAN nama saja - supaya 2 orang berbeda dengan nama sama tidak tergabung).
+   2) Mencocokkan tiap pasien historis itu ke pasien yang SUDAH ADA di aplikasi (lewat NIK kalau
+      ada, atau Nama+Tanggal Lahir persis sama) - kalau tidak ketemu, dibuatkan pasien baru.
+   3) Menyimpan tiap baris kunjungan sebagai satu entri rekam medis (rme-log) milik pasien tsb,
+      supaya riwayat lama muncul di rekam medis pasien - bukan cuma data pasiennya saja.
+   Deteksi duplikat: entri kunjungan dengan tanggal+jam+diagnosa yang persis sama dengan yang
+   sudah ada di rme-log pasien tsb akan dilewati (aman kalau file yang sama di-import 2x). */
+async function handleImportRiwayatFile(file){
+  const buf = await file.arrayBuffer();
+  const wb = XLSX.read(buf, { type:'array', cellDates:false });
+  let allRawRows = [];
+  wb.SheetNames.forEach(name=>{
+    const rows = XLSX.utils.sheet_to_json(wb.Sheets[name], { header:1, defval:'', raw:false });
+    allRawRows = allRawRows.concat(rows);
+  });
+
+  let headerRowIdx = -1, headers = null;
+  for(let i=0;i<allRawRows.length;i++){
+    const row = (allRawRows[i]||[]).map(v=>normalizeHeader(v));
+    if(row.includes('tanggal') && row.some(c=>c.includes('nama'))){ headerRowIdx = i; headers = allRawRows[i]; break; }
+  }
+  if(headerRowIdx === -1){ toast('Format file tidak dikenali: kolom "Tanggal" dan "Nama Pasien" tidak ditemukan.', true); return; }
+
+  const colIdx = {};
+  headers.forEach((h,idx)=>{
+    const nk = normalizeHeader(h);
+    if(nk==='tanggal') colIdx.tanggal = idx;
+    else if(colIdx.nama===undefined && nk.includes('nama') && !nk.includes('ayah')) colIdx.nama = idx;
+    else if(nk==='nik') colIdx.nik = idx;
+    else if(nk.includes('dokumen rm')) colIdx.dokRm = idx;
+    else if(nk.includes('rm lama')) colIdx.rmLama = idx;
+    else if(nk.includes('erm')) colIdx.eRm = idx;
+    else if(nk.includes('lahir')) colIdx.ttl = idx;
+    else if(nk==='jenis kelamin' || nk==='jk') colIdx.jk = idx;
+    else if(nk==='alamat') colIdx.alamat = idx;
+    else if(nk.includes('kode diagnosa')) colIdx.kodeDiagnosa = idx;
+    else if(nk==='diagnosa') colIdx.diagnosa = idx;
+    else if(nk.includes('poli') || nk.includes('ruangan')) colIdx.poli = idx;
+  });
+  if(colIdx.tanggal===undefined || colIdx.nama===undefined){ toast('Kolom Tanggal / Nama Pasien tidak ditemukan di file.', true); return; }
+
+  const dataRows = allRawRows.slice(headerRowIdx+1).filter(r=> r && (r[colIdx.tanggal] || r[colIdx.nama]));
+  if(dataRows.length===0){ toast('Tidak ada baris data kunjungan yang terbaca di file ini.', true); return; }
+
+  const groups = new Map();
+  let fallbackCounter = 0;
+  dataRows.forEach(r=>{
+    const key = (colIdx.dokRm!==undefined && String(r[colIdx.dokRm]||'').trim())
+      || (colIdx.rmLama!==undefined && String(r[colIdx.rmLama]||'').trim())
+      || (colIdx.eRm!==undefined && String(r[colIdx.eRm]||'').trim())
+      || `NOKEY-${r[colIdx.nama]}-${fallbackCounter++}`;
+    if(!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(r);
+  });
+
+  const dateRe = /(\d{4}-\d{2}-\d{2})/;
+  function pickLatest(rowsSorted, idx){
+    if(idx===undefined) return '';
+    for(const rr of rowsSorted){ const v = rr[idx]; if(v!==undefined && v!==null && String(v).trim()!=='') return String(v).trim(); }
+    return '';
+  }
+  function parseVisitDt(v){
+    const m = String(v||'').match(/^(\d{4}-\d{2}-\d{2})[ T]?(\d{2}:\d{2}:\d{2})?/);
+    return m ? { tanggal: m[1], waktu: m[2]||'00:00:00' } : { tanggal:'', waktu:'' };
+  }
+
+  toast(`Memproses ${dataRows.length} baris kunjungan (${groups.size} pasien historis)... mohon tunggu.`);
+
+  let pasienBaru = 0, pasienCocok = 0, kunjunganDitambah = 0, kunjunganDilewati = 0;
+
+  for(const rowsGroup of groups.values()){
+    const rowsSorted = [...rowsGroup].sort((a,b)=> String(b[colIdx.tanggal]||'').localeCompare(String(a[colIdx.tanggal]||'')));
+    const nama = pickLatest(rowsSorted, colIdx.nama);
+    if(!nama) continue;
+    const nik = pickLatest(rowsSorted, colIdx.nik);
+    const ttl = pickLatest(rowsSorted, colIdx.ttl);
+    const jkRaw = pickLatest(rowsSorted, colIdx.jk);
+    const jk = jkRaw.toUpperCase().startsWith('P') ? 'P' : 'L';
+    const mtgl = ttl.match(dateRe);
+    const tglLahir = mtgl ? mtgl[1] : '';
+
+    let pasien = null;
+    if(nik) pasien = pasienList.find(p=> p.nik && p.nik.trim()===nik);
+    if(!pasien && nama && tglLahir){
+      pasien = pasienList.find(p=> p.nama && p.nama.trim().toLowerCase()===nama.toLowerCase() && p.tglLahir===tglLahir);
+    }
+    if(!pasien){
+      pasien = { id: crypto.randomUUID(), noRm: nextNoRm(), nama, tglLahir, jk, hp:'', nik, alamat: pickLatest(rowsSorted, colIdx.alamat), alergi:'' };
+      pasienList.push(pasien);
+      pasienBaru++;
+    } else {
+      pasienCocok++;
+    }
+
+    const existingRme = await sGet('rme-log/' + pasien.id) || {};
+    const existingSignatures = new Set(Object.values(existingRme).map(e=> `${e.tanggal}|${e.waktu}|${e.diagnosa}`));
+    let adaPerubahan = false;
+    rowsGroup.forEach(r=>{
+      const { tanggal, waktu } = parseVisitDt(r[colIdx.tanggal]);
+      if(!tanggal) return;
+      const kodeDx = colIdx.kodeDiagnosa!==undefined ? String(r[colIdx.kodeDiagnosa]||'').trim() : '';
+      const namaDx = colIdx.diagnosa!==undefined ? String(r[colIdx.diagnosa]||'').trim() : '';
+      const diagnosaText = kodeDx && namaDx ? `${kodeDx} - ${namaDx}` : (namaDx || kodeDx || '(Data riwayat lama, diagnosa tidak tercatat)');
+      const sig = `${tanggal}|${waktu}|${diagnosaText}`;
+      if(existingSignatures.has(sig)){ kunjunganDilewati++; return; }
+      const poli = colIdx.poli!==undefined ? String(r[colIdx.poli]||'').trim() : '';
+      const id = crypto.randomUUID();
+      existingRme[id] = {
+        id, pasienId: pasien.id, namaPasien: pasien.nama, tanggal, waktu,
+        keluhan: '', diagnosa: diagnosaText, tindakan: '',
+        catatan: 'Data riwayat kunjungan lama (impor otomatis dari laporan kunjungan sebelumnya).',
+        vital: { tensi:'', suhu:'', nadi:'', beratBadan:'', tinggiBadan:'' },
+        alergi: '', tglKontrolBerikutnya: '',
+        dokter: poli ? `Riwayat Lama - ${poli}` : 'Riwayat Lama',
+        adaResep: false, sumberImpor: true,
+      };
+      existingSignatures.add(sig);
+      kunjunganDitambah++;
+      adaPerubahan = true;
+    });
+    if(adaPerubahan) await sSet('rme-log/' + pasien.id, existingRme);
+  }
+
+  if(pasienBaru>0) await savePasienList();
+  renderPasienTable();
+  toast(`Impor riwayat selesai ✓ ${kunjunganDitambah} kunjungan ditambahkan ke ${pasienCocok+pasienBaru} pasien (${pasienCocok} cocok data pasien lama, ${pasienBaru} pasien baru dibuat). ${kunjunganDilewati} kunjungan dilewati (sudah pernah diimpor). Sinkron ke cloud berjalan di background - biarkan aplikasi terbuka beberapa saat.`);
 }
 
 /* =========================================================
@@ -6030,6 +6165,14 @@ document.getElementById('fileImportPasienExcel').addEventListener('change', asyn
   if(!file) return;
   try{ await handleImportPasienFile(file); }
   catch(err){ console.error(err); toast('Gagal membaca file. Pastikan format Excel/CSV benar.', true); }
+  e.target.value = '';
+});
+document.getElementById('btnImportRiwayatExcel').addEventListener('click', ()=>document.getElementById('fileImportRiwayatExcel').click());
+document.getElementById('fileImportRiwayatExcel').addEventListener('change', async e=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  try{ await handleImportRiwayatFile(file); }
+  catch(err){ console.error(err); toast('Gagal membaca file riwayat kunjungan. Pastikan format Excel benar.', true); }
   e.target.value = '';
 });
 document.getElementById('btnTambahAntrian').addEventListener('click', openAntrianModal);
