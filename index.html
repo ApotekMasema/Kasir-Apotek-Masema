@@ -539,8 +539,11 @@
       <button class="btn btn-primary" id="btnTambahPasien">+ Pasien Baru</button>
       <button class="btn" id="btnImportPasienExcel">⬆️ Import dari Excel</button>
       <input type="file" id="fileImportPasienExcel" accept=".xlsx,.xls,.csv" style="display:none;">
-      <button class="btn" id="btnImportRiwayatExcel">📋 Import Riwayat Kunjungan Lama</button>
+      <button class="btn" id="btnTemplatePasienExcel">📥 Template Import Pasien</button>
+      <button class="btn" id="btnImportRiwayatExcel">📋 Import Riwayat Kunjungan Lama (RM)</button>
       <input type="file" id="fileImportRiwayatExcel" accept=".xlsx,.xls,.csv" style="display:none;">
+      <button class="btn" id="btnTemplateRiwayatExcel">📥 Template Import RM</button>
+      <button class="btn btn-danger" id="btnHapusSemuaPasien">🗑️ Hapus Semua Pasien</button>
     </div>
 
     <div class="summary-cards" id="pasienSummaryCards"></div>
@@ -2511,6 +2514,45 @@ async function handleImportRiwayatFile(file){
   if(pasienBaru>0) await savePasienList();
   renderPasienTable();
   toast(`Impor riwayat selesai ✓ ${kunjunganDitambah} kunjungan ditambahkan ke ${pasienCocok+pasienBaru} pasien (${pasienCocok} cocok data pasien lama, ${pasienBaru} pasien baru dibuat). ${kunjunganDilewati} kunjungan dilewati (sudah pernah diimpor). Sinkron ke cloud berjalan di background - biarkan aplikasi terbuka beberapa saat.`);
+}
+
+/* ---- Template Excel untuk Import Pasien (kolom sesuai handleImportPasienFile) ---- */
+function downloadTemplatePasienExcel(){
+  const ws = XLSX.utils.json_to_sheet([
+    { 'Nama': 'Siti Aminah', 'Tanggal Lahir': '1990-05-14', 'Jenis Kelamin': 'P', 'No HP': '081234567890', 'NIK': '3201010101900001', 'Alamat': 'Jl. Melati No. 1, Bandung', 'Alergi': 'Penisilin' },
+    { 'Nama': 'Budi Santoso', 'Tanggal Lahir': '1985-11-02', 'Jenis Kelamin': 'L', 'No HP': '081298765432', 'NIK': '3201010101850002', 'Alamat': 'Jl. Kenanga No. 5, Bandung', 'Alergi': '' },
+  ]);
+  ws['!cols'] = [{wch:20},{wch:14},{wch:12},{wch:16},{wch:18},{wch:30},{wch:16}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Import Pasien');
+  XLSX.writeFile(wb, 'Template-Import-Data-Pasien.xlsx');
+  toast('Template Excel Import Pasien berhasil diunduh ✓');
+}
+
+/* ---- Template Excel untuk Import Riwayat Kunjungan Lama / RM (kolom sesuai handleImportRiwayatFile) ---- */
+function downloadTemplateRiwayatExcel(){
+  const ws = XLSX.utils.json_to_sheet([
+    { 'Tanggal': '2024-01-10', 'Nama Pasien': 'Siti Aminah', 'NIK': '3201010101900001', 'No. Dokumen RM': 'RM-LAMA-0001', 'Tanggal Lahir': '1990-05-14', 'Jenis Kelamin': 'P', 'Alamat': 'Jl. Melati No. 1, Bandung', 'Kode Diagnosa': 'J00', 'Diagnosa': 'Nasofaringitis akut (flu biasa)', 'Poli/Ruangan': 'Poli Umum' },
+    { 'Tanggal': '2024-03-22', 'Nama Pasien': 'Siti Aminah', 'NIK': '3201010101900001', 'No. Dokumen RM': 'RM-LAMA-0001', 'Tanggal Lahir': '1990-05-14', 'Jenis Kelamin': 'P', 'Alamat': 'Jl. Melati No. 1, Bandung', 'Kode Diagnosa': 'K30', 'Diagnosa': 'Dispepsia', 'Poli/Ruangan': 'Poli Umum' },
+    { 'Tanggal': '2024-02-05', 'Nama Pasien': 'Budi Santoso', 'NIK': '3201010101850002', 'No. Dokumen RM': 'RM-LAMA-0002', 'Tanggal Lahir': '1985-11-02', 'Jenis Kelamin': 'L', 'Alamat': 'Jl. Kenanga No. 5, Bandung', 'Kode Diagnosa': 'I10', 'Diagnosa': 'Hipertensi esensial', 'Poli/Ruangan': 'Poli Umum' },
+  ]);
+  ws['!cols'] = [{wch:12},{wch:20},{wch:18},{wch:16},{wch:14},{wch:12},{wch:28},{wch:14},{wch:28},{wch:14}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Import Riwayat RM');
+  XLSX.writeFile(wb, 'Template-Import-Riwayat-RM.xlsx');
+  toast('Template Excel Import Riwayat RM berhasil diunduh ✓');
+}
+
+/* ---- Hapus Semua Data Pasien (butuh PIN, karena tindakan permanen & massal) ---- */
+async function hapusSemuaPasien(){
+  if(pasienList.length===0){ toast('Tidak ada data pasien untuk dihapus.', true); return; }
+  const jumlah = pasienList.length;
+  if(!confirm(`Yakin ingin menghapus SEMUA ${jumlah} data pasien? Tindakan ini TIDAK BISA dibatalkan. Riwayat transaksi/resep lama tidak ikut terhapus.`)) return;
+  pasienList = [];
+  await sSet('pasien-list', {});
+  await deleteEntryFromCloud('pasien-list'); // pastikan node lengkap ikut terhapus di cloud, bukan cuma di komputer ini
+  renderPasienTable();
+  toast(`Semua data pasien (${jumlah}) berhasil dihapus ✓`);
 }
 
 /* =========================================================
@@ -6174,6 +6216,12 @@ document.getElementById('fileImportRiwayatExcel').addEventListener('change', asy
   try{ await handleImportRiwayatFile(file); }
   catch(err){ console.error(err); toast('Gagal membaca file riwayat kunjungan. Pastikan format Excel benar.', true); }
   e.target.value = '';
+});
+document.getElementById('btnTemplatePasienExcel').addEventListener('click', downloadTemplatePasienExcel);
+document.getElementById('btnTemplateRiwayatExcel').addEventListener('click', downloadTemplateRiwayatExcel);
+document.getElementById('btnHapusSemuaPasien').addEventListener('click', ()=>{
+  pinCallback = hapusSemuaPasien;
+  openPinModal('Masukkan PIN untuk menghapus SEMUA data pasien.');
 });
 document.getElementById('btnTambahAntrian').addEventListener('click', openAntrianModal);
 document.getElementById('btnBatalAntrian').addEventListener('click', closeAntrianModal);
