@@ -2489,6 +2489,20 @@ async function handleImportRiwayatFile(file){
   toast(`Memproses ${dataRows.length} baris kunjungan (${groups.size} pasien historis)... mohon tunggu.`);
 
   let pasienBaru = 0, pasienCocok = 0, kunjunganDitambah = 0, kunjunganDilewati = 0;
+  const dirtyRmePaths = new Set();
+
+  // Index pencarian pasien (biar tidak scan ulang seluruh daftar pasien di
+  // setiap baris - untuk file ribuan baris, cara lama bisa sangat lambat/macet).
+  const nikIndex = new Map();
+  const nameDobIndex = new Map();
+  let noRmCounter = 0;
+  pasienList.forEach(p=>{
+    if(p.nik && p.nik.trim()) nikIndex.set(p.nik.trim(), p);
+    if(p.nama && p.tglLahir) nameDobIndex.set(p.nama.trim().toLowerCase()+'|'+p.tglLahir, p);
+    const m = String(p.noRm||'').match(/(\d+)$/);
+    if(m){ const n = parseInt(m[1],10); if(n>noRmCounter) noRmCounter = n; }
+  });
+  function nextNoRmFast(){ noRmCounter++; return 'RM-' + String(noRmCounter).padStart(6,'0'); }
 
   for(const rowsGroup of groups.values()){
     const rowsSorted = [...rowsGroup].sort((a,b)=> parseVisitDt(b[colIdx.tanggal]).tanggal.localeCompare(parseVisitDt(a[colIdx.tanggal]).tanggal));
@@ -2501,19 +2515,21 @@ async function handleImportRiwayatFile(file){
     const tglLahir = excelValueToISODate(ttlRaw);
 
     let pasien = null;
-    if(nik) pasien = pasienList.find(p=> p.nik && p.nik.trim()===nik);
+    if(nik) pasien = nikIndex.get(nik) || null;
     if(!pasien && nama && tglLahir){
-      pasien = pasienList.find(p=> p.nama && p.nama.trim().toLowerCase()===nama.toLowerCase() && p.tglLahir===tglLahir);
+      pasien = nameDobIndex.get(nama.trim().toLowerCase()+'|'+tglLahir) || null;
     }
     if(!pasien){
-      pasien = { id: crypto.randomUUID(), noRm: nextNoRm(), nama, tglLahir, jk, hp:'', nik, alamat: pickLatest(rowsSorted, colIdx.alamat), alergi:'' };
+      pasien = { id: crypto.randomUUID(), noRm: nextNoRmFast(), nama, tglLahir, jk, hp:'', nik, alamat: pickLatest(rowsSorted, colIdx.alamat), alergi:'' };
       pasienList.push(pasien);
+      if(nik) nikIndex.set(nik, pasien);
+      if(nama && tglLahir) nameDobIndex.set(nama.trim().toLowerCase()+'|'+tglLahir, pasien);
       pasienBaru++;
     } else {
       pasienCocok++;
     }
 
-    const existingRme = await sGet('rme-log/' + pasien.id) || {};
+    const existingRme = getAtPath(localDB, 'rme-log/' + pasien.id) || {};
     const existingSignatures = new Set(Object.values(existingRme).map(e=> `${e.tanggal}|${e.waktu}|${e.diagnosa}`));
     let adaPerubahan = false;
     rowsGroup.forEach(r=>{
@@ -2539,8 +2555,20 @@ async function handleImportRiwayatFile(file){
       kunjunganDitambah++;
       adaPerubahan = true;
     });
-    if(adaPerubahan) await sSet('rme-log/' + pasien.id, existingRme);
+    if(adaPerubahan){
+      // Simpan langsung ke memori (tanpa nulis ulang SELURUH database ke penyimpanan
+      // per pasien) - kalau tidak, untuk ribuan pasien ini akan menulis ulang seluruh
+      // database berkali-kali dan bisa bikin browser kehabisan memori (nge-crash).
+      setAtPath(localDB, 'rme-log/' + pasien.id, existingRme);
+      dirtyRmePaths.add('rme-log/' + pasien.id);
+    }
   }
+
+  // Simpan ke penyimpanan komputer ini HANYA SEKALI di akhir (bukan per pasien),
+  // baru tandai semua path yang berubah supaya sinkron ke cloud berjalan di
+  // belakang layar secara bertahap (tidak mengirim ribuan request sekaligus).
+  persistLocalDB();
+  dirtyRmePaths.forEach(p=>markDirty(p));
 
   if(pasienBaru>0) await savePasienList();
   renderPasienTable();
