@@ -2397,10 +2397,10 @@ async function handleImportPasienFile(file){
    sudah ada di rme-log pasien tsb akan dilewati (aman kalau file yang sama di-import 2x). */
 async function handleImportRiwayatFile(file){
   const buf = await file.arrayBuffer();
-  const wb = XLSX.read(buf, { type:'array', cellDates:false });
+  const wb = XLSX.read(buf, { type:'array', cellDates:true });
   let allRawRows = [];
   wb.SheetNames.forEach(name=>{
-    const rows = XLSX.utils.sheet_to_json(wb.Sheets[name], { header:1, defval:'', raw:false });
+    const rows = XLSX.utils.sheet_to_json(wb.Sheets[name], { header:1, defval:'', raw:true });
     allRawRows = allRawRows.concat(rows);
   });
 
@@ -2443,15 +2443,47 @@ async function handleImportRiwayatFile(file){
     groups.get(key).push(r);
   });
 
-  const dateRe = /(\d{4}-\d{2}-\d{2})/;
+  function excelValueToISODate(v){
+    if(v===undefined || v===null || v==='') return '';
+    if(v instanceof Date && !isNaN(v)){
+      const y=v.getFullYear(), m=String(v.getMonth()+1).padStart(2,'0'), d=String(v.getDate()).padStart(2,'0');
+      return `${y}-${m}-${d}`;
+    }
+    const s = String(v).trim();
+    let m = s.match(/(\d{4})-(\d{2})-(\d{2})/);
+    if(m) return `${m[1]}-${m[2]}-${m[3]}`;
+    m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+    if(m){
+      let day=parseInt(m[1],10), month=parseInt(m[2],10), y=m[3];
+      if(y.length===2) y = (parseInt(y,10)<70?'20':'19')+y;
+      if(month>12 && day<=12){ const t=day; day=month; month=t; }
+      if(month>12 || day>31) return '';
+      return `${y}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    }
+    return '';
+  }
   function pickLatest(rowsSorted, idx){
     if(idx===undefined) return '';
     for(const rr of rowsSorted){ const v = rr[idx]; if(v!==undefined && v!==null && String(v).trim()!=='') return String(v).trim(); }
     return '';
   }
+  function pickLatestRaw(rowsSorted, idx){
+    if(idx===undefined) return '';
+    for(const rr of rowsSorted){ const v = rr[idx]; if(v!==undefined && v!==null && String(v).trim()!=='') return v; }
+    return '';
+  }
   function parseVisitDt(v){
-    const m = String(v||'').match(/^(\d{4}-\d{2}-\d{2})[ T]?(\d{2}:\d{2}:\d{2})?/);
-    return m ? { tanggal: m[1], waktu: m[2]||'00:00:00' } : { tanggal:'', waktu:'' };
+    if(v instanceof Date && !isNaN(v)){
+      const y=v.getFullYear(), mo=String(v.getMonth()+1).padStart(2,'0'), d=String(v.getDate()).padStart(2,'0');
+      const hh=v.getHours(), mi=v.getMinutes(), ss=v.getSeconds();
+      const waktu = (hh||mi||ss) ? `${String(hh).padStart(2,'0')}:${String(mi).padStart(2,'0')}:${String(ss).padStart(2,'0')}` : '00:00:00';
+      return { tanggal: `${y}-${mo}-${d}`, waktu };
+    }
+    const s = String(v||'');
+    const m = s.match(/^(\d{4}-\d{2}-\d{2})[ T]?(\d{2}:\d{2}:\d{2})?/);
+    if(m) return { tanggal: m[1], waktu: m[2]||'00:00:00' };
+    const iso = excelValueToISODate(s);
+    return iso ? { tanggal: iso, waktu: '00:00:00' } : { tanggal:'', waktu:'' };
   }
 
   toast(`Memproses ${dataRows.length} baris kunjungan (${groups.size} pasien historis)... mohon tunggu.`);
@@ -2459,15 +2491,14 @@ async function handleImportRiwayatFile(file){
   let pasienBaru = 0, pasienCocok = 0, kunjunganDitambah = 0, kunjunganDilewati = 0;
 
   for(const rowsGroup of groups.values()){
-    const rowsSorted = [...rowsGroup].sort((a,b)=> String(b[colIdx.tanggal]||'').localeCompare(String(a[colIdx.tanggal]||'')));
+    const rowsSorted = [...rowsGroup].sort((a,b)=> parseVisitDt(b[colIdx.tanggal]).tanggal.localeCompare(parseVisitDt(a[colIdx.tanggal]).tanggal));
     const nama = pickLatest(rowsSorted, colIdx.nama);
     if(!nama) continue;
     const nik = pickLatest(rowsSorted, colIdx.nik);
-    const ttl = pickLatest(rowsSorted, colIdx.ttl);
+    const ttlRaw = pickLatestRaw(rowsSorted, colIdx.ttl);
     const jkRaw = pickLatest(rowsSorted, colIdx.jk);
     const jk = jkRaw.toUpperCase().startsWith('P') ? 'P' : 'L';
-    const mtgl = ttl.match(dateRe);
-    const tglLahir = mtgl ? mtgl[1] : '';
+    const tglLahir = excelValueToISODate(ttlRaw);
 
     let pasien = null;
     if(nik) pasien = pasienList.find(p=> p.nik && p.nik.trim()===nik);
