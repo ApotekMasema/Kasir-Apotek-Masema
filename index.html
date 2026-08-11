@@ -1840,10 +1840,62 @@ function setAtPath(obj, path, value){
 }
 function topLevelKey(path){ return String(path).split('/').filter(Boolean)[0]; }
 
-function loadLocalDBFromStorage(){
+/* ---- Penyimpanan lokal utama pakai IndexedDB (bukan localStorage) ----
+   localStorage cuma muat sekitar 5-10MB per situs, gampang penuh kalau data
+   pasien/riwayat RM sudah banyak (ribuan baris) - begitu penuh, penyimpanan
+   GAGAL DIAM-DIAM/muncul peringatan merah dan perubahan terbaru bisa hilang
+   saat halaman ditutup. IndexedDB kapasitasnya jauh lebih besar (biasanya
+   ratusan MB sampai beberapa GB), jadi dipakai sebagai penyimpanan utama.
+   Data lama yang masih ada di localStorage otomatis dipindahkan sekali saja
+   waktu aplikasi dibuka, supaya tidak ada data yang hilang. */
+const IDB_NAME = 'kasirApotekMasemaDB';
+const IDB_STORE = 'kv';
+let _idbPromise = null;
+function openIDB(){
+  if(_idbPromise) return _idbPromise;
+  _idbPromise = new Promise((resolve, reject)=>{
+    if(!window.indexedDB){ reject(new Error('IndexedDB tidak didukung browser ini')); return; }
+    const req = indexedDB.open(IDB_NAME, 1);
+    req.onupgradeneeded = ()=>{ if(!req.result.objectStoreNames.contains(IDB_STORE)) req.result.createObjectStore(IDB_STORE); };
+    req.onsuccess = ()=> resolve(req.result);
+    req.onerror = ()=> reject(req.error);
+  });
+  return _idbPromise;
+}
+async function idbGet(key){
+  const db = await openIDB();
+  return new Promise((resolve, reject)=>{
+    const tx = db.transaction(IDB_STORE, 'readonly');
+    const req = tx.objectStore(IDB_STORE).get(key);
+    req.onsuccess = ()=> resolve(req.result);
+    req.onerror = ()=> reject(req.error);
+  });
+}
+async function idbSet(key, value){
+  const db = await openIDB();
+  return new Promise((resolve, reject)=>{
+    const tx = db.transaction(IDB_STORE, 'readwrite');
+    tx.objectStore(IDB_STORE).put(value, key);
+    tx.oncomplete = ()=> resolve(true);
+    tx.onerror = ()=> reject(tx.error);
+  });
+}
+
+async function loadLocalDBFromStorage(){
   try{
-    const raw = localStorage.getItem(LOCAL_DB_KEY);
-    localDB = raw ? JSON.parse(raw) : {};
+    let data = await idbGet(LOCAL_DB_KEY);
+    if(data == null){
+      // migrasi otomatis satu kali dari localStorage lama, kalau ada, supaya data lama tidak hilang
+      const raw = localStorage.getItem(LOCAL_DB_KEY);
+      if(raw){
+        try{
+          data = JSON.parse(raw);
+          await idbSet(LOCAL_DB_KEY, data);
+          localStorage.removeItem(LOCAL_DB_KEY); // bebaskan kuota localStorage
+        }catch(e){ data = null; }
+      }
+    }
+    localDB = data || {};
   }catch(e){ console.error('Gagal membaca data lokal', e); localDB = {}; }
   try{
     const rawMeta = localStorage.getItem(SYNC_META_KEY);
@@ -1851,9 +1903,9 @@ function loadLocalDBFromStorage(){
     if(!Array.isArray(syncMeta.dirtyKeys)) syncMeta.dirtyKeys = [];
   }catch(e){ syncMeta = { lastSyncAt: null, dirtyKeys: [] }; }
 }
-function persistLocalDB(){
+async function persistLocalDB(){
   try{
-    localStorage.setItem(LOCAL_DB_KEY, JSON.stringify(localDB));
+    await idbSet(LOCAL_DB_KEY, localDB);
   }catch(e){
     console.error('Gagal menyimpan data lokal', e);
     toast('⚠️ Gagal menyimpan ke penyimpanan komputer ini (kemungkinan penuh). Segera unduh Backup Data!', true);
@@ -1877,7 +1929,7 @@ async function sGet(path){
 }
 async function sSet(path, valueObj){
   setAtPath(localDB, path, valueObj);
-  persistLocalDB();
+  await persistLocalDB();
   // Tandai PATH LENGKAP yang berubah (bukan cuma nama koleksi teratas), supaya
   // saat dikirim ke cloud nanti, hanya bagian ini yang digabung ke server -
   // bagian lain (mis. tanggal/entri lain) yang ditambahkan dari komputer lain
@@ -2012,7 +2064,7 @@ async function pullRemoteKeysSilent(){
         changed = true;
       }
     });
-    if(changed) persistLocalDB();
+    if(changed) await persistLocalDB();
     syncMeta.lastSyncAt = new Date().toISOString();
     persistSyncMeta();
     return changed;
@@ -2096,7 +2148,7 @@ async function pullFromCloud(opts){
     if(!res.ok) throw new Error('HTTP '+res.status);
     const data = await res.json();
     localDB = data || {};
-    persistLocalDB();
+    await persistLocalDB();
     syncMeta.dirtyKeys = [];
     syncMeta.lastSyncAt = new Date().toISOString();
     persistSyncMeta();
@@ -2545,8 +2597,7 @@ async function handleImportRiwayatFile(file){
       existingRme[id] = {
         id, pasienId: pasien.id, namaPasien: pasien.nama, tanggal, waktu,
         keluhan: '', diagnosa: diagnosaText, tindakan: '',
-        catatan: 'Data riwayat kunjungan lama (impor otomatis dari laporan kunjungan sebelumnya).',
-        vital: { tensi:'', suhu:'', nadi:'', beratBadan:'', tinggiBadan:'' },
+        catatan: 'Riwayat lama (impor otomatis).',
         alergi: '', tglKontrolBerikutnya: '',
         dokter: poli ? `Riwayat Lama - ${poli}` : 'Riwayat Lama',
         adaResep: false, sumberImpor: true,
@@ -2567,7 +2618,7 @@ async function handleImportRiwayatFile(file){
   // Simpan ke penyimpanan komputer ini HANYA SEKALI di akhir (bukan per pasien),
   // baru tandai semua path yang berubah supaya sinkron ke cloud berjalan di
   // belakang layar secara bertahap (tidak mengirim ribuan request sekaligus).
-  persistLocalDB();
+  await persistLocalDB();
   dirtyRmePaths.forEach(p=>markDirty(p));
 
   if(pasienBaru>0) await savePasienList();
@@ -6401,7 +6452,7 @@ document.getElementById('connStatusBadge').addEventListener('click', ()=> goToTa
     document.getElementById('setupWarning').classList.remove('hidden');
     return;
   }
-  loadLocalDBFromStorage();
+  await loadLocalDBFromStorage();
   if(window.__authReady) await window.__authReady;
 
   const hasLocalData = localDB && Object.keys(localDB).length > 0;
