@@ -223,13 +223,15 @@
 
   #strukPrint{display:none;}
   #suratPrint{display:none;}
+  #labelPrint{display:none;}
 
   @media print{
-    body:not(.printing-struk):not(.printing-surat) .topbar,
-    body:not(.printing-struk):not(.printing-surat) .toolbar,
-    body:not(.printing-struk):not(.printing-surat) .tab:not(.active){display:none !important;}
+    body:not(.printing-struk):not(.printing-surat):not(.printing-label) .topbar,
+    body:not(.printing-struk):not(.printing-surat):not(.printing-label) .toolbar,
+    body:not(.printing-struk):not(.printing-surat):not(.printing-label) .tab:not(.active){display:none !important;}
     body.printing-struk main > *:not(#strukPrint){display:none !important;}
     body.printing-surat main > *:not(#suratPrint){display:none !important;}
+    body.printing-label main > *:not(#labelPrint){display:none !important;}
     body.printing-struk .topbar,
     body.printing-struk .area-tabs,
     body.printing-struk #areaSubTabs-kasir,
@@ -238,12 +240,19 @@
     body.printing-surat .area-tabs,
     body.printing-surat #areaSubTabs-kasir,
     body.printing-surat #areaSubTabs-klinik{display:none !important;}
+    body.printing-label .topbar,
+    body.printing-label .area-tabs,
+    body.printing-label #areaSubTabs-kasir,
+    body.printing-label #areaSubTabs-klinik{display:none !important;}
     body.printing-struk .modal-overlay,
-    body.printing-surat .modal-overlay{display:none !important;}
+    body.printing-surat .modal-overlay,
+    body.printing-label .modal-overlay{display:none !important;}
     body.printing-struk .toast,
-    body.printing-surat .toast{display:none !important;}
+    body.printing-surat .toast,
+    body.printing-label .toast{display:none !important;}
     #strukPrint{display:block !important;}
     #suratPrint{display:block !important;}
+    #labelPrint{display:block !important;}
     body{background:#fff;}
     main{padding:0;max-width:100%;}
     .card,.emp-card{box-shadow:none;}
@@ -265,6 +274,12 @@
   .surat-a4 .surat-kop h3{margin:0;font-size:19px;letter-spacing:0.5px;}
   .surat-a4 .surat-kop div{font-size:12px;margin-top:2px;}
   .surat-a4 h4{text-align:center;text-decoration:underline;margin:0 0 4px;font-size:15px;letter-spacing:0.5px;}
+  #labelContent{display:flex;flex-wrap:wrap;gap:3mm;padding:4mm;}
+  .label-obat{width:70mm;min-height:38mm;border:1px dashed #999;border-radius:4px;padding:3mm 4mm;box-sizing:border-box;color:#000;font-family:var(--font-mono, monospace);page-break-inside:avoid;}
+  .label-obat .lo-apotek{font-weight:700;font-size:12px;text-align:center;border-bottom:1px solid #000;padding-bottom:2mm;margin-bottom:2mm;}
+  .label-obat .lo-row{font-size:11.5px;margin:1.2mm 0;}
+  .label-obat .lo-obat{font-weight:700;font-size:13.5px;margin:1.5mm 0;}
+  .label-obat .lo-aturan{font-weight:700;font-size:13px;border:1.5px solid #000;border-radius:3px;padding:2mm;text-align:center;margin-top:2mm;}
   .surat-a4 .surat-nomor{text-align:center;font-size:12px;margin-bottom:18px;}
   .surat-a4 table.surat-data{border:none;width:100%;margin:10px 0 16px;}
   .surat-a4 table.surat-data td{border:none;padding:2px 6px 2px 0;vertical-align:top;font-size:13px;}
@@ -394,6 +409,7 @@
         <div id="cartList">
           <div class="empty-state">Keranjang masih kosong.</div>
         </div>
+        <button class="btn" id="btnCetakLabelObat" style="width:100%;margin-top:8px;">🏷️ Cetak Label Obat (Aturan Pakai)</button>
 
         <div class="toggle-row">
           <input type="checkbox" id="pakaiResep">
@@ -1734,6 +1750,11 @@
 <!-- Area cetak surat/dokumen resmi (A4): Surat Keterangan Sakit, Rujukan, Resep Formal -->
 <div id="suratPrint">
   <div class="surat-a4" id="suratContent"></div>
+</div>
+
+<!-- Area cetak label obat (aturan pakai, ditempel di plastik obat) -->
+<div id="labelPrint">
+  <div id="labelContent"></div>
 </div>
 
 <!-- ========= Firebase Authentication (keamanan database) ========= -->
@@ -3420,7 +3441,7 @@ async function prosesResepPending(id){
     if(qtyPakai < it.qty) kurang.push(`${it.nama} (diminta ${it.qty}, stok sisa cukup untuk ${qtyPakai})`);
     if(qtyPakai <= 0) return;
     if(existing){ existing.qty += qtyPakai; }
-    else { cart.push({ obatId:obat.id, nama:obat.nama, hargaJual:obat.hargaJual, hargaCustom:obat.hargaJual, hargaBeli:obat.hargaBeli, satuan:obat.satuan, qty:qtyPakai }); }
+    else { cart.push({ obatId:obat.id, nama:obat.nama, hargaJual:obat.hargaJual, hargaCustom:obat.hargaJual, hargaBeli:obat.hargaBeli, satuan:obat.satuan, qty:qtyPakai, aturan: it.aturan || '' }); }
   });
   renderCart();
 
@@ -3490,13 +3511,13 @@ function addToCart(obatId){
   if(existing){
     existing.qty += 1;
   } else {
-    cart.push({ obatId: obat.id, nama: obat.nama, hargaJual: obat.hargaJual, hargaCustom: obat.hargaJual, hargaBeli: obat.hargaBeli, satuan: obat.satuan, qty: 1 });
+    cart.push({ obatId: obat.id, nama: obat.nama, hargaJual: obat.hargaJual, hargaCustom: obat.hargaJual, hargaBeli: obat.hargaBeli, satuan: obat.satuan, qty: 1, aturan: '' });
   }
   renderCart();
 }
 
 function addCustomItemToCart(nama, harga, qty){
-  cart.push({ obatId: null, isCustom: true, nama, hargaJual: harga, hargaBeli: 0, satuan: '', qty });
+  cart.push({ obatId: null, isCustom: true, nama, hargaJual: harga, hargaBeli: 0, satuan: '', qty, aturan: '' });
   renderCart();
 }
 document.getElementById('btnToggleTambahCustom').addEventListener('click', ()=>{
@@ -3527,6 +3548,7 @@ function renderCart(){
         <div class="ci-info">
           <div class="ci-name">${escapeHtml(c.nama)} ${c.isCustom?'<span class="tag" style="background:var(--accent-soft);color:var(--accent);">Custom</span>':''}</div>
           <div class="ci-price">${rupiah(c.hargaJual)}${c.satuan?(' / '+escapeHtml(c.satuan)):''}</div>
+          <input type="text" class="ci-aturan" data-idx="${idx}" value="${escapeHtml(c.aturan||'')}" placeholder="Aturan pakai, misal: 3x1 sesudah makan" style="width:100%;margin-top:4px;font-size:12.5px;padding:5px 7px;">
         </div>
         <div class="qty-ctrl">
           <button class="qty-minus" data-idx="${idx}">-</button>
@@ -3543,6 +3565,9 @@ function renderCart(){
   wrap.querySelectorAll('.qty-minus').forEach(b=>b.addEventListener('click', e=>changeQty(e.target.dataset.idx, -1)));
   wrap.querySelectorAll('.qty-plus').forEach(b=>b.addEventListener('click', e=>changeQty(e.target.dataset.idx, 1)));
   wrap.querySelectorAll('.qty-input').forEach(inp=>inp.addEventListener('change', e=>setQty(e.target.dataset.idx, Number(e.target.value))));
+  wrap.querySelectorAll('.ci-aturan').forEach(inp=>inp.addEventListener('input', e=>{
+    cart[Number(e.target.dataset.idx)].aturan = e.target.value;
+  }));
   wrap.querySelectorAll('.ci-del').forEach(b=>b.addEventListener('click', e=>{
     cart.splice(Number(e.target.dataset.idx),1);
     renderCart();
@@ -3856,6 +3881,31 @@ function cetakStrukCustom(trx){
   setTimeout(()=> document.body.classList.remove('printing-struk'), 500);
 }
 function fmtDateFull(d){ return `${d.getDate()} ${BULAN[d.getMonth()]} ${d.getFullYear()}`; }
+
+/* ---- Cetak Label Obat (aturan pakai / signa, untuk ditempel di plastik obat) ---- */
+function cetakLabelObat(){
+  if(cart.length===0){ toast('Keranjang masih kosong, tidak ada obat untuk dicetak labelnya.', true); return; }
+  const namaPasien = document.getElementById('resepPasien').value.trim();
+  const namaApotek = pengaturan.namaApotek || 'Apotek Masema Medika';
+  const now = new Date();
+  const tgl = fmtDateFull(now);
+  const items = cart.filter(c=>c.qty>0);
+  const el = document.getElementById('labelContent');
+  el.innerHTML = items.map(c=>`
+    <div class="label-obat">
+      <div class="lo-apotek">${escapeHtml(namaApotek)}</div>
+      ${namaPasien ? `<div class="lo-row">Pasien: <b>${escapeHtml(namaPasien)}</b></div>` : ''}
+      <div class="lo-obat">${escapeHtml(c.nama)} ${c.qty>1?`(${c.qty} ${escapeHtml(c.satuan||'pcs')})`:''}</div>
+      <div class="lo-aturan">${escapeHtml(c.aturan && c.aturan.trim() ? c.aturan.trim() : 'Sesuai anjuran dokter/apoteker')}</div>
+      <div class="lo-row" style="text-align:right;margin-top:2mm;">${tgl}</div>
+    </div>
+  `).join('');
+  document.body.classList.add('printing-label');
+  window.print();
+  setTimeout(()=> document.body.classList.remove('printing-label'), 500);
+}
+document.getElementById('btnCetakLabelObat').addEventListener('click', cetakLabelObat);
+
 
 /* =========================================================
    CETAK SURAT / DOKUMEN RESMI (A4)
