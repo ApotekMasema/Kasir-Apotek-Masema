@@ -364,8 +364,51 @@
     </div>
     <div class="card hidden" id="resepPendingBox">
       <h2>📋 Resep Menunggu Diproses dari Klinik</h2>
-      <p class="section-hint">Resep yang baru dibuat dokter. Klik "Proses ke Keranjang" untuk memasukkan otomatis ke Kasir.</p>
+      <p class="section-hint">Resep yang baru dibuat dokter. Klik "Proses ke Keranjang" untuk memasukkan otomatis ke Kasir. Tombol 🏷️/🖨️ untuk cetak label obat atau resep formal langsung dari sini.</p>
       <div id="resepPendingList"></div>
+    </div>
+
+    <div class="card" id="kasirCetakDokumenBox">
+      <h2>🖨️ Cetak Dokumen (Label Obat / Resep / Surat)</h2>
+      <p class="section-hint">Semua cetak-mencetak dipusatkan di sini karena printer terhubung ke komputer ini. Cari pasien, isi seperlunya, lalu cetak.</p>
+      <div class="field">
+        <label>Cari Pasien</label>
+        <input type="text" id="kdCariPasien" placeholder="Ketik nama pasien...">
+      </div>
+      <div class="search-results" id="kdCariPasienResults" style="max-height:160px;"></div>
+      <div id="kdPasienTerpilih" class="muted" style="margin:6px 0 10px;">Belum ada pasien dipilih.</div>
+      <div class="form-grid">
+        <div class="field">
+          <label>Nama Dokter</label>
+          <input type="text" id="kdDokter" placeholder="dr. ...">
+        </div>
+        <div class="field">
+          <label>Diagnosa (opsional)</label>
+          <input type="text" id="kdDiagnosa" placeholder="Untuk surat sakit/rujukan">
+        </div>
+        <div class="field">
+          <label>Keluhan (opsional, utk Surat Rujukan)</label>
+          <input type="text" id="kdKeluhan" placeholder="Keluhan pasien">
+        </div>
+        <div class="field">
+          <label>Terapi/Tindakan (opsional, utk Surat Rujukan)</label>
+          <input type="text" id="kdTerapi" placeholder="Terapi yang sudah diberikan">
+        </div>
+      </div>
+      <h3 style="margin-top:6px;">Label Obat / Resep dari Resep Menunggu</h3>
+      <div class="field">
+        <label>Pilih Resep Menunggu</label>
+        <select id="kdPilihResepPending"><option value="">— Belum ada resep menunggu untuk pasien ini —</option></select>
+      </div>
+      <div class="toolbar" style="margin-bottom:12px;">
+        <button class="btn" id="kdBtnCetakLabel" type="button">🏷️ Cetak Label Obat</button>
+        <button class="btn" id="kdBtnCetakResepFormal" type="button">🖨️ Cetak Resep Formal</button>
+      </div>
+      <h3>Surat Dokter</h3>
+      <div class="toolbar">
+        <button class="btn" id="kdBtnCetakSuratSakit" type="button">🖨️ Surat Keterangan Sakit</button>
+        <button class="btn" id="kdBtnCetakSuratRujukan" type="button">🖨️ Surat Rujukan</button>
+      </div>
     </div>
     <div class="kasir-grid">
       <div>
@@ -3426,7 +3469,7 @@ async function renderResepPendingBanner(){
   const box = document.getElementById('resepPendingBox');
   const raw = await sGet('resep-pending');
   const list = raw ? Object.values(raw) : [];
-  if(list.length===0){ box.classList.add('hidden'); return; }
+  if(list.length===0){ box.classList.add('hidden'); populateKdResepPendingOptions([]); return; }
   box.classList.remove('hidden');
   const wrap = document.getElementById('resepPendingList');
   wrap.innerHTML = list.map(r=>`
@@ -3435,9 +3478,22 @@ async function renderResepPendingBanner(){
         <div class="si-name">${escapeHtml(r.namaPasien)} <span class="muted">(${escapeHtml(r.dokter||'-')})</span></div>
         <div class="si-sub">${r.items.length} jenis obat — ${r.tanggal} ${r.waktu}</div>
       </div>
+      <button class="btn btn-sm" title="Cetak Label Obat" data-id="${r.id}" data-act="label">🏷️</button>
+      <button class="btn btn-sm" title="Cetak Resep Formal" data-id="${r.id}" data-act="resep">🖨️</button>
       <button class="btn btn-sm btn-primary proses-resep-pending" data-id="${r.id}">Proses ke Keranjang</button>
     </div>`).join('');
   wrap.querySelectorAll('.proses-resep-pending').forEach(b=>b.addEventListener('click', e=>prosesResepPending(e.target.dataset.id)));
+  wrap.querySelectorAll('[data-act="label"]').forEach(b=>b.addEventListener('click', e=>{
+    const r = list.find(x=>x.id===e.target.dataset.id);
+    if(r) cetakLabelObatItems(r.items, r.namaPasien);
+  }));
+  wrap.querySelectorAll('[data-act="resep"]').forEach(b=>b.addEventListener('click', e=>{
+    const r = list.find(x=>x.id===e.target.dataset.id);
+    if(!r) return;
+    const p = pasienList.find(x=>x.id===r.pasienId) || { nama: r.namaPasien };
+    cetakResepFormal(p, r.dokter, r.items);
+  }));
+  populateKdResepPendingOptions(list);
 }
 
 async function prosesResepPending(id){
@@ -3478,6 +3534,98 @@ async function prosesResepPending(id){
     toast('Resep dimasukkan ke keranjang ✓ Lanjutkan proses pembayaran.');
   }
 }
+
+/* ---- Kartu "Cetak Dokumen" di tab Kasir: pusatkan semua cetak-mencetak
+   (label obat, resep formal, surat sakit, surat rujukan) di komputer Kasir,
+   karena semua printer terhubung di komputer ini. ---- */
+let kdPasienSelected = null;
+let kdResepPendingList = [];
+
+function populateKdResepPendingOptions(list){
+  kdResepPendingList = list || [];
+  const sel = document.getElementById('kdPilihResepPending');
+  const filtered = kdPasienSelected
+    ? kdResepPendingList.filter(r=> r.pasienId === kdPasienSelected.id || r.namaPasien === kdPasienSelected.nama)
+    : kdResepPendingList;
+  if(filtered.length===0){
+    sel.innerHTML = '<option value="">— Belum ada resep menunggu untuk pasien ini —</option>';
+  } else {
+    sel.innerHTML = filtered.map(r=>`<option value="${r.id}">${escapeHtml(r.namaPasien)} — ${escapeHtml(r.dokter||'-')} — ${r.tanggal} ${r.waktu} (${r.items.length} obat)</option>`).join('');
+  }
+}
+document.getElementById('kdCariPasien').addEventListener('input', e=>{
+  const q = e.target.value.trim().toLowerCase();
+  const wrap = document.getElementById('kdCariPasienResults');
+  if(!q){ wrap.innerHTML = ''; return; }
+  const hasil = pasienList.filter(p=>(p.nama||'').toLowerCase().includes(q)).slice(0,15);
+  if(hasil.length===0){ wrap.innerHTML = '<div class="empty-state">Pasien tidak ditemukan.</div>'; return; }
+  wrap.innerHTML = hasil.map(p=>`
+    <div class="search-item" data-id="${p.id}">
+      <div><div class="si-name">${escapeHtml(p.nama)}</div><div class="si-sub">${escapeHtml(p.noRm||'')}</div></div>
+    </div>`).join('');
+  wrap.querySelectorAll('.search-item').forEach(el=>el.addEventListener('click', ()=>{
+    kdPasienSelected = pasienList.find(p=>p.id===el.dataset.id) || null;
+    document.getElementById('kdPasienTerpilih').innerHTML = kdPasienSelected
+      ? `Pasien dipilih: <b>${escapeHtml(kdPasienSelected.nama)}</b> <button class="link-btn" id="kdBtnBatalPasien" type="button">(ganti)</button>`
+      : 'Belum ada pasien dipilih.';
+    document.getElementById('kdBtnBatalPasien')?.addEventListener('click', ()=>{
+      kdPasienSelected = null;
+      document.getElementById('kdPasienTerpilih').textContent = 'Belum ada pasien dipilih.';
+      populateKdResepPendingOptions(kdResepPendingList);
+    });
+    document.getElementById('kdCariPasien').value = '';
+    wrap.innerHTML = '';
+    populateKdResepPendingOptions(kdResepPendingList);
+  }));
+});
+document.getElementById('kdBtnCetakLabel').addEventListener('click', ()=>{
+  const id = document.getElementById('kdPilihResepPending').value;
+  const r = kdResepPendingList.find(x=>x.id===id);
+  if(!r){ toast('Pilih resep menunggu terlebih dahulu.', true); return; }
+  cetakLabelObatItems(r.items, r.namaPasien);
+});
+document.getElementById('kdBtnCetakResepFormal').addEventListener('click', ()=>{
+  const id = document.getElementById('kdPilihResepPending').value;
+  const r = kdResepPendingList.find(x=>x.id===id);
+  if(!r){ toast('Pilih resep menunggu terlebih dahulu.', true); return; }
+  const p = pasienList.find(x=>x.id===r.pasienId) || { nama: r.namaPasien };
+  cetakResepFormal(p, r.dokter, r.items);
+});
+document.getElementById('kdBtnCetakSuratSakit').addEventListener('click', ()=>{
+  if(!kdPasienSelected){ toast('Cari dan pilih pasien terlebih dahulu.', true); return; }
+  kasirSuratCtx = {
+    pasien: kdPasienSelected,
+    dokter: document.getElementById('kdDokter').value.trim() || 'Dokter',
+    diagnosa: document.getElementById('kdDiagnosa').value.trim(),
+    keluhan: document.getElementById('kdKeluhan').value.trim(),
+    terapi: document.getElementById('kdTerapi').value.trim(),
+  };
+  suratOptType = 'sakit';
+  document.getElementById('suratOptTitle').textContent = 'Cetak Surat Keterangan Sakit';
+  document.getElementById('suratOptFieldsSakit').style.display = '';
+  document.getElementById('suratOptFieldsRujukan').style.display = 'none';
+  document.getElementById('soSakitMulai').value = dateKey(new Date());
+  document.getElementById('soSakitLama').value = 1;
+  document.getElementById('soSakitTampilDiagnosa').checked = !!kasirSuratCtx.diagnosa;
+  document.getElementById('suratOptModal').classList.remove('hidden');
+});
+document.getElementById('kdBtnCetakSuratRujukan').addEventListener('click', ()=>{
+  if(!kdPasienSelected){ toast('Cari dan pilih pasien terlebih dahulu.', true); return; }
+  kasirSuratCtx = {
+    pasien: kdPasienSelected,
+    dokter: document.getElementById('kdDokter').value.trim() || 'Dokter',
+    diagnosa: document.getElementById('kdDiagnosa').value.trim(),
+    keluhan: document.getElementById('kdKeluhan').value.trim(),
+    terapi: document.getElementById('kdTerapi').value.trim(),
+  };
+  suratOptType = 'rujukan';
+  document.getElementById('suratOptTitle').textContent = 'Cetak Surat Rujukan';
+  document.getElementById('suratOptFieldsSakit').style.display = 'none';
+  document.getElementById('suratOptFieldsRujukan').style.display = '';
+  document.getElementById('soRujTujuan').value = '';
+  document.getElementById('soRujAlasan').value = '';
+  document.getElementById('suratOptModal').classList.remove('hidden');
+});
 
 function renderSearchResults(query){
   const wrap = document.getElementById('kasirSearchResults');
@@ -4070,6 +4218,7 @@ function cetakResepFormal(pasien, dokter, items){
 }
 
 let suratOptType = null; // 'sakit' | 'rujukan'
+let kasirSuratCtx = null; // diisi kalau surat dicetak dari tab Kasir (bukan dari modal RME dokter)
 
 function ambilPasienDokterAktif(){
   if(!rmeAntrianAktif) return null;
@@ -4079,12 +4228,14 @@ function ambilPasienDokterAktif(){
 }
 
 document.getElementById('btnCetakResepFormal').addEventListener('click', ()=>{
+  kasirSuratCtx = null;
   const ctx = ambilPasienDokterAktif();
   if(!ctx) return;
   if(rmeResepCart.length===0){ toast('Belum ada obat dipilih di resep.', true); return; }
   cetakResepFormal(ctx.p, ctx.dokter, rmeResepCart);
 });
 document.getElementById('btnCetakSuratSakit').addEventListener('click', ()=>{
+  kasirSuratCtx = null;
   if(!ambilPasienDokterAktif()) return;
   suratOptType = 'sakit';
   document.getElementById('suratOptTitle').textContent = 'Cetak Surat Keterangan Sakit';
@@ -4096,6 +4247,7 @@ document.getElementById('btnCetakSuratSakit').addEventListener('click', ()=>{
   document.getElementById('suratOptModal').classList.remove('hidden');
 });
 document.getElementById('btnCetakSuratRujukan').addEventListener('click', ()=>{
+  kasirSuratCtx = null;
   if(!ambilPasienDokterAktif()) return;
   suratOptType = 'rujukan';
   document.getElementById('suratOptTitle').textContent = 'Cetak Surat Rujukan';
@@ -4109,8 +4261,11 @@ document.getElementById('btnSuratOptBatal').addEventListener('click', ()=>{
   document.getElementById('suratOptModal').classList.add('hidden');
 });
 document.getElementById('btnSuratOptCetak').addEventListener('click', ()=>{
-  const ctx = ambilPasienDokterAktif();
+  const ctx = kasirSuratCtx ? { p: kasirSuratCtx.pasien, dokter: kasirSuratCtx.dokter } : ambilPasienDokterAktif();
   if(!ctx) return;
+  const diagnosaVal = kasirSuratCtx ? kasirSuratCtx.diagnosa : document.getElementById('rmeDiagnosa').value.trim();
+  const keluhanVal = kasirSuratCtx ? kasirSuratCtx.keluhan : document.getElementById('rmeKeluhan').value.trim();
+  const terapiVal = kasirSuratCtx ? kasirSuratCtx.terapi : document.getElementById('rmeTindakan').value.trim();
   if(suratOptType === 'sakit'){
     const mulai = document.getElementById('soSakitMulai').value;
     const lama = Number(document.getElementById('soSakitLama').value) || 1;
@@ -4125,16 +4280,16 @@ document.getElementById('btnSuratOptCetak').addEventListener('click', ()=>{
       sampaiTanggal: sampai ? fmtDateFull(parseDateInput(sampai)) : '-',
       lamaHari: lama,
       tampilkanDiagnosa: document.getElementById('soSakitTampilDiagnosa').checked,
-      diagnosa: document.getElementById('rmeDiagnosa').value.trim(),
+      diagnosa: diagnosaVal,
     });
   } else if(suratOptType === 'rujukan'){
     const tujuan = document.getElementById('soRujTujuan').value.trim();
     if(!tujuan){ toast('Isi tujuan rujukan terlebih dulu.', true); return; }
     cetakSuratRujukan(ctx.p, ctx.dokter, {
       tujuan,
-      keluhan: document.getElementById('rmeKeluhan').value.trim(),
-      diagnosa: document.getElementById('rmeDiagnosa').value.trim(),
-      terapi: document.getElementById('rmeTindakan').value.trim(),
+      keluhan: keluhanVal,
+      diagnosa: diagnosaVal,
+      terapi: terapiVal,
       alasan: document.getElementById('soRujAlasan').value.trim(),
     });
   }
