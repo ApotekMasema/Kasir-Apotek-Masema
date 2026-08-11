@@ -274,8 +274,9 @@
   .surat-a4 .surat-kop h3{margin:0;font-size:19px;letter-spacing:0.5px;}
   .surat-a4 .surat-kop div{font-size:12px;margin-top:2px;}
   .surat-a4 h4{text-align:center;text-decoration:underline;margin:0 0 4px;font-size:15px;letter-spacing:0.5px;}
-  #labelContent{display:flex;flex-wrap:wrap;gap:3mm;padding:4mm;}
-  .label-obat{width:70mm;min-height:38mm;border:1px dashed #999;border-radius:4px;padding:3mm 4mm;box-sizing:border-box;color:#000;font-family:var(--font-mono, monospace);page-break-inside:avoid;}
+  #labelContent{display:block;}
+  .label-obat{width:100%;box-sizing:border-box;padding:3mm 4mm;color:#000;font-family:var(--font-mono, monospace);page-break-after:always;}
+  .label-obat:last-child{page-break-after:auto;}
   .label-obat .lo-apotek{font-weight:700;font-size:12px;text-align:center;border-bottom:1px solid #000;padding-bottom:2mm;margin-bottom:2mm;}
   .label-obat .lo-row{font-size:11.5px;margin:1.2mm 0;}
   .label-obat .lo-obat{font-weight:700;font-size:13.5px;margin:1.5mm 0;}
@@ -1031,6 +1032,20 @@
         <div class="field full">
           <label>Baris Tambahan di Struk (opsional, mis. NPWP / Instagram)</label>
           <input type="text" id="setHeaderTambahan" placeholder="Contoh: @apotekmasema">
+        </div>
+        <div class="field">
+          <label>Lebar Label Obat (mm) — sesuaikan dengan roll printer label Anda (mis. Grozzie TP612)</label>
+          <select id="setLabelWidth">
+            <option value="40">40mm</option>
+            <option value="50">50mm</option>
+            <option value="58">58mm</option>
+            <option value="80" selected>80mm</option>
+            <option value="custom">Custom (masukkan sendiri)</option>
+          </select>
+        </div>
+        <div class="field" id="labelWidthCustomField" style="display:none;">
+          <label>Lebar Label Custom (mm)</label>
+          <input type="number" id="setLabelWidthCustom" min="20" max="150" placeholder="contoh: 60">
         </div>
       </div>
       <div class="toggle-row">
@@ -3883,6 +3898,10 @@ function cetakStrukCustom(trx){
 function fmtDateFull(d){ return `${d.getDate()} ${BULAN[d.getMonth()]} ${d.getFullYear()}`; }
 
 /* ---- Cetak Label Obat (aturan pakai / signa, untuk ditempel di plastik obat) ---- */
+function getLabelWidthMm(){
+  if(pengaturan.labelWidth === 'custom') return Number(pengaturan.labelWidthCustom) > 0 ? Number(pengaturan.labelWidthCustom) : 80;
+  return Number(pengaturan.labelWidth) || 80;
+}
 function cetakLabelObat(){
   if(cart.length===0){ toast('Keranjang masih kosong, tidak ada obat untuk dicetak labelnya.', true); return; }
   const namaPasien = document.getElementById('resepPasien').value.trim();
@@ -3900,9 +3919,19 @@ function cetakLabelObat(){
       <div class="lo-row" style="text-align:right;margin-top:2mm;">${tgl}</div>
     </div>
   `).join('');
+  // Setel ukuran halaman cetak supaya PAS dengan lebar roll printer label (mis. Grozzie TP612),
+  // bukan ukuran kertas A4 - tinggi "auto" supaya printer roll motong per label, tidak
+  // menyisakan banyak area putih kosong seperti sebelumnya.
+  const mm = getLabelWidthMm();
+  const pageStyle = document.getElementById('printPageSizeStyle');
+  const prevPageStyle = pageStyle ? pageStyle.textContent : '';
+  if(pageStyle) pageStyle.textContent = `@media print { @page { size: ${mm}mm auto; margin: 0; } }`;
   document.body.classList.add('printing-label');
   window.print();
-  setTimeout(()=> document.body.classList.remove('printing-label'), 500);
+  setTimeout(()=>{
+    document.body.classList.remove('printing-label');
+    if(pageStyle) pageStyle.textContent = prevPageStyle; // kembalikan ke ukuran struk semula
+  }, 500);
 }
 document.getElementById('btnCetakLabelObat').addEventListener('click', cetakLabelObat);
 
@@ -5517,6 +5546,9 @@ function fillPengaturanForm(){
   document.getElementById('setStrukWidthCustom').value = pengaturan.strukWidthCustom || '';
   document.getElementById('strukWidthCustomField').style.display = (pengaturan.strukWidth==='custom') ? '' : 'none';
   document.getElementById('setHeaderTambahan').value = pengaturan.headerTambahan||'';
+  document.getElementById('setLabelWidth').value = pengaturan.labelWidth || '80';
+  document.getElementById('setLabelWidthCustom').value = pengaturan.labelWidthCustom || '';
+  document.getElementById('labelWidthCustomField').style.display = (pengaturan.labelWidth==='custom') ? '' : 'none';
   document.getElementById('setTampilkanAlamat').checked = pengaturan.tampilkanAlamat !== false;
   document.getElementById('setTampilkanTelp').checked = pengaturan.tampilkanTelp !== false;
   document.getElementById('setTampilkanKasir').checked = pengaturan.tampilkanKasir !== false;
@@ -5536,6 +5568,12 @@ async function simpanPengaturan(){
     toast('Isi lebar custom dalam mm terlebih dahulu.', true);
     return;
   }
+  const labelWidth = document.getElementById('setLabelWidth').value || '80';
+  let labelWidthCustom = Number(document.getElementById('setLabelWidthCustom').value) || 0;
+  if(labelWidth === 'custom' && labelWidthCustom <= 0){
+    toast('Isi lebar label custom dalam mm terlebih dahulu.', true);
+    return;
+  }
   pengaturan = {
     ...pengaturan,
     namaApotek: document.getElementById('setNamaApotek').value.trim(),
@@ -5544,6 +5582,7 @@ async function simpanPengaturan(){
     stokMinDefault: Number(document.getElementById('setStokMin').value)||0,
     pesanStruk: document.getElementById('setPesanStruk').value.trim() || 'Terima kasih atas kunjungan Anda',
     strukWidth, strukWidthCustom,
+    labelWidth, labelWidthCustom,
     headerTambahan: document.getElementById('setHeaderTambahan').value.trim(),
     tampilkanAlamat: document.getElementById('setTampilkanAlamat').checked,
     tampilkanTelp: document.getElementById('setTampilkanTelp').checked,
@@ -5683,6 +5722,9 @@ async function cekPengingatOtomatisHarian(){
 
 document.getElementById('setStrukWidth').addEventListener('change', e=>{
   document.getElementById('strukWidthCustomField').style.display = (e.target.value==='custom') ? '' : 'none';
+});
+document.getElementById('setLabelWidth').addEventListener('change', e=>{
+  document.getElementById('labelWidthCustomField').style.display = (e.target.value==='custom') ? '' : 'none';
 });
 document.getElementById('btnSimpanTelegram').addEventListener('click', simpanTelegramSettings);
 document.getElementById('btnTesTelegram').addEventListener('click', async ()=>{
