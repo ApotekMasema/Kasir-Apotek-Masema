@@ -410,7 +410,6 @@
         <div id="cartList">
           <div class="empty-state">Keranjang masih kosong.</div>
         </div>
-        <button class="btn" id="btnCetakLabelObat" style="width:100%;margin-top:8px;">🏷️ Cetak Label Obat (Aturan Pakai)</button>
 
         <div class="toggle-row">
           <input type="checkbox" id="pakaiResep">
@@ -1370,6 +1369,7 @@
     </div>
     <div class="search-results" id="rmeCariObatResults" style="max-height:180px;margin-bottom:10px;"></div>
     <div id="rmeResepList"></div>
+    <button class="btn" id="btnCetakLabelRme" type="button" style="width:100%;margin-top:6px;">🏷️ Cetak Label Obat (Printer Label, mis. TP612)</button>
 
     <h3 style="margin-top:16px;">📄 Cetak Dokumen</h3>
     <div class="toolbar" style="margin-bottom:0;">
@@ -3902,13 +3902,10 @@ function getLabelWidthMm(){
   if(pengaturan.labelWidth === 'custom') return Number(pengaturan.labelWidthCustom) > 0 ? Number(pengaturan.labelWidthCustom) : 80;
   return Number(pengaturan.labelWidth) || 80;
 }
-function cetakLabelObat(){
-  if(cart.length===0){ toast('Keranjang masih kosong, tidak ada obat untuk dicetak labelnya.', true); return; }
-  const namaPasien = document.getElementById('resepPasien').value.trim();
+function cetakLabelObatItems(items, namaPasien){
+  if(!items || items.length===0){ toast('Belum ada obat untuk dicetak labelnya.', true); return; }
   const namaApotek = pengaturan.namaApotek || 'Apotek Masema Medika';
-  const now = new Date();
-  const tgl = fmtDateFull(now);
-  const items = cart.filter(c=>c.qty>0);
+  const tgl = fmtDateFull(new Date());
   const el = document.getElementById('labelContent');
   el.innerHTML = items.map(c=>`
     <div class="label-obat">
@@ -3921,7 +3918,7 @@ function cetakLabelObat(){
   `).join('');
   // Setel ukuran halaman cetak supaya PAS dengan lebar roll printer label (mis. Grozzie TP612),
   // bukan ukuran kertas A4 - tinggi "auto" supaya printer roll motong per label, tidak
-  // menyisakan banyak area putih kosong seperti sebelumnya.
+  // menyisakan banyak area putih kosong.
   const mm = getLabelWidthMm();
   const pageStyle = document.getElementById('printPageSizeStyle');
   const prevPageStyle = pageStyle ? pageStyle.textContent : '';
@@ -3933,7 +3930,13 @@ function cetakLabelObat(){
     if(pageStyle) pageStyle.textContent = prevPageStyle; // kembalikan ke ukuran struk semula
   }, 500);
 }
-document.getElementById('btnCetakLabelObat').addEventListener('click', cetakLabelObat);
+// Dicetak oleh DOKTER langsung setelah menulis resep di RME (bukan di Kasir),
+// pakai printer label terpisah (mis. Grozzie TP612) - tidak tercampur dengan
+// printer struk thermal yang dipakai Kasir untuk cetak struk transaksi.
+document.getElementById('btnCetakLabelRme').addEventListener('click', ()=>{
+  const namaPasien = rmeAntrianAktif ? rmeAntrianAktif.namaPasien : '';
+  cetakLabelObatItems(rmeResepCart, namaPasien);
+});
 
 
 /* =========================================================
