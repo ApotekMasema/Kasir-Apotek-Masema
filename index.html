@@ -1907,7 +1907,7 @@ const LOCAL_DB_KEY = 'kasirApotekMasema_localdb_v1';
 const SYNC_META_KEY = 'kasirApotekMasema_syncmeta_v1';
 const AUTO_SYNC_INTERVAL_MS = 12000; // auto-sync tiap 12 detik selama online
 let localDB = {};
-let syncMeta = { lastSyncAt: null, dirtyKeys: [] };
+let syncMeta = { lastSyncAt: null, dirtyKeys: [], lastKnownRev: null };
 let autoSyncTimer = null;
 let autoSyncInProgress = false;
 
@@ -1993,9 +1993,10 @@ async function loadLocalDBFromStorage(){
   }catch(e){ console.error('Gagal membaca data lokal', e); localDB = {}; }
   try{
     const rawMeta = localStorage.getItem(SYNC_META_KEY);
-    syncMeta = rawMeta ? JSON.parse(rawMeta) : { lastSyncAt: null, dirtyKeys: [] };
+    syncMeta = rawMeta ? JSON.parse(rawMeta) : { lastSyncAt: null, dirtyKeys: [], lastKnownRev: null };
     if(!Array.isArray(syncMeta.dirtyKeys)) syncMeta.dirtyKeys = [];
-  }catch(e){ syncMeta = { lastSyncAt: null, dirtyKeys: [] }; }
+    if(syncMeta.lastKnownRev === undefined) syncMeta.lastKnownRev = null;
+  }catch(e){ syncMeta = { lastSyncAt: null, dirtyKeys: [], lastKnownRev: null }; }
 }
 async function persistLocalDB(){
   try{
@@ -2099,11 +2100,43 @@ async function pushDirtyKeysToCloud(opts){
     const success = await pushPathToCloud(key);
     if(!success){ ok = false; break; } // sisanya dicoba lagi otomatis di sinkronisasi berikutnya
   }
+  if(ok) await bumpRevOnCloud(); // tandai "nomor versi" baru supaya komputer lain tahu ada perubahan
   syncMeta.lastSyncAt = new Date().toISOString();
   persistSyncMeta();
   if(ok){ if(!opts.silent) toast('Sinkron ke cloud berhasil ✓'); }
   else { if(!opts.silent) toast('Gagal sinkron ke cloud. Cek koneksi internet, lalu coba lagi.', true); }
   return ok;
+}
+
+/* Naikkan "nomor versi" data (_meta/rev) di cloud memakai timestamp server
+   Firebase sendiri ({".sv":"timestamp"}, bukan jam komputer ini, supaya tidak
+   meleset walau jam masing-masing komputer beda). Ukurannya sangat kecil
+   (cuma 1 angka), dipanggil setiap ada perubahan berhasil dikirim, supaya
+   komputer lain bisa tahu "ada yang berubah" tanpa perlu unduh seluruh
+   database tiap kali cek (lihat pullRemoteKeysSilent). */
+async function bumpRevOnCloud(){
+  try{
+    const q = await authQuery();
+    await fetch(`${DB_URL}/_meta/rev.json${q}`, {
+      method:'PUT',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({'.sv':'timestamp'})
+    });
+  }catch(e){ console.error('Gagal update nomor versi', e); /* tidak fatal - sync berikutnya tetap jalan normal */ }
+}
+async function ensureRevExists(){
+  // Sekali saja saat versi ini baru pertama kali dipakai: kalau _meta/rev belum
+  // pernah ada di cloud sama sekali, buat sekarang supaya optimasi hemat kuota
+  // langsung aktif (tidak perlu menunggu transaksi/perubahan data pertama).
+  if(!navigator.onLine) return;
+  try{
+    const q = await authQuery();
+    const res = await fetch(`${DB_URL}/_meta/rev.json${q}`, { cache:'no-store' });
+    if(res.ok){
+      const rev = await res.json();
+      if(rev === null) await bumpRevOnCloud();
+    }
+  }catch(e){ /* non-fatal */ }
 }
 
 /* Cek apakah "path" ini (atau salah satu turunannya) masih tercatat sebagai
@@ -2146,6 +2179,20 @@ async function pullRemoteKeysSilent(){
   if(!navigator.onLine) return false;
   try{
     const q = await authQuery();
+    // Cek dulu "nomor versi" data (_meta/rev) yang ukurannya cuma beberapa byte -
+    // JAUH lebih hemat daripada mengunduh seluruh database tiap 12 detik. Kalau
+    // nomor versinya sama dengan yang terakhir kali diketahui komputer ini,
+    // artinya tidak ada satu pun perubahan dari komputer lain sejak saat itu,
+    // jadi tidak perlu unduh data penuh sama sekali.
+    const revRes = await fetch(`${DB_URL}/_meta/rev.json${q}`, { cache:'no-store' });
+    let rev = null;
+    if(revRes.ok){ rev = await revRes.json(); }
+    if(rev !== null && rev === syncMeta.lastKnownRev){
+      syncMeta.lastSyncAt = new Date().toISOString();
+      persistSyncMeta();
+      return false;
+    }
+
     const res = await fetch(`${DB_URL}/.json${q}`, { cache:'no-store' });
     if(!res.ok) throw new Error('HTTP '+res.status);
     const remote = (await res.json()) || {};
@@ -2159,6 +2206,8 @@ async function pullRemoteKeysSilent(){
       }
     });
     if(changed) await persistLocalDB();
+    if(rev !== null) syncMeta.lastKnownRev = rev;
+    else if(remote._meta && remote._meta.rev !== undefined) syncMeta.lastKnownRev = remote._meta.rev;
     syncMeta.lastSyncAt = new Date().toISOString();
     persistSyncMeta();
     return changed;
@@ -2245,6 +2294,7 @@ async function pullFromCloud(opts){
     await persistLocalDB();
     syncMeta.dirtyKeys = [];
     syncMeta.lastSyncAt = new Date().toISOString();
+    syncMeta.lastKnownRev = (data && data._meta && data._meta.rev) || syncMeta.lastKnownRev;
     persistSyncMeta();
     if(!opts.silent) toast('Data dari cloud berhasil diambil ✓');
     return true;
@@ -6788,6 +6838,7 @@ document.getElementById('connStatusBadge').addEventListener('click', ()=> goToTa
   renderCart();
   renderResepPendingBanner();
   startAutoSync();
+  ensureRevExists(); // sekali saja saat baru pertama kali update ke versi ini, supaya optimasi hemat kuota langsung aktif
   cekPengingatOtomatisHarian(); // jalan di background, tidak perlu ditunggu (tidak menghambat tampilan awal)
 })();
 </script>
