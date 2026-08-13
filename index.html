@@ -1165,7 +1165,20 @@
       </form>
     </div>
 
-    <h2>Akun Kasir (Login)</h2>
+    <h2>Ubah PIN Hapus/Batal Transaksi</h2>
+    <p class="section-hint">PIN terpisah ini diminta khusus saat menghapus data di tab Riwayat Pengeluaran, atau membatalkan transaksi di tab Riwayat Transaksi. Sengaja dibuat beda dari PIN Admin supaya bisa dipegang orang yang berbeda (mis. kasir senior) tanpa memberi akses penuh ke Pengaturan/Laporan.</p>
+    <div class="card">
+      <form class="form-grid" id="deletePinForm">
+        <div class="field">
+          <label>PIN Hapus baru (4 digit)</label>
+          <input type="password" id="newDeletePin" maxlength="4" inputmode="numeric" placeholder="••••" required>
+        </div>
+        <button type="submit" class="btn btn-primary" style="align-self:flex-end;">Simpan PIN Hapus</button>
+      </form>
+      <p class="muted" style="margin-top:10px;">PIN default saat pertama kali dipakai adalah <b>5678</b>.</p>
+    </div>
+
+
     <p class="section-hint">Kelola nama & PIN setiap kasir. Kasir wajib login pakai akun ini sebelum bisa memakai aplikasi, agar otomatis tercatat siapa yang bertugas di setiap transaksi.</p>
     <div class="card">
       <div class="form-grid">
@@ -1664,7 +1677,7 @@
 
 <div class="modal-overlay hidden" id="pinModal">
   <div class="modal">
-    <h3>Masukkan PIN Admin</h3>
+    <h3 id="pinModalTitle">Masukkan PIN Admin</h3>
     <p id="pinModalText">Diperlukan untuk mengakses halaman ini.</p>
     <input type="password" id="pinInput" maxlength="4" inputmode="numeric" placeholder="••••">
     <button class="btn btn-primary" id="pinSubmit">Buka</button>
@@ -1876,6 +1889,8 @@ let obatList = [];      // [{id,nama,kategori,satuan,kode,kadaluarsa,hargaBeli,h
 let pasienList = [];    // [{id,noRm,nama,tglLahir,jk,hp,nik,alamat,alergi}]
 let cart = [];           // [{obatId,nama,hargaJual,hargaBeli,qty}]
 let adminPin = '1234';
+let deletePin = '5678'; // PIN terpisah khusus utk hapus pengeluaran / batalkan transaksi di Riwayat
+let pinCheckTarget = 'admin'; // 'admin' | 'hapus' — menentukan checkPin() cocokkan ke PIN yang mana
 let adminRecovery = { question:'', answer:'' };
 let pinUnlocked = false;
 let pinCallback = null;
@@ -2292,6 +2307,10 @@ async function initData(){
   const pinRaw = await sGet('admin-pin');
   adminPin = pinRaw || '1234';
   if(!pinRaw) await sSet('admin-pin', adminPin);
+
+  const deletePinRaw = await sGet('delete-pin');
+  deletePin = deletePinRaw || '5678';
+  if(!deletePinRaw) await sSet('delete-pin', deletePin);
 
   const recoveryRaw = await sGet('admin-recovery');
   adminRecovery = recoveryRaw || { question:'', answer:'' };
@@ -5433,7 +5452,7 @@ function wireRiwayatActions(){
     b.addEventListener('click', e=>{
       const noStruk = e.target.dataset.nostruk;
       pinCallback = ()=>batalkanTrxRiwayat(noStruk);
-      openPinModal('Masukkan PIN Admin untuk membatalkan transaksi ini.');
+      openPinModal('Masukkan PIN Hapus untuk membatalkan transaksi ini.', 'hapus');
     });
   });
 }
@@ -5492,7 +5511,7 @@ function wireRpActions(){
         toast('Pengeluaran dihapus.');
         renderRiwayatPengeluaran();
       };
-      openPinModal('Masukkan PIN Admin untuk menghapus pengeluaran ini.');
+      openPinModal('Masukkan PIN Hapus untuk menghapus pengeluaran ini.', 'hapus');
     });
   });
 }
@@ -5901,11 +5920,23 @@ document.getElementById('pinForm').addEventListener('submit', async (e)=>{
   e.preventDefault();
   const val = document.getElementById('newPin').value.trim();
   if(!/^\d{4}$/.test(val)){ toast('PIN harus 4 digit angka.', true); return; }
+  if(val === deletePin){ toast('PIN Admin tidak boleh sama dengan PIN Hapus. Pilih angka lain.', true); return; }
   adminPin = val;
   await sSet('admin-pin', adminPin);
   e.target.reset();
   toast('PIN admin diperbarui ✓');
   updateKasirBanners();
+});
+
+document.getElementById('deletePinForm').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const val = document.getElementById('newDeletePin').value.trim();
+  if(!/^\d{4}$/.test(val)){ toast('PIN Hapus harus 4 digit angka.', true); return; }
+  if(val === adminPin){ toast('PIN Hapus tidak boleh sama dengan PIN Admin. Pilih angka lain.', true); return; }
+  deletePin = val;
+  await sSet('delete-pin', deletePin);
+  e.target.reset();
+  toast('PIN Hapus diperbarui ✓');
 });
 
 document.getElementById('recoveryForm').addEventListener('submit', async (e)=>{
@@ -6298,13 +6329,16 @@ function activateTab(target){
   if(target === 'pengaturan'){ fillPengaturanForm(); }
 }
 
-function openPinModal(message){
+function openPinModal(message, target){
+  pinCheckTarget = target === 'hapus' ? 'hapus' : 'admin';
   document.getElementById('pinModal').classList.remove('hidden');
+  document.getElementById('pinModalTitle').textContent = pinCheckTarget === 'hapus' ? 'Masukkan PIN Hapus' : 'Masukkan PIN Admin';
   document.getElementById('pinModalText').textContent = message || 'Diperlukan untuk mengakses halaman ini.';
+  document.getElementById('btnLupaPin').style.display = pinCheckTarget === 'hapus' ? 'none' : '';
   document.getElementById('pinInput').value = '';
   document.getElementById('pinInput').focus();
 }
-function closePinModal(){ document.getElementById('pinModal').classList.add('hidden'); pinCallback = null; }
+function closePinModal(){ document.getElementById('pinModal').classList.add('hidden'); pinCallback = null; pinCheckTarget = 'admin'; }
 document.getElementById('pinCancel').addEventListener('click', ()=>{
   closePinModal();
   if(!currentKasirNama) openLoginGate();
@@ -6313,15 +6347,18 @@ document.getElementById('pinSubmit').addEventListener('click', checkPin);
 document.getElementById('pinInput').addEventListener('keydown', (e)=>{ if(e.key==='Enter') checkPin(); });
 function checkPin(){
   const val = document.getElementById('pinInput').value.trim();
-  if(val === adminPin){
-    pinUnlocked = true;
+  const isHapus = pinCheckTarget === 'hapus';
+  const targetPin = isHapus ? deletePin : adminPin;
+  if(val === targetPin){
+    if(!isHapus) pinUnlocked = true; // PIN Hapus sengaja tidak membuka akses tab Admin (Stok/Laporan/Pengaturan)
     document.getElementById('pinModal').classList.add('hidden');
     document.getElementById('pinInput').value = '';
+    pinCheckTarget = 'admin';
     if(pinCallback){
       const cb = pinCallback;
       pinCallback = null;
       cb();
-    } else if(pendingTabAfterPin){
+    } else if(!isHapus && pendingTabAfterPin){
       activateTab(pendingTabAfterPin);
     }
   } else {
@@ -6366,6 +6403,7 @@ document.getElementById('btnCekJawaban').addEventListener('click', ()=>{
 document.getElementById('btnSimpanPinRecovery').addEventListener('click', async ()=>{
   const val = document.getElementById('pinBaruSetelahRecovery').value.trim();
   if(!/^\d{4}$/.test(val)){ toast('PIN harus 4 digit angka.', true); return; }
+  if(val === deletePin){ toast('PIN Admin tidak boleh sama dengan PIN Hapus. Pilih angka lain.', true); return; }
   adminPin = val;
   await sSet('admin-pin', adminPin);
   pinUnlocked = true;
