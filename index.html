@@ -1250,6 +1250,27 @@
       </table>
     </div>
 
+    <h2>Log Aktivitas Sensitif (Audit Log)</h2>
+    <p class="section-hint">Catatan otomatis siapa melakukan aksi yang butuh PIN — hapus obat/pasien, batalkan transaksi, retur, hapus pengeluaran, pulihkan backup, ubah PIN, dll — lengkap dengan waktu & detailnya. Berguna untuk menelusuri kalau ada data hilang/berubah tanpa diketahui sebabnya.</p>
+    <div class="card">
+      <div class="toolbar">
+        <div class="field">
+          <label>Dari Tanggal</label>
+          <input type="date" id="auditLogStart">
+        </div>
+        <div class="field">
+          <label>Sampai Tanggal</label>
+          <input type="date" id="auditLogEnd">
+        </div>
+        <button class="btn btn-sm" id="btnMuatAuditLog">🔄 Muat</button>
+        <button class="btn btn-sm" id="btnAuditLog7Hari">7 Hari Terakhir</button>
+      </div>
+      <table style="margin-top:12px;">
+        <thead><tr><th>Waktu</th><th>Aksi</th><th>Detail</th><th>Oleh</th></tr></thead>
+        <tbody id="auditLogBody"><tr><td colspan="4" class="muted" style="padding:14px;text-align:center;">Pilih rentang tanggal & klik "Muat" untuk melihat data.</td></tr></tbody>
+      </table>
+    </div>
+
     <h2>Sinkronisasi Cloud</h2>
     <p class="section-hint">Aplikasi ini menyimpan semua data di komputer ini dulu (offline-first), jadi tetap bisa dipakai penuh walau internet mati. Selama online, aplikasi otomatis menyinkron data ke/dari cloud (Firebase) tiap ±12 detik di belakang layar — berguna kalau Kasir & Dokter memakai PC/perangkat yang berbeda, supaya data (antrian, resep, pasien, dll) saling muncul otomatis tanpa perlu klik manual. Kalau internet putus-putus, tidak masalah: perubahan tetap aman tersimpan di komputer ini dan otomatis dicoba disinkron lagi begitu online kembali. Tombol di bawah hanya untuk sinkron manual/darurat.</p>
     <div class="card">
@@ -2492,6 +2513,7 @@ function renderPasienTable(){
       pasienList = pasienList.filter(x=>x.id!==id);
       await savePasienList();
       deleteEntryFromCloud('pasien-list/' + id); // pastikan penghapusan ikut tersebar ke komputer lain
+      logAudit('Hapus Data Pasien', `${p.nama} (No RM: ${p.noRm||'-'})`);
       renderPasienTable();
       toast('Data pasien dihapus.');
     };
@@ -2821,6 +2843,7 @@ async function hapusSemuaPasien(){
   pasienList = [];
   await sSet('pasien-list', {});
   await deleteEntryFromCloud('pasien-list'); // pastikan node lengkap ikut terhapus di cloud, bukan cuma di komputer ini
+  logAudit('Hapus SEMUA Data Pasien', `${jumlah} data pasien dihapus`);
   renderPasienTable();
   toast(`Semua data pasien (${jumlah}) berhasil dihapus ✓`);
 }
@@ -4559,6 +4582,7 @@ function renderStokTable(){
       obatList = obatList.filter(x=>x.id!==id);
       await saveObatList();
       deleteEntryFromCloud('obat-list/' + id); // pastikan penghapusan ikut tersebar ke komputer lain
+      logAudit('Hapus Obat', `${o.nama} (Harga jual: ${rupiah(o.hargaJual)}, Stok saat dihapus: ${o.stok})`);
       renderStokTable();
       renderStokSummary();
       toast('Obat dihapus.');
@@ -4596,6 +4620,71 @@ async function logPerubahanHarga(entries){
   });
   await sSet('harga-log/' + tanggal, existing);
 }
+
+/* =========================================================
+   AUDIT LOG AKSI SENSITIF
+   Mencatat siapa (currentKasirNama) melakukan aksi yang butuh PIN -
+   hapus obat/pasien, batalkan transaksi, retur, hapus pengeluaran,
+   pulihkan backup, ubah PIN, dst - lengkap waktu & detail ringkas.
+   Dibuat "best-effort": kalau gagal tersimpan (mis. lagi offline),
+   TIDAK membatalkan aksi utamanya sendiri, hanya dicatat di console.
+   ========================================================= */
+async function logAudit(aksi, detail){
+  try{
+    const now = new Date();
+    const tanggal = dateKey(now);
+    const entry = {
+      id: crypto.randomUUID(),
+      tanggal,
+      waktu: timeStr(now),
+      aksi,
+      detail: detail || '',
+      oleh: currentKasirNama || 'Tidak diketahui',
+    };
+    const existing = await sGet('audit-log/' + tanggal) || {};
+    existing[entry.id] = entry;
+    await sSet('audit-log/' + tanggal, existing);
+  }catch(e){
+    console.error('Gagal mencatat audit log', e);
+  }
+}
+async function renderAuditLog(){
+  const startVal = document.getElementById('auditLogStart').value;
+  const endVal = document.getElementById('auditLogEnd').value;
+  if(!startVal || !endVal) return;
+  if(startVal > endVal){ toast('Tanggal "Dari" tidak boleh lebih besar dari "Sampai".', true); return; }
+  const body = document.getElementById('auditLogBody');
+  body.innerHTML = `<tr><td colspan="4" class="muted">Memuat...</td></tr>`;
+  try{
+    const start = parseDateInput(startVal);
+    const end = parseDateInput(endVal);
+    const dateKeys = [];
+    const cur = new Date(start);
+    while(cur <= end){ dateKeys.push(dateKey(cur)); cur.setDate(cur.getDate()+1); }
+    const rawResults = await Promise.all(dateKeys.map(ds => sGet('audit-log/' + ds)));
+    let rows = [];
+    rawResults.forEach(raw=>{ if(raw) rows = rows.concat(Object.values(raw)); });
+    rows.sort((a,b)=> (b.tanggal+b.waktu).localeCompare(a.tanggal+a.waktu));
+    body.innerHTML = rows.length ? rows.map(r=>`
+      <tr>
+        <td>${fmtDateFull(parseDateInput(r.tanggal))} ${r.waktu||''}</td>
+        <td>${escapeHtml(r.aksi)}</td>
+        <td>${escapeHtml(r.detail||'-')}</td>
+        <td>${escapeHtml(r.oleh||'-')}</td>
+      </tr>`).join('') : `<tr><td colspan="4" class="muted" style="padding:14px;text-align:center;">Tidak ada aktivitas sensitif tercatat di rentang tanggal ini.</td></tr>`;
+  }catch(e){
+    console.error('Gagal memuat audit log', e);
+    body.innerHTML = `<tr><td colspan="4" style="padding:14px;text-align:center;color:var(--danger);">Gagal memuat data. Cek koneksi internet.</td></tr>`;
+  }
+}
+document.getElementById('btnMuatAuditLog').addEventListener('click', renderAuditLog);
+document.getElementById('btnAuditLog7Hari').addEventListener('click', ()=>{
+  const now = new Date();
+  const week = new Date(now); week.setDate(now.getDate()-6);
+  document.getElementById('auditLogStart').value = dateKey(week);
+  document.getElementById('auditLogEnd').value = dateKey(now);
+  renderAuditLog();
+});
 
 async function simpanObat(){
   const nama = document.getElementById('fNama').value.trim();
@@ -4847,6 +4936,7 @@ async function hapusAkunKasir(id){
   kasirAkunList = kasirAkunList.filter(a=>a.id!==id);
   await saveKasirAkunList();
   deleteEntryFromCloud('kasir-akun/' + id);
+  logAudit('Hapus Akun Kasir', akun.nama);
   renderAkunKasirTable();
   refreshLoginKasirOptions();
   toast('Akun kasir dihapus ✓');
@@ -4893,6 +4983,7 @@ async function hapusAkunDokter(id){
   dokterAkunList = dokterAkunList.filter(a=>a.id!==id);
   await saveDokterAkunList();
   deleteEntryFromCloud('dokter-akun/' + id);
+  logAudit('Hapus Akun Dokter', akun.nama);
   renderAkunDokterTable();
   refreshLoginDokterOptions();
   toast('Akun dokter dihapus ✓');
@@ -5067,9 +5158,11 @@ async function tambahPengeluaran(jumlah, keterangan){
 }
 async function hapusPengeluaran(tanggal, id){
   const existing = await sGet('pengeluaran/' + tanggal) || {};
+  const item = existing[id];
   delete existing[id];
   await sSet('pengeluaran/' + tanggal, existing);
   deleteEntryFromCloud('pengeluaran/' + tanggal + '/' + id);
+  if(item) logAudit('Hapus Pengeluaran', `${item.keterangan||'-'} (${rupiah(item.jumlah)}), dicatat oleh ${item.kasir||'-'}`);
 }
 async function renderPengeluaranList(){
   const body = document.getElementById('pengeluaranBody');
@@ -5405,6 +5498,7 @@ async function batalkanTrxCore(trx, onDone){
   existingTrx[trx.id] = trx;
   await sSet('transaksi/' + trx.tanggal, existingTrx);
 
+  logAudit('Batalkan Transaksi', `No. Struk ${trx.noStruk} (Total: ${rupiah(trx.total)}, Kasir asal: ${trx.kasir||'-'})`);
   toast(`Transaksi ${trx.noStruk} dibatalkan, stok telah dikembalikan ✓`);
   renderStokTable();
   renderStokSummary();
@@ -5515,6 +5609,8 @@ async function prosesRetur(retList, alasan){
   existingTrx[trx.id] = trx;
   await sSet('transaksi/' + trx.tanggal, existingTrx);
 
+  const itemsRingkas = retList.map(r=>`${trx.items[r.idx]?.nama} x${r.qty}`).join(', ');
+  logAudit('Retur Sebagian', `No. Struk ${trx.noStruk} - ${itemsRingkas} (Nilai: ${rupiah(nilaiRetur)})${alasan ? ', Alasan: '+alasan : ''}`);
   toast(`Retur ${trx.noStruk} berhasil diproses, stok dikembalikan ✓`);
   renderStokTable();
   renderStokSummary();
@@ -6103,6 +6199,7 @@ document.getElementById('pinForm').addEventListener('submit', async (e)=>{
   adminPin = val;
   await sSet('admin-pin', adminPin);
   e.target.reset();
+  logAudit('Ubah PIN Admin', 'PIN Admin diganti (nilai baru tidak dicatat di log ini demi keamanan)');
   toast('PIN admin diperbarui ✓');
   updateKasirBanners();
 });
@@ -6115,6 +6212,7 @@ document.getElementById('deletePinForm').addEventListener('submit', async (e)=>{
   deletePin = val;
   await sSet('delete-pin', deletePin);
   e.target.reset();
+  logAudit('Ubah PIN Hapus/Batal', 'PIN Hapus diganti (nilai baru tidak dicatat di log ini demi keamanan)');
   toast('PIN Hapus diperbarui ✓');
 });
 
@@ -6417,6 +6515,7 @@ async function pulihkanBackup(data){
   renderStokSummary();
   fillPengaturanForm();
   if(document.getElementById('lapStart').value) renderLaporan();
+  logAudit('Pulihkan dari Backup', `File backup dibuat: ${data.dibuat || '-'} (${(data.obat||[]).length} obat, ${Object.keys(data.transaksi||{}).length} hari transaksi ditimpa)`);
   toast('Data berhasil dipulihkan dari backup ✓');
 }
 document.getElementById('btnGoStokMenipis').addEventListener('click', ()=> goToTab('stok'));
@@ -6505,7 +6604,15 @@ function activateTab(target){
     }
     renderPiutang();
   }
-  if(target === 'pengaturan'){ fillPengaturanForm(); }
+  if(target === 'pengaturan'){
+    fillPengaturanForm();
+    if(!document.getElementById('auditLogStart').value){
+      const now = new Date();
+      const week = new Date(now); week.setDate(now.getDate()-6);
+      document.getElementById('auditLogStart').value = dateKey(week);
+      document.getElementById('auditLogEnd').value = dateKey(now);
+    }
+  }
 }
 
 function openPinModal(message, target){
@@ -6871,8 +6978,10 @@ document.getElementById('btnHapusSemuaStok').addEventListener('click', ()=>{
   if(obatList.length===0){ toast('Tidak ada data stok untuk dihapus.', true); return; }
   if(!confirm(`Yakin ingin menghapus SEMUA data stok obat (${obatList.length} item)?\n\nSemua nama obat, harga, dan jumlah stok akan hilang permanen. Riwayat transaksi & laporan keuangan yang sudah ada TIDAK ikut terhapus. Aksi ini TIDAK BISA dibatalkan.\n\nSaran: klik "Download Stok (Excel)" dulu untuk backup sebelum menghapus.`)) return;
   pinCallback = async ()=>{
+    const jumlah = obatList.length;
     obatList = [];
     await saveObatList();
+    logAudit('Hapus SEMUA Data Stok Obat', `${jumlah} item obat dihapus`);
     toast('Semua data stok obat berhasil dihapus.');
     renderStokTable();
     renderStokSummary();
