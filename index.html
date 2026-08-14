@@ -1137,6 +1137,18 @@
       <p class="section-hint" style="margin-top:10px;">Cara dapat Token & Chat ID: buat bot lewat <b>@BotFather</b> di Telegram untuk dapat Token, lalu chat bot tersebut atau tambahkan ke grup, buka <code>https://api.telegram.org/bot&lt;TOKEN&gt;/getUpdates</code> di browser untuk melihat Chat ID.</p>
     </div>
 
+    <h2 style="margin-top:26px;">Backup Data Otomatis</h2>
+    <p class="section-hint">Selain backup manual di atas, aplikasi bisa otomatis mengirim file backup data (stok, transaksi, pengaturan) ke Telegram 1x sehari - pakai Token Bot & Chat ID yang sama dengan Pengingat Otomatis di atas. Berguna sebagai jaring pengaman kalau komputer/browser bermasalah sebelum sempat backup manual.</p>
+    <div class="card" style="padding:16px;">
+      <div class="toggle-row">
+        <input type="checkbox" id="setBackupOtomatisAktif">
+        <label for="setBackupOtomatisAktif">Aktifkan Backup Otomatis Harian ke Telegram</label>
+      </div>
+      <button class="btn btn-primary" id="btnSimpanBackupOtomatis" style="margin-top:10px;">Simpan Pengaturan Backup Otomatis</button>
+      <button class="btn" id="btnKirimBackupSekarang" style="margin-top:8px;">📦 Kirim Backup Sekarang</button>
+      <p class="section-hint" id="backupOtomatisLastInfo" style="margin-top:10px;"></p>
+    </div>
+
     <h2>Ubah PIN Admin</h2>
     <p class="section-hint">PIN ini diminta setiap kali membuka tab Stok Obat, Laporan Keuangan, atau Pengaturan.</p>
     <div class="card">
@@ -3970,7 +3982,7 @@ async function prosesBayar(){
   const noStruk = `${dateKey(now).replace(/-/g,'')}-${String(Date.now()).slice(-5)}`;
   const trx = {
     id, noStruk, waktu: timeStr(now), tanggal: dateKey(now),
-    items: cart.map(c=>({obatId:c.obatId, nama:c.nama, satuan:c.satuan||'', qty:c.qty, hargaJual:c.hargaJual, hargaBeli:c.hargaBeli, subtotal:c.hargaJual*c.qty, isCustom: !!c.isCustom})),
+    items: cart.map(c=>({obatId:c.obatId, nama:c.nama, satuan:c.satuan||'', qty:c.qty, hargaJual:c.hargaJual, hargaBeli:c.hargaBeli, subtotal:c.hargaJual*c.qty, isCustom: !!c.isCustom, aturan:c.aturan||''})),
     subtotal, total, totalHpp, metode, pembayaran, diterima, kembalian,
     pakaiResep, dokter: pakaiResep?dokter:'', pasien: pakaiResep?pasien:'',
     kasir: namaKasir,
@@ -4154,6 +4166,24 @@ document.getElementById('btnCetakLabelRme').addEventListener('click', ()=>{
   const namaPasien = rmeAntrianAktif ? rmeAntrianAktif.namaPasien : '';
   cetakLabelObatItems(rmeResepCart, namaPasien);
 });
+// Cetak ulang label obat secara massal dari sebuah transaksi lama di Riwayat Transaksi -
+// mencetak label untuk SEMUA item obat dalam transaksi itu sekaligus (bukan satu-satu),
+// termasuk item yang qty-nya sudah dikurangi retur sebagian (label dicetak sesuai qty yang tersisa terjual).
+function cetakLabelDariRiwayat(rows, noStruk){
+  const trx = rows.find(r=>r.noStruk===noStruk);
+  if(!trx){ toast('Transaksi tidak ditemukan.', true); return; }
+  const items = (trx.items||[])
+    .filter(it => !it.isCustom) // custom item (bukan obat asli) tidak perlu label obat
+    .map(it => ({
+      nama: it.nama,
+      qty: Math.max(0, Number(it.qty||0) - Number(it.qtyRetur||0)),
+      satuan: it.satuan,
+      aturan: it.aturan||'',
+    }))
+    .filter(it => it.qty > 0);
+  if(items.length === 0){ toast('Tidak ada item obat untuk dicetak labelnya di transaksi ini (mungkin semua custom item atau sudah diretur semua).', true); return; }
+  cetakLabelObatItems(items, trx.pasien||'');
+}
 
 
 /* =========================================================
@@ -4958,12 +4988,35 @@ document.getElementById('btnMulaiShift').addEventListener('click', async ()=>{
   loginSukses(pendingLoginNama, 'kasir');
   pendingLoginNama = null;
 });
-document.getElementById('btnLoginKasir').addEventListener('click', ()=>{
+// Cari shift berstatus 'buka' (belum ditutup) milik kasir tsb, cek hari ini & kemarin
+// (jaga-jaga kalau shift dibuka sebelum tengah malam lalu baru login ulang setelah lewat jam 00:00).
+async function cariShiftTerbukaUntukKasir(nama){
+  const now = new Date();
+  const kemarin = new Date(now); kemarin.setDate(kemarin.getDate()-1);
+  for(const tgl of [dateKey(now), dateKey(kemarin)]){
+    const existing = await sGet('shift/' + tgl) || {};
+    const found = Object.values(existing).find(s => s.kasir === nama && s.status === 'buka');
+    if(found) return found;
+  }
+  return null;
+}
+document.getElementById('btnLoginKasir').addEventListener('click', async ()=>{
   const id = document.getElementById('loginKasirNama').value;
   const pin = document.getElementById('loginKasirPin').value.trim();
   const akun = kasirAkunList.find(a=>a.id===id);
   if(!akun){ toast('Pilih nama kasir terlebih dahulu (hubungi admin bila belum ada akun).', true); return; }
   if(pin !== akun.pin){ toast('PIN salah.', true); return; }
+  const shiftTerbuka = await cariShiftTerbukaUntukKasir(akun.nama);
+  if(shiftTerbuka){
+    // Lanjutkan shift yang sudah berjalan - TIDAK minta modal awal baru, dan transaksi
+    // yang sudah terjadi sejak shift ini dibuka tetap ikut terhitung saat Tutup Kasir nanti.
+    currentShift = shiftTerbuka;
+    sessionStorage.setItem('currentShift', JSON.stringify(shiftTerbuka));
+    document.getElementById('loginGateModal').classList.add('hidden');
+    loginSukses(akun.nama, 'kasir');
+    toast(`Melanjutkan shift yang sedang berjalan (mulai ${shiftTerbuka.waktuMulai}) ✓`);
+    return;
+  }
   promptShiftOpen(akun.nama);
 });
 document.getElementById('loginKasirPin').addEventListener('keydown', e=>{ if(e.key==='Enter') document.getElementById('btnLoginKasir').click(); });
@@ -5482,6 +5535,7 @@ function buildRiwayatRows(rows){
       <td class="num">${rupiah(r.total)}</td>
       <td>
         <button class="btn btn-riwayat-reprint" data-nostruk="${r.noStruk}">🖨️ Cetak Ulang</button>
+        <button class="btn btn-sm btn-riwayat-label" data-nostruk="${r.noStruk}">🏷️ Cetak Label</button>
         ${!isVoid ? `<button class="btn btn-sm btn-riwayat-retur" data-nostruk="${r.noStruk}">↩️ Retur</button>` : ''}
         ${!isVoid ? `<button class="btn btn-sm btn-danger btn-riwayat-batalkan" data-nostruk="${r.noStruk}">🚫 Batalkan</button>` : ''}
       </td>
@@ -5491,6 +5545,9 @@ function buildRiwayatRows(rows){
 function wireRiwayatActions(){
   document.querySelectorAll('.btn-riwayat-reprint').forEach(b=>{
     b.addEventListener('click', e=>reprintTrxFrom(riwayatCache.rows, e.target.dataset.nostruk));
+  });
+  document.querySelectorAll('.btn-riwayat-label').forEach(b=>{
+    b.addEventListener('click', e=>cetakLabelDariRiwayat(riwayatCache.rows, e.target.dataset.nostruk));
   });
   document.querySelectorAll('.btn-riwayat-retur').forEach(b=>{
     b.addEventListener('click', e=>{
@@ -5784,6 +5841,8 @@ function fillPengaturanForm(){
   document.getElementById('setTelegramHMin').value = pengaturan.telegramHMin != null ? pengaturan.telegramHMin : 2;
   document.getElementById('setTelegramAktifPiutang').checked = !!pengaturan.telegramAktifPiutang;
   document.getElementById('setTelegramAktifKontrol').checked = !!pengaturan.telegramAktifKontrol;
+  document.getElementById('setBackupOtomatisAktif').checked = !!pengaturan.backupOtomatisAktif;
+  updateBackupOtomatisLastInfo();
   document.getElementById('recoveryQuestion').value = adminRecovery.question||'';
   document.getElementById('recoveryAnswer').value = '';
   renderAkunKasirTable();
@@ -5837,6 +5896,76 @@ async function simpanTelegramSettings(){
   await sSet('pengaturan', pengaturan);
   toast('Pengaturan Telegram disimpan ✓');
 }
+
+/* =========================================================
+   BACKUP OTOMATIS HARIAN VIA TELEGRAM
+   Reuse Token/Chat ID Telegram yang sama dengan Pengingat Otomatis.
+   Kirim file backup (obat, transaksi, pengaturan) sebagai dokumen,
+   1x sehari, dengan pola anti-spam yang sama seperti pengingat.
+   ========================================================= */
+async function simpanBackupOtomatisSettings(){
+  pengaturan = {
+    ...pengaturan,
+    backupOtomatisAktif: document.getElementById('setBackupOtomatisAktif').checked,
+  };
+  await sSet('pengaturan', pengaturan);
+  toast('Pengaturan Backup Otomatis disimpan ✓');
+}
+function updateBackupOtomatisLastInfo(){
+  const el = document.getElementById('backupOtomatisLastInfo');
+  if(!el) return;
+  const last = localStorage.getItem('lastBackupOtomatisDate');
+  el.textContent = last ? `Backup otomatis terakhir terkirim: ${fmtDateFull(parseDateInput(last))}` : 'Backup otomatis belum pernah terkirim.';
+}
+async function kirimBackupTelegramDokumen(manual){
+  if(!pengaturan.telegramToken || !pengaturan.telegramChatId){
+    if(manual) toast('Isi & simpan Token Bot dan Chat ID Telegram terlebih dahulu (di card Pengingat Otomatis di atas).', true);
+    return { ok:false };
+  }
+  try{
+    const transaksi = await sGet('transaksi') || {};
+    const backup = {
+      dibuat: new Date().toISOString(),
+      aplikasi: 'Kasir Apotek Masema',
+      obat: obatList,
+      transaksi,
+      pengaturan,
+    };
+    const stamp = dateKey(new Date());
+    const blob = new Blob([JSON.stringify(backup, null, 2)], { type:'application/json' });
+    const fd = new FormData();
+    fd.append('chat_id', pengaturan.telegramChatId);
+    fd.append('caption', `📦 Backup otomatis harian - ${escapeHtml(pengaturan.namaApotek||'Apotek Masema Medika')}\n${fmtDateFull(new Date())}`);
+    fd.append('document', blob, `backup-kasir-apotek-${stamp}.json`);
+    const res = await fetch(`https://api.telegram.org/bot${pengaturan.telegramToken}/sendDocument`, {
+      method: 'POST',
+      body: fd,
+    });
+    const data = await res.json();
+    if(!data.ok){
+      if(manual) toast('Gagal mengirim backup: ' + (data.description||'Kesalahan tidak diketahui'), true);
+      return { ok:false };
+    }
+    localStorage.setItem('lastBackupOtomatisDate', dateKey(new Date()));
+    updateBackupOtomatisLastInfo();
+    if(manual) toast('Backup berhasil dikirim ke Telegram ✓');
+    return { ok:true };
+  }catch(e){
+    console.error('Gagal kirim backup otomatis', e);
+    if(manual) toast('Gagal terhubung ke Telegram. Cek koneksi internet.', true);
+    return { ok:false };
+  }
+}
+async function cekBackupOtomatisHarian(){
+  if(!pengaturan.backupOtomatisAktif) return;
+  if(!pengaturan.telegramToken || !pengaturan.telegramChatId) return;
+  const today = dateKey(new Date());
+  const last = localStorage.getItem('lastBackupOtomatisDate');
+  if(last === today) return; // sudah terkirim hari ini
+  await kirimBackupTelegramDokumen(false);
+}
+document.getElementById('btnSimpanBackupOtomatis').addEventListener('click', simpanBackupOtomatisSettings);
+document.getElementById('btnKirimBackupSekarang').addEventListener('click', ()=>kirimBackupTelegramDokumen(true));
 
 async function kirimPesanTelegram(text){
   if(!pengaturan.telegramToken || !pengaturan.telegramChatId){
@@ -6840,6 +6969,7 @@ document.getElementById('connStatusBadge').addEventListener('click', ()=> goToTa
   startAutoSync();
   ensureRevExists(); // sekali saja saat baru pertama kali update ke versi ini, supaya optimasi hemat kuota langsung aktif
   cekPengingatOtomatisHarian(); // jalan di background, tidak perlu ditunggu (tidak menghambat tampilan awal)
+  cekBackupOtomatisHarian(); // jalan di background juga, tidak menghambat tampilan awal
 })();
 </script>
 </body>
