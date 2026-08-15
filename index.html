@@ -275,13 +275,13 @@
   .surat-a4 .surat-kop div{font-size:12px;margin-top:2px;}
   .surat-a4 h4{text-align:center;text-decoration:underline;margin:0 0 4px;font-size:15px;letter-spacing:0.5px;}
   #labelContent{display:block;}
-  body.label-rotate180 #labelContent{transform:rotate(180deg);transform-origin:center center;}
+  body.label-rotate180 .label-obat{transform:rotate(180deg);}
   .label-obat{width:100%;height:100%;box-sizing:border-box;padding:1.5mm 2.5mm;color:#000;font-family:var(--font-mono, monospace);page-break-after:always;overflow:hidden;}
   .label-obat:last-child{page-break-after:auto;}
-  .label-obat .lo-apotek{font-weight:700;font-size:8.5px;text-align:center;border-bottom:1px solid #000;padding-bottom:0.8mm;margin-bottom:0.8mm;}
-  .label-obat .lo-row{font-size:8px;margin:0.5mm 0;line-height:1.2;}
-  .label-obat .lo-obat{font-weight:700;font-size:9.5px;margin:0.8mm 0;line-height:1.2;}
-  .label-obat .lo-aturan{font-weight:700;font-size:9px;border:1px solid #000;border-radius:2px;padding:1mm;text-align:center;margin-top:0.8mm;line-height:1.2;}
+  .label-obat .lo-header{display:flex;justify-content:space-between;align-items:baseline;font-weight:700;font-size:9px;gap:2mm;}
+  .label-obat .lo-aturan2{font-weight:700;font-size:10px;text-align:center;margin:1.5mm 0;line-height:1.3;}
+  .label-obat .lo-obat2{font-weight:700;font-size:9.5px;margin:0.8mm 0;line-height:1.2;}
+  .label-obat .lo-row{font-size:8px;margin:0.5mm 0;line-height:1.25;}
   .surat-a4 .surat-nomor{text-align:center;font-size:12px;margin-bottom:18px;}
   .surat-a4 table.surat-data{border:none;width:100%;margin:10px 0 16px;}
   .surat-a4 table.surat-data td{border:none;padding:2px 6px 2px 0;vertical-align:top;font-size:13px;}
@@ -3365,6 +3365,7 @@ async function simpanRme(){
       namaPasien: entry.namaPasien,
       dokter: entry.dokter,
       items: rmeResepCart.map(c=>({...c})),
+      diagnosa: document.getElementById('rmeDiagnosa').value.trim(),
       tanggal: entry.tanggal,
       waktu: entry.waktu,
     };
@@ -3599,7 +3600,9 @@ async function renderResepPendingBanner(){
   wrap.querySelectorAll('.proses-resep-pending').forEach(b=>b.addEventListener('click', e=>prosesResepPending(e.target.dataset.id)));
   wrap.querySelectorAll('[data-act="label"]').forEach(b=>b.addEventListener('click', e=>{
     const r = list.find(x=>x.id===e.target.dataset.id);
-    if(r) cetakLabelObatItems(r.items, r.namaPasien);
+    if(!r) return;
+    const p = pasienList.find(x=>x.id===r.pasienId) || { nama: r.namaPasien };
+    cetakLabelObatItems(r.items, p, r.diagnosa||'');
   }));
   wrap.querySelectorAll('[data-act="resep"]').forEach(b=>b.addEventListener('click', e=>{
     const r = list.find(x=>x.id===e.target.dataset.id);
@@ -3696,7 +3699,9 @@ document.getElementById('kdBtnCetakLabel').addEventListener('click', ()=>{
   const id = document.getElementById('kdPilihResepPending').value;
   const r = kdResepPendingList.find(x=>x.id===id);
   if(!r){ toast('Pilih resep menunggu terlebih dahulu.', true); return; }
-  cetakLabelObatItems(r.items, r.namaPasien);
+  const p = pasienList.find(x=>x.id===r.pasienId) || { nama: r.namaPasien };
+  const indikasi = document.getElementById('kdDiagnosa').value.trim() || r.diagnosa || '';
+  cetakLabelObatItems(r.items, p, indikasi);
 });
 document.getElementById('kdBtnCetakResepFormal').addEventListener('click', ()=>{
   const id = document.getElementById('kdPilihResepPending').value;
@@ -4159,6 +4164,23 @@ function cetakStrukCustom(trx){
 }
 function fmtDateFull(d){ return `${d.getDate()} ${BULAN[d.getMonth()]} ${d.getFullYear()}`; }
 
+function calcUmurDetail(tglLahir){
+  if(!tglLahir) return '';
+  const d = parseDateInput(tglLahir);
+  if(isNaN(d)) return '';
+  const now = new Date();
+  let th = now.getFullYear() - d.getFullYear();
+  let bln = now.getMonth() - d.getMonth();
+  let hr = now.getDate() - d.getDate();
+  if(hr < 0){
+    bln--;
+    const lastMonthDate = new Date(now.getFullYear(), now.getMonth(), 0).getDate();
+    hr += lastMonthDate;
+  }
+  if(bln < 0){ th--; bln += 12; }
+  return `${th} Thn ${bln} Bln ${hr} Hr`;
+}
+
 /* ---- Cetak Label Obat (aturan pakai / signa, untuk ditempel di plastik obat) ---- */
 function getLabelWidthMm(){
   if(pengaturan.labelWidth === 'custom') return Number(pengaturan.labelWidthCustom) > 0 ? Number(pengaturan.labelWidthCustom) : 80;
@@ -4167,25 +4189,33 @@ function getLabelWidthMm(){
 function getLabelHeightMm(){
   return Number(pengaturan.labelHeight) > 0 ? Number(pengaturan.labelHeight) : 40;
 }
-function cetakLabelObatItems(items, namaPasien){
+function cetakLabelObatItems(items, pasien, indikasi){
   if(!items || items.length===0){ toast('Belum ada obat untuk dicetak labelnya.', true); return; }
-  const namaApotek = pengaturan.namaApotek || 'Apotek Masema Medika';
-  const tgl = fmtDateFull(new Date());
+  const p = (typeof pasien === 'string') ? { nama: pasien, tglLahir: '' } : (pasien || { nama:'', tglLahir:'' });
+  const namaPasien = p.nama || '';
+  const usia = p.tglLahir ? calcUmurDetail(p.tglLahir) : '';
+  const indikasiText = (indikasi||'').trim();
+  const hmm = getLabelHeightMm();
   const el = document.getElementById('labelContent');
-  el.innerHTML = items.map(c=>`
-    <div class="label-obat">
-      <div class="lo-apotek">${escapeHtml(namaApotek)}</div>
-      ${namaPasien ? `<div class="lo-row">Pasien: <b>${escapeHtml(namaPasien)}</b></div>` : ''}
-      <div class="lo-obat">${escapeHtml(c.nama)} ${c.qty>1?`(${c.qty} ${escapeHtml(c.satuan||'pcs')})`:''}</div>
-      <div class="lo-aturan">${escapeHtml(c.aturan && c.aturan.trim() ? c.aturan.trim() : 'Sesuai anjuran dokter/apoteker')}</div>
-      <div class="lo-row" style="text-align:right;margin-top:2mm;">${tgl}</div>
+  el.innerHTML = items.map(c=>{
+    const obatMaster = c.obatId ? obatList.find(o=>o.id===c.obatId) : null;
+    const expD = obatMaster && obatMaster.kadaluarsa ? parseDateInput(obatMaster.kadaluarsa) : null;
+    const exp = expD && !isNaN(expD) ? fmtDateFull(expD) : '';
+    return `
+    <div class="label-obat" style="height:${hmm}mm;">
+      <div class="lo-header"><span>${escapeHtml(namaPasien)}</span><span>${escapeHtml(usia)}</span></div>
+      <div class="lo-aturan2">${escapeHtml(c.aturan && c.aturan.trim() ? c.aturan.trim() : '-')}</div>
+      <div class="lo-obat2">${escapeHtml(c.nama)}</div>
+      <div class="lo-row">JUMLAH OBAT : ${c.qty} ${escapeHtml(c.satuan||'')}</div>
+      <div class="lo-row">EXP DATE : ${escapeHtml(exp)}</div>
+      <div class="lo-row">INDIKASI : ${escapeHtml(indikasiText.toUpperCase())}</div>
     </div>
-  `).join('');
+  `;
+  }).join('');
   // Setel ukuran halaman cetak supaya PAS dengan ukuran fisik label roll (lebar x tinggi,
   // BUKAN "auto" lagi - untuk label die-cut kecil seperti 60x40mm, tinggi harus pasti
   // supaya tidak menyisakan banyak area kosong dan tidak nyambung ke label berikutnya).
   const mm = getLabelWidthMm();
-  const hmm = getLabelHeightMm();
   const pageStyle = document.getElementById('printPageSizeStyle');
   const prevPageStyle = pageStyle ? pageStyle.textContent : '';
   if(pageStyle) pageStyle.textContent = `@media print { @page { size: ${mm}mm ${hmm}mm; margin: 0; } }`;
@@ -4202,8 +4232,9 @@ function cetakLabelObatItems(items, namaPasien){
 // pakai printer label terpisah (mis. Grozzie TP612) - tidak tercampur dengan
 // printer struk thermal yang dipakai Kasir untuk cetak struk transaksi.
 document.getElementById('btnCetakLabelRme').addEventListener('click', ()=>{
-  const namaPasien = rmeAntrianAktif ? rmeAntrianAktif.namaPasien : '';
-  cetakLabelObatItems(rmeResepCart, namaPasien);
+  const p = rmeAntrianAktif ? (pasienList.find(x=>x.id===rmeAntrianAktif.pasienId) || { nama: rmeAntrianAktif.namaPasien }) : null;
+  const indikasi = document.getElementById('rmeDiagnosa').value.trim();
+  cetakLabelObatItems(rmeResepCart, p, indikasi);
 });
 // Cetak ulang label obat secara massal dari sebuah transaksi lama di Riwayat Transaksi -
 // mencetak label untuk SEMUA item obat dalam transaksi itu sekaligus (bukan satu-satu),
@@ -4221,7 +4252,8 @@ function cetakLabelDariRiwayat(rows, noStruk){
     }))
     .filter(it => it.qty > 0);
   if(items.length === 0){ toast('Tidak ada item obat untuk dicetak labelnya di transaksi ini (mungkin semua custom item atau sudah diretur semua).', true); return; }
-  cetakLabelObatItems(items, trx.pasien||'');
+  const p = trx.pasienId ? (pasienList.find(x=>x.id===trx.pasienId) || { nama: trx.pasien||'' }) : { nama: trx.pasien||'' };
+  cetakLabelObatItems(items, p, trx.diagnosa||'');
 }
 
 
