@@ -275,12 +275,13 @@
   .surat-a4 .surat-kop div{font-size:12px;margin-top:2px;}
   .surat-a4 h4{text-align:center;text-decoration:underline;margin:0 0 4px;font-size:15px;letter-spacing:0.5px;}
   #labelContent{display:block;}
-  .label-obat{width:100%;box-sizing:border-box;padding:3mm 4mm;color:#000;font-family:var(--font-mono, monospace);page-break-after:always;}
+  body.label-rotate180 #labelContent{transform:rotate(180deg);transform-origin:center center;}
+  .label-obat{width:100%;height:100%;box-sizing:border-box;padding:1.5mm 2.5mm;color:#000;font-family:var(--font-mono, monospace);page-break-after:always;overflow:hidden;}
   .label-obat:last-child{page-break-after:auto;}
-  .label-obat .lo-apotek{font-weight:700;font-size:12px;text-align:center;border-bottom:1px solid #000;padding-bottom:2mm;margin-bottom:2mm;}
-  .label-obat .lo-row{font-size:11.5px;margin:1.2mm 0;}
-  .label-obat .lo-obat{font-weight:700;font-size:13.5px;margin:1.5mm 0;}
-  .label-obat .lo-aturan{font-weight:700;font-size:13px;border:1.5px solid #000;border-radius:3px;padding:2mm;text-align:center;margin-top:2mm;}
+  .label-obat .lo-apotek{font-weight:700;font-size:8.5px;text-align:center;border-bottom:1px solid #000;padding-bottom:0.8mm;margin-bottom:0.8mm;}
+  .label-obat .lo-row{font-size:8px;margin:0.5mm 0;line-height:1.2;}
+  .label-obat .lo-obat{font-weight:700;font-size:9.5px;margin:0.8mm 0;line-height:1.2;}
+  .label-obat .lo-aturan{font-weight:700;font-size:9px;border:1px solid #000;border-radius:2px;padding:1mm;text-align:center;margin-top:0.8mm;line-height:1.2;}
   .surat-a4 .surat-nomor{text-align:center;font-size:12px;margin-bottom:18px;}
   .surat-a4 table.surat-data{border:none;width:100%;margin:10px 0 16px;}
   .surat-a4 table.surat-data td{border:none;padding:2px 6px 2px 0;vertical-align:top;font-size:13px;}
@@ -1081,7 +1082,8 @@
             <option value="40">40mm</option>
             <option value="50">50mm</option>
             <option value="58">58mm</option>
-            <option value="80" selected>80mm</option>
+            <option value="60" selected>60mm</option>
+            <option value="80">80mm</option>
             <option value="custom">Custom (masukkan sendiri)</option>
           </select>
         </div>
@@ -1089,6 +1091,14 @@
           <label>Lebar Label Custom (mm)</label>
           <input type="number" id="setLabelWidthCustom" min="20" max="150" placeholder="contoh: 60">
         </div>
+        <div class="field">
+          <label>Tinggi Label Obat (mm) — ukur langsung 1 label fisiknya pakai penggaris</label>
+          <input type="number" id="setLabelHeight" min="15" max="150" placeholder="contoh: 40">
+        </div>
+      </div>
+      <div class="toggle-row">
+        <input type="checkbox" id="setLabelRotate180">
+        <label for="setLabelRotate180">Putar hasil cetak Label Obat 180° (centang kalau hasil cetak tulisannya terbalik)</label>
       </div>
       <div class="toggle-row">
         <input type="checkbox" id="setTampilkanAlamat">
@@ -4152,7 +4162,10 @@ function fmtDateFull(d){ return `${d.getDate()} ${BULAN[d.getMonth()]} ${d.getFu
 /* ---- Cetak Label Obat (aturan pakai / signa, untuk ditempel di plastik obat) ---- */
 function getLabelWidthMm(){
   if(pengaturan.labelWidth === 'custom') return Number(pengaturan.labelWidthCustom) > 0 ? Number(pengaturan.labelWidthCustom) : 80;
-  return Number(pengaturan.labelWidth) || 80;
+  return Number(pengaturan.labelWidth) || 60;
+}
+function getLabelHeightMm(){
+  return Number(pengaturan.labelHeight) > 0 ? Number(pengaturan.labelHeight) : 40;
 }
 function cetakLabelObatItems(items, namaPasien){
   if(!items || items.length===0){ toast('Belum ada obat untuk dicetak labelnya.', true); return; }
@@ -4168,17 +4181,20 @@ function cetakLabelObatItems(items, namaPasien){
       <div class="lo-row" style="text-align:right;margin-top:2mm;">${tgl}</div>
     </div>
   `).join('');
-  // Setel ukuran halaman cetak supaya PAS dengan lebar roll printer label (mis. Grozzie TP612),
-  // bukan ukuran kertas A4 - tinggi "auto" supaya printer roll motong per label, tidak
-  // menyisakan banyak area putih kosong.
+  // Setel ukuran halaman cetak supaya PAS dengan ukuran fisik label roll (lebar x tinggi,
+  // BUKAN "auto" lagi - untuk label die-cut kecil seperti 60x40mm, tinggi harus pasti
+  // supaya tidak menyisakan banyak area kosong dan tidak nyambung ke label berikutnya).
   const mm = getLabelWidthMm();
+  const hmm = getLabelHeightMm();
   const pageStyle = document.getElementById('printPageSizeStyle');
   const prevPageStyle = pageStyle ? pageStyle.textContent : '';
-  if(pageStyle) pageStyle.textContent = `@media print { @page { size: ${mm}mm auto; margin: 0; } }`;
+  if(pageStyle) pageStyle.textContent = `@media print { @page { size: ${mm}mm ${hmm}mm; margin: 0; } }`;
   document.body.classList.add('printing-label');
+  if(pengaturan.labelRotate180) document.body.classList.add('label-rotate180');
   window.print();
   setTimeout(()=>{
     document.body.classList.remove('printing-label');
+    document.body.classList.remove('label-rotate180');
     if(pageStyle) pageStyle.textContent = prevPageStyle; // kembalikan ke ukuran struk semula
   }, 500);
 }
@@ -5926,9 +5942,11 @@ function fillPengaturanForm(){
   document.getElementById('setStrukWidthCustom').value = pengaturan.strukWidthCustom || '';
   document.getElementById('strukWidthCustomField').style.display = (pengaturan.strukWidth==='custom') ? '' : 'none';
   document.getElementById('setHeaderTambahan').value = pengaturan.headerTambahan||'';
-  document.getElementById('setLabelWidth').value = pengaturan.labelWidth || '80';
+  document.getElementById('setLabelWidth').value = pengaturan.labelWidth || '60';
   document.getElementById('setLabelWidthCustom').value = pengaturan.labelWidthCustom || '';
   document.getElementById('labelWidthCustomField').style.display = (pengaturan.labelWidth==='custom') ? '' : 'none';
+  document.getElementById('setLabelHeight').value = pengaturan.labelHeight || '40';
+  document.getElementById('setLabelRotate180').checked = !!pengaturan.labelRotate180;
   document.getElementById('setTampilkanAlamat').checked = pengaturan.tampilkanAlamat !== false;
   document.getElementById('setTampilkanTelp').checked = pengaturan.tampilkanTelp !== false;
   document.getElementById('setTampilkanKasir').checked = pengaturan.tampilkanKasir !== false;
@@ -5950,7 +5968,7 @@ async function simpanPengaturan(){
     toast('Isi lebar custom dalam mm terlebih dahulu.', true);
     return;
   }
-  const labelWidth = document.getElementById('setLabelWidth').value || '80';
+  const labelWidth = document.getElementById('setLabelWidth').value || '60';
   let labelWidthCustom = Number(document.getElementById('setLabelWidthCustom').value) || 0;
   if(labelWidth === 'custom' && labelWidthCustom <= 0){
     toast('Isi lebar label custom dalam mm terlebih dahulu.', true);
@@ -5965,6 +5983,8 @@ async function simpanPengaturan(){
     pesanStruk: document.getElementById('setPesanStruk').value.trim() || 'Terima kasih atas kunjungan Anda',
     strukWidth, strukWidthCustom,
     labelWidth, labelWidthCustom,
+    labelHeight: Number(document.getElementById('setLabelHeight').value) || 40,
+    labelRotate180: document.getElementById('setLabelRotate180').checked,
     headerTambahan: document.getElementById('setHeaderTambahan').value.trim(),
     tampilkanAlamat: document.getElementById('setTampilkanAlamat').checked,
     tampilkanTelp: document.getElementById('setTampilkanTelp').checked,
