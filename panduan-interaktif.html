@@ -1,0 +1,784 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Panduan Interaktif — Apotek Masema Medika</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#182420;
+    --ink-soft:#5B6B62;
+    --paper:#F7F4EC;
+    --paper-raised:#FFFFFF;
+    --primary:#0E4A41;
+    --primary-dark:#0A332C;
+    --primary-soft:#E4EEE9;
+    --gold:#B8862B;
+    --gold-soft:#F6ECD6;
+    --brick:#A23B33;
+    --brick-soft:#F6E3E0;
+    --line:#DDD6C6;
+    --line-soft:#EAE4D4;
+    --shadow: 0 18px 40px -18px rgba(14,74,65,0.28);
+    --radius:14px;
+    --font-display:'Fraunces', Georgia, serif;
+    --font-body:'Inter', -apple-system, sans-serif;
+    --font-mono:'JetBrains Mono', ui-monospace, monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(1200px 600px at 100% -10%, rgba(14,74,65,0.06), transparent),
+      radial-gradient(900px 500px at -10% 110%, rgba(184,134,43,0.08), transparent),
+      var(--paper);
+    color:var(--ink);
+    font-family:var(--font-body);
+    min-height:100vh;
+  }
+
+  /* ---------- Header ---------- */
+  header.top{
+    position:sticky; top:0; z-index:40;
+    background:rgba(247,244,236,0.92);
+    backdrop-filter:blur(8px);
+    border-bottom:1px solid var(--line);
+    padding:14px 22px;
+    display:flex; align-items:center; gap:18px; flex-wrap:wrap;
+  }
+  .brand{display:flex; align-items:center; gap:10px; margin-right:auto;}
+  .brand .cross{
+    width:34px; height:34px; border-radius:9px; background:var(--primary);
+    display:flex; align-items:center; justify-content:center;
+    color:#fff; font-size:19px; font-weight:700; flex:none;
+    box-shadow: var(--shadow);
+  }
+  .brand .txt{line-height:1.15;}
+  .brand .txt b{font-family:var(--font-display); font-size:16.5px; font-weight:700; color:var(--primary-dark); display:block;}
+  .brand .txt span{font-size:11.5px; color:var(--ink-soft); font-family:var(--font-mono); letter-spacing:.02em;}
+
+  .modules{display:flex; gap:6px; background:var(--primary-soft); padding:5px; border-radius:999px;}
+  .modules button{
+    border:none; background:transparent; padding:8px 16px; border-radius:999px;
+    font-family:var(--font-body); font-weight:600; font-size:13.5px; color:var(--primary-dark);
+    cursor:pointer; transition:.2s; white-space:nowrap;
+  }
+  .modules button.active{background:var(--primary); color:#fff; box-shadow:var(--shadow);}
+  .modules button:not(.active):hover{background:rgba(14,74,65,0.1);}
+
+  /* ---------- Layout ---------- */
+  .layout{
+    display:grid; grid-template-columns:250px 1fr; gap:26px;
+    max-width:1180px; margin:0 auto; padding:26px 22px 70px;
+    align-items:start;
+  }
+  @media (max-width:900px){
+    .layout{grid-template-columns:1fr; padding:16px 14px 50px;}
+  }
+
+  /* ---------- Sidebar ---------- */
+  aside.steps{
+    position:sticky; top:78px;
+    display:flex; flex-direction:column; gap:3px;
+    max-height:calc(100vh - 100px); overflow-y:auto; padding-right:4px;
+  }
+  @media (max-width:900px){
+    aside.steps{
+      position:static; flex-direction:row; overflow-x:auto; overflow-y:visible;
+      max-height:none; padding-bottom:6px; gap:8px;
+      scrollbar-width:thin;
+    }
+  }
+  .step-nav{
+    display:flex; align-items:center; gap:10px;
+    padding:9px 10px; border-radius:10px; cursor:pointer;
+    border:1px solid transparent; text-align:left;
+    background:transparent; font-family:var(--font-body);
+    transition:.15s;
+  }
+  .step-nav:hover{background:var(--primary-soft);}
+  .step-nav.active{background:var(--paper-raised); border-color:var(--line); box-shadow:var(--shadow);}
+  @media (max-width:900px){
+    .step-nav{flex:none; min-width:190px;}
+  }
+  .step-nav .tag{
+    font-family:var(--font-mono); font-size:10.5px; font-weight:700;
+    color:var(--gold); background:var(--gold-soft); border:1px solid #e8d5a6;
+    padding:2px 6px; border-radius:5px; flex:none;
+  }
+  .step-nav.active .tag{background:var(--primary); color:#fff; border-color:var(--primary);}
+  .step-nav .lbl{font-size:12.8px; font-weight:600; color:var(--ink); line-height:1.25;}
+  .step-nav.active .lbl{color:var(--primary-dark);}
+
+  /* ---------- Stage ---------- */
+  main.stage{display:flex; flex-direction:column; gap:20px;}
+
+  .frame-wrap{position:relative;}
+  .frame{
+    background:var(--paper-raised); border-radius:18px; overflow:hidden;
+    border:1px solid var(--line); box-shadow:var(--shadow);
+  }
+  .frame-chrome{
+    display:flex; align-items:center; gap:6px; padding:9px 14px;
+    background:#EFEAE0; border-bottom:1px solid var(--line);
+  }
+  .frame-chrome i{width:9px; height:9px; border-radius:50%; background:#D8CFB8; display:block;}
+  .frame-chrome .url{
+    margin-left:8px; font-family:var(--font-mono); font-size:10.5px; color:var(--ink-soft);
+    background:#fff; padding:3px 10px; border-radius:6px; border:1px solid var(--line-soft);
+  }
+
+  .app-header{
+    background:linear-gradient(135deg, var(--primary), var(--primary-dark));
+    color:#fff; padding:12px 18px; display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+  }
+  .app-header .app-brand{display:flex; align-items:center; gap:8px; margin-right:auto;}
+  .app-header .app-brand .ic{width:24px; height:24px; border-radius:6px; background:rgba(255,255,255,.18); display:flex; align-items:center; justify-content:center; font-size:14px;}
+  .app-header .app-brand b{font-size:13px; display:block; font-family:var(--font-display);}
+  .app-header .app-brand small{font-size:9.5px; opacity:.75;}
+  .pill{font-size:10.5px; padding:4px 10px; border-radius:999px; background:rgba(255,255,255,.15); font-weight:600;}
+  .pill.online{background:rgba(255,255,255,.2);}
+  .pill.online:before{content:"● "; color:#8CE0B0;}
+
+  .app-tabbar{display:flex; gap:5px; padding:9px 14px; background:#fff; border-bottom:1px solid var(--line-soft); flex-wrap:wrap;}
+  .app-tab{
+    font-size:11px; font-weight:600; padding:6px 11px; border-radius:8px; color:var(--ink-soft);
+    background:transparent; font-family:var(--font-body);
+  }
+  .app-tab.active{background:var(--primary); color:#fff;}
+
+  .app-body{padding:18px; min-height:270px; background:#FCFBF7; position:relative;}
+
+  /* generic mock components */
+  .mock-banner{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:9px 12px; border-radius:9px; font-size:11.5px; font-weight:600; margin-bottom:12px; flex-wrap:wrap;}
+  .mock-banner.warn{background:#FFF3DE; color:#8A5A00; border:1px solid #F0D9A0;}
+  .mock-banner.danger{background:var(--brick-soft); color:var(--brick); border:1px solid #E7BEB8;}
+  .mock-banner.info{background:var(--primary-soft); color:var(--primary-dark); border:1px solid #cfe3da;}
+  .mock-banner .lnk{text-decoration:underline; font-weight:700; white-space:nowrap;}
+
+  .mock-card{background:#fff; border:1px solid var(--line-soft); border-radius:11px; padding:13px 15px; margin-bottom:12px;}
+  .mock-card h4{margin:0 0 6px; font-size:12.5px; font-family:var(--font-body); color:var(--primary-dark);}
+  .mock-card p.sub{margin:0 0 10px; font-size:10.5px; color:var(--ink-soft);}
+
+  .mock-row{display:flex; align-items:center; gap:8px; padding:8px 4px; border-bottom:1px solid var(--line-soft); font-size:11px;}
+  .mock-row:last-child{border-bottom:none;}
+  .mock-row .c1{flex:2; font-weight:600;}
+  .mock-row .c2{flex:1; color:var(--ink-soft);}
+  .mock-row .c3{flex:1; text-align:right; font-family:var(--font-mono); font-weight:700;}
+
+  .mock-input{background:#fff; border:1px solid var(--line); border-radius:8px; padding:8px 11px; font-size:11px; color:var(--ink-soft); margin-bottom:8px;}
+  .mock-field label{display:block; font-size:9.5px; font-weight:700; color:var(--ink-soft); margin-bottom:3px; text-transform:uppercase; letter-spacing:.03em;}
+
+  .mock-btn{display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:700; padding:7px 13px; border-radius:8px; border:1px solid var(--line); background:#fff; color:var(--ink); font-family:var(--font-body);}
+  .mock-btn.primary{background:var(--primary); color:#fff; border-color:var(--primary);}
+  .mock-btn.danger{background:#fff; color:var(--brick); border-color:#e7beb8;}
+  .mock-btn.ghost{background:var(--primary-soft); color:var(--primary-dark); border-color:transparent;}
+  .mock-btn.gold{background:var(--gold-soft); color:#7a5915; border-color:#e8d5a6;}
+
+  .mock-badge{font-size:9px; font-weight:700; padding:2px 7px; border-radius:6px;}
+  .mock-badge.low{background:var(--brick-soft); color:var(--brick);}
+  .mock-badge.ok{background:var(--primary-soft); color:var(--primary-dark);}
+  .mock-badge.soon{background:#FFF3DE; color:#8A5A00;}
+
+  .mock-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  .mock-stat{background:#fff; border:1px solid var(--line-soft); border-radius:10px; padding:11px 13px;}
+  .mock-stat .n{font-family:var(--font-display); font-size:19px; color:var(--primary-dark); font-weight:600;}
+  .mock-stat .l{font-size:9.5px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.03em;}
+
+  .mock-bars{display:flex; align-items:flex-end; gap:8px; height:80px; margin:6px 0 4px;}
+  .mock-bars i{flex:1; background:linear-gradient(180deg, var(--primary), var(--primary-soft)); border-radius:5px 5px 0 0; display:block;}
+
+  .mock-modal-overlay{position:absolute; inset:0; background:rgba(14,20,17,0.32); display:flex; align-items:center; justify-content:center; padding:20px; border-radius:0 0 18px 18px;}
+  .mock-modal{background:#fff; border-radius:12px; padding:16px 18px; width:100%; max-width:330px; box-shadow:0 22px 45px -14px rgba(0,0,0,.35);}
+  .mock-modal h5{margin:0 0 10px; font-size:12.5px; font-family:var(--font-display); color:var(--primary-dark);}
+  .kv{display:flex; justify-content:space-between; font-size:10.8px; padding:5px 0; border-bottom:1px dashed var(--line-soft);}
+  .kv b{font-weight:700;}
+
+  .mock-tag-tabs{display:flex; gap:6px; margin-bottom:12px;}
+  .mock-tag-tabs span{font-size:10.5px; font-weight:700; padding:6px 12px; border-radius:8px; background:var(--primary-soft); color:var(--primary-dark);}
+  .mock-tag-tabs span.active{background:var(--primary); color:#fff;}
+
+  /* spotlight highlight */
+  .spot{position:relative; outline:2.5px solid var(--gold); outline-offset:2px; border-radius:8px; animation:pulseSpot 1.6s ease-in-out infinite;}
+  @keyframes pulseSpot{
+    0%,100%{box-shadow:0 0 0 0 rgba(184,134,43,0.45);}
+    50%{box-shadow:0 0 0 7px rgba(184,134,43,0);}
+  }
+  .callout{
+    position:absolute; z-index:20; max-width:210px; background:var(--ink); color:#fff;
+    font-size:11px; line-height:1.4; padding:9px 12px; border-radius:9px;
+    font-family:var(--font-body); font-weight:500; box-shadow:0 12px 26px -8px rgba(0,0,0,.4);
+    display:none;
+  }
+  .callout:after{content:""; position:absolute; top:-6px; left:18px; width:12px; height:12px; background:var(--ink); transform:rotate(45deg);}
+  .callout b{color:var(--gold); font-family:var(--font-mono); display:block; font-size:9.5px; letter-spacing:.03em; margin-bottom:2px;}
+
+  /* ---------- Caption panel ---------- */
+  .caption{background:var(--paper-raised); border:1px solid var(--line); border-radius:16px; padding:22px 26px; box-shadow:var(--shadow);}
+  .caption-head{display:flex; align-items:flex-start; gap:14px; margin-bottom:12px;}
+  .rx-label{
+    flex:none; position:relative; background:var(--gold-soft); border:1px solid #e8d5a6;
+    border-radius:8px; padding:7px 12px 6px; transform:rotate(-3deg); font-family:var(--font-mono);
+    font-size:10.5px; font-weight:700; color:#7a5915; letter-spacing:.02em;
+  }
+  .rx-label:before{
+    content:""; position:absolute; top:-6px; left:12px; width:26px; height:11px;
+    background:rgba(255,255,255,.75); border:1px solid rgba(0,0,0,.06); transform:rotate(-6deg);
+  }
+  .caption-head h2{margin:0; font-family:var(--font-display); font-size:23px; font-weight:600; color:var(--primary-dark); line-height:1.2;}
+  .caption-head .module-lbl{font-size:11px; color:var(--ink-soft); font-weight:600; text-transform:uppercase; letter-spacing:.04em; margin:2px 0 0;}
+
+  .caption p.desc{font-size:14px; line-height:1.65; color:var(--ink); margin:0 0 14px;}
+  .caption ul.bullets{margin:0; padding:0; list-style:none; display:flex; flex-direction:column; gap:8px;}
+  .caption ul.bullets li{display:flex; gap:9px; font-size:13.2px; line-height:1.5; color:var(--ink);}
+  .caption ul.bullets li:before{content:"✓"; color:var(--primary); font-weight:700; flex:none; margin-top:1px;}
+
+  /* ---------- Footer nav ---------- */
+  .nav-bottom{display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap;}
+  .dots{display:flex; gap:6px; flex-wrap:wrap;}
+  .dots span{width:7px; height:7px; border-radius:50%; background:var(--line); cursor:pointer; transition:.2s;}
+  .dots span.active{background:var(--primary); width:20px; border-radius:4px;}
+  .nav-btns{display:flex; gap:9px;}
+  .nav-btns button{
+    font-family:var(--font-body); font-weight:700; font-size:13px; padding:10px 18px; border-radius:10px;
+    cursor:pointer; border:1px solid var(--line); background:#fff; color:var(--ink); transition:.15s;
+  }
+  .nav-btns button.primary{background:var(--primary); color:#fff; border-color:var(--primary);}
+  .nav-btns button.primary:hover{background:var(--primary-dark);}
+  .nav-btns button:disabled{opacity:.35; cursor:not-allowed;}
+  .nav-btns button:not(:disabled):not(.primary):hover{background:var(--primary-soft);}
+
+  .progress-line{height:3px; background:var(--line-soft); border-radius:3px; overflow:hidden; margin-bottom:2px;}
+  .progress-line i{display:block; height:100%; background:var(--primary); transition:width .3s;}
+
+  footer.credit{text-align:center; padding:24px; font-size:11px; color:var(--ink-soft); font-family:var(--font-mono);}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="brand">
+    <div class="cross">✚</div>
+    <div class="txt">
+      <b>Panduan Interaktif</b>
+      <span>APOTEK MASEMA MEDIKA</span>
+    </div>
+  </div>
+  <div class="modules" id="moduleSwitch"></div>
+</header>
+
+<div class="layout">
+  <aside class="steps" id="stepNav"></aside>
+
+  <main class="stage">
+    <div class="progress-line"><i id="progressBar"></i></div>
+
+    <div class="frame-wrap">
+      <div class="frame">
+        <div class="frame-chrome">
+          <i></i><i></i><i></i>
+          <span class="url" id="chromeUrl">apotekmasema.github.io</span>
+        </div>
+        <div class="app-header">
+          <div class="app-brand">
+            <div class="ic">✚</div>
+            <div><b>Apotek Masema Medika</b><br><small>Sistem Kasir &amp; Manajemen Apotek</small></div>
+          </div>
+          <span class="pill" id="roleBadge">Admin</span>
+          <span class="pill online">Online — auto-sync aktif</span>
+        </div>
+        <div class="app-tabbar" id="appTabbar"></div>
+        <div class="app-body" id="appBody"></div>
+      </div>
+      <div class="callout" id="callout"><b id="calloutTag">TIPS</b><span id="calloutText"></span></div>
+    </div>
+
+    <div class="caption">
+      <div class="caption-head">
+        <div class="rx-label" id="rxLabel">No. 01</div>
+        <div>
+          <p class="module-lbl" id="moduleLbl">Kasir &amp; Apotek</p>
+          <h2 id="stepTitle">Judul Langkah</h2>
+        </div>
+      </div>
+      <p class="desc" id="stepDesc"></p>
+      <ul class="bullets" id="stepBullets"></ul>
+    </div>
+
+    <div class="nav-bottom">
+      <div class="dots" id="dots"></div>
+      <div class="nav-btns">
+        <button id="btnPrev">← Sebelumnya</button>
+        <button class="primary" id="btnNext">Berikutnya →</button>
+      </div>
+    </div>
+  </main>
+</div>
+
+<footer class="credit">PANDUAN INTERAKTIF · KASIR &amp; KLINIK · UNTUK PENGGUNAAN INTERNAL APOTEK</footer>
+
+<script>
+/* ============ helper builders ============ */
+function tabs(list, active){
+  return list.map(t=>`<span class="app-tab ${t===active?'active':''}">${t}</span>`).join('');
+}
+function banner(icon, text, linkText, variant='warn', key){
+  return `<div class="mock-banner ${variant}"><span>${icon} ${text}</span>${linkText?`<span class="lnk" ${key?`data-key="${key}"`:''}>${linkText}</span>`:''}</div>`;
+}
+function card(title, sub, body){
+  return `<div class="mock-card"><h4>${title}</h4>${sub?`<p class="sub">${sub}</p>`:''}${body}</div>`;
+}
+function row(c1,c2,c3, badge, key){
+  return `<div class="mock-row" ${key?`data-key="${key}"`:''}><span class="c1">${c1}</span><span class="c2">${c2}</span><span class="c3">${c3}${badge||''}</span></div>`;
+}
+function btn(label, variant='', key){
+  return `<button class="mock-btn ${variant}" ${key?`data-key="${key}"`:''}>${label}</button>`;
+}
+function field(label, value){
+  return `<div class="mock-field" style="margin-bottom:9px;"><label>${label}</label><div class="mock-input">${value}</div></div>`;
+}
+function kv(label, value, bold){
+  return `<div class="kv"><span>${label}</span><b>${bold||value}</b></div>`;
+}
+function modal(title, body, key){
+  return `<div class="mock-modal-overlay" ${key?`data-key="${key}"`:''}><div class="mock-modal"><h5>${title}</h5>${body}</div></div>`;
+}
+function badge(text, variant){ return `<span class="mock-badge ${variant}">${text}</span>`; }
+
+/* ============ STEPS DATA ============ */
+const STEPS = [
+
+/* ===================== MODUL: KASIR ===================== */
+{
+  module:'kasir', code:'01', role:'Kasir', url:'login',
+  title:'Login & Pilih Peran',
+  desc:'Setiap kali aplikasi dibuka, kasir atau dokter login lewat jendela ini sesuai perannya masing-masing.',
+  bullets:['Pilih tab 🏪 Kasir atau 🩺 Dokter di bagian atas','Masukkan Nama & PIN yang sudah didaftarkan Admin','Akun Dokter tidak akan melihat area Kasir sama sekali'],
+  tabbar:['Login'], activeTab:'Login',
+  callout:{key:'login-tab', tag:'Langkah 1', text:'Pilih peran yang sesuai sebelum masuk PIN.'},
+  body: `
+    <div style="max-width:300px;margin:10px auto;">
+      ${`<div class="mock-tag-tabs" data-key="login-tab"><span class="active">🏪 Kasir</span><span>🩺 Dokter</span></div>`}
+      ${field('Nama Kasir','Ega')}
+      ${field('PIN','••••')}
+      ${btn('Masuk','primary')}
+    </div>`
+},
+{
+  module:'kasir', code:'02', role:'Kasir', url:'kasir/shift',
+  title:'Mulai Shift — Modal Awal Kas',
+  desc:'Begitu login, kasir mengisi jumlah uang tunai awal di laci. Angka ini jadi patokan rekonsiliasi saat tutup kasir nanti.',
+  bullets:['Isi nominal uang tunai fisik yang ada di laci saat mulai kerja','Kalau sebelumnya login sempat terputus, shift lama otomatis dilanjutkan — tidak perlu mulai dari nol','Transaksi yang sudah diproses selalu aman, terlepas dari status shift'],
+  tabbar:['Kasir'], activeTab:'Kasir',
+  body: `
+    ${modal('🧾 Mulai Bertugas', field('Modal Awal Kas (Rp)','500.000') + btn('Mulai Shift','primary'), 'shift-modal')}`,
+  callout:{key:'shift-modal', tag:'Setiap awal shift', text:'Diisi sekali di awal shift kasir.'},
+},
+{
+  module:'kasir', code:'03', role:'Kasir', url:'kasir',
+  title:'Beranda — Peringatan Stok Menipis',
+  desc:'Sistem otomatis memberi tahu kalau ada obat yang stoknya sudah di bawah batas minimum, lengkap dengan pintasan langsung ke daftarnya.',
+  bullets:['Klik "Cek Stok →" untuk langsung dibawa ke tab Stok Obat','Daftar otomatis tersaring hanya obat yang menipis — tidak perlu cari manual','Filter bisa dihapus kapan saja lewat tombol "Tampilkan Semua"'],
+  tabbar:['Kasir','Riwayat Transaksi','Stok Obat'], activeTab:'Kasir',
+  body: banner('⚠️','Ada 3 obat yang stoknya menipis, segera cek & restok.','Cek Stok →','warn','cek-stok')
+      + banner('⏳','2 obat mendekati tanggal kadaluarsa.','Cek Stok →','danger'),
+  callout:{key:'cek-stok', tag:'1 klik', text:'Langsung ke Stok Obat, tersaring otomatis.'},
+},
+{
+  module:'kasir', code:'04', role:'Kasir', url:'kasir',
+  title:'Beranda — Resep Menunggu dari Klinik',
+  desc:'Saat dokter selesai menulis resep di tab Klinik, resep itu otomatis muncul di sini untuk diproses menjadi transaksi kasir.',
+  bullets:['Klik "Proses ke Keranjang" — obat & aturan pakai otomatis masuk ke keranjang','Ikon 🏷️ untuk cetak label obat langsung, tanpa proses ke keranjang dulu','Ikon 🖨️ untuk cetak resep formal langsung dari sini'],
+  tabbar:['Kasir'], activeTab:'Kasir',
+  body: card('📋 Resep Menunggu Diproses dari Klinik','Resep baru dari dokter, siap diproses.',
+    row('drg. Amir (Klinik)','1 jenis obat — 09:12', '', btn('Proses ke Keranjang','primary','proses-resep'))
+  ),
+  callout:{key:'proses-resep', tag:'Otomatis', text:'Obat + aturan pakai langsung masuk keranjang.'},
+},
+{
+  module:'kasir', code:'05', role:'Kasir', url:'kasir',
+  title:'Transaksi Penjualan',
+  desc:'Inti dari tab Kasir — mencari obat, menambah ke keranjang, dan memproses pembayaran.',
+  bullets:['Ketik nama/kode obat di kolom pencarian, atau scan barcode langsung','Atur jumlah (qty) per item di keranjang','Tersedia opsi Item Custom untuk barang di luar daftar obat'],
+  tabbar:['Kasir'], activeTab:'Kasir',
+  body: `
+    ${field('Cari Obat','Paracetamol 500mg...')}
+    ${card('🛒 Keranjang', '',
+      row('Paracetamol 500mg','Qty 2','Rp 5.000') +
+      row('Vitamin C 1000mg','Qty 1','Rp 8.000') +
+      row('Total','', '<b>Rp 18.000</b>')
+    )}
+    <div data-key="proses-bayar">${btn('💳 Proses Bayar','primary')}</div>`,
+  callout:{key:'proses-bayar', tag:'Terakhir', text:'Struk otomatis tercetak lewat printer thermal.'},
+},
+{
+  module:'kasir', code:'06', role:'Kasir', url:'kasir',
+  title:'Split Payment — Kombinasi Metode Bayar',
+  desc:'Satu transaksi bisa dibayar dengan lebih dari satu metode sekaligus — misalnya sebagian tunai, sebagian debit.',
+  bullets:['Aktifkan toggle "Split Payment" saat checkout','Isi nominal per metode: Tunai, Debit, QRIS, dan/atau Kasbon','Total seluruh metode harus pas dengan total belanja'],
+  tabbar:['Kasir'], activeTab:'Kasir',
+  body: `
+    <div class="mock-grid" data-key="split-grid">
+      ${card('💵 Tunai','', field('Nominal','Rp 10.000'))}
+      ${card('💳 Debit','', field('Nominal','Rp 8.000'))}
+    </div>
+    ${btn('💳 Proses Bayar (Split)','primary')}`,
+  callout:{key:'split-grid', tag:'Fleksibel', text:'Tunai + Debit + QRIS + Kasbon bisa digabung.'},
+},
+{
+  module:'kasir', code:'07', role:'Kasir', url:'kasir/riwayat',
+  title:'Riwayat Transaksi — Lihat Detail',
+  desc:'Semua transaksi tersimpan rapi di sini. Klik baris mana saja untuk membuka rincian lengkapnya.',
+  bullets:['Klik di baris transaksi (di luar tombol aksi) untuk buka Detail Transaksi','Detail menampilkan item, diskon, metode bayar, kembalian, hingga riwayat retur','Bisa dicari berdasarkan No. Struk, atau pakai pintasan "7 Hari Terakhir"'],
+  tabbar:['Kasir','Riwayat Transaksi'], activeTab:'Riwayat Transaksi',
+  body: `
+    ${row('20260817-99830','17 Agu 2026 · Ega','Rp 11.500', badge('','ok'), 'row-trx')}
+    ${modal('🧾 Detail Transaksi', kv('No. Struk','20260817-99830') + kv('Kasir','Ega') + kv('Metode','Tunai') + kv('Total','Rp 11.500', 'Rp 11.500'), 'modal-detail')}`,
+  callout:{key:'row-trx', tag:'Klik baris', text:'Bukan tombolnya — klik di mana saja pada baris.'},
+},
+{
+  module:'kasir', code:'08', role:'Kasir', url:'kasir/riwayat',
+  title:'Retur & Batalkan Transaksi',
+  desc:'Kalau ada kesalahan input atau pengembalian barang, dua aksi ini tersedia langsung dari Riwayat Transaksi.',
+  bullets:['↩️ Retur — mengembalikan sebagian/seluruh item, stok otomatis dikembalikan. Perlu PIN Admin','🚫 Batalkan — membatalkan seluruh transaksi. Perlu PIN Hapus','Kedua aksi otomatis tercatat di Audit Log, lengkap dengan siapa & kapan'],
+  tabbar:['Riwayat Transaksi'], activeTab:'Riwayat Transaksi',
+  body: `
+    <div class="mock-row">
+      <span class="c1">20260817-79058</span>
+      <span class="c2">Tunai (Resep)</span>
+      <span class="c3" style="display:flex;gap:6px;justify-content:flex-end;" data-key="aksi-retur">
+        ${btn('↩️ Retur','ghost')}${btn('🚫 Batalkan','danger')}
+      </span>
+    </div>
+    ${modal('🔒 Masukkan PIN', field('PIN Admin / Hapus','••••') + btn('Konfirmasi','primary'), 'pin-modal')}`,
+  callout:{key:'pin-modal', tag:'Keamanan', text:'PIN Admin dan PIN Hapus sengaja dibedakan.'},
+},
+{
+  module:'kasir', code:'09', role:'Kasir', url:'kasir/pengeluaran',
+  title:'Riwayat Pengeluaran',
+  desc:'Mencatat pengeluaran kas harian di luar penjualan (mis. beli galon), tanpa perlu shift aktif.',
+  bullets:['+ Tambah Pengeluaran — isi jumlah & keterangan','✏️ Edit dan 🗑️ Hapus tersedia per baris — keduanya perlu PIN Hapus','Klik baris untuk melihat detail lengkapnya'],
+  tabbar:['Riwayat Pengeluaran'], activeTab:'Riwayat Pengeluaran',
+  body: `
+    <div style="text-align:right;margin-bottom:10px;">${btn('+ Tambah Pengeluaran','primary')}</div>
+    <div class="mock-row">
+      <span class="c1">Beli galon air</span>
+      <span class="c2">17 Agu · Ega</span>
+      <span class="c3" style="display:flex;gap:6px;justify-content:flex-end;" data-key="aksi-edit">
+        ${btn('✏️ Edit','ghost')}${btn('🗑️ Hapus','danger')}
+      </span>
+    </div>`,
+  callout:{key:'aksi-edit', tag:'Baru', text:'Fitur Edit pengeluaran — pakai PIN Hapus.'},
+},
+{
+  module:'kasir', code:'10', role:'Kasir', url:'kasir/stok',
+  title:'Stok Obat — Filter Cepat',
+  desc:'Kelola seluruh data obat: harga, stok, dan tanggal kadaluarsa, lengkap dengan pencarian & filter cepat.',
+  bullets:['Ketik nama/kategori/kode di kolom pencarian','Datang dari peringatan di Beranda? Daftar otomatis tersaring','Tombol "Tampilkan Semua ✕" untuk kembali melihat seluruh obat'],
+  tabbar:['Stok Obat'], activeTab:'Stok Obat',
+  body: `
+    ${banner('🔎','Menampilkan hanya obat dengan stok menipis.','Tampilkan Semua ✕','info','clear-filter')}
+    ${row('Paracetamol 500mg','Stok 4', '', badge('Menipis','low'))}
+    ${row('Amoxicillin 500mg','Stok 6', '', badge('Menipis','low'))}`,
+  callout:{key:'clear-filter', tag:'Baru', text:'Filter cepat stok menipis / kadaluarsa.'},
+},
+{
+  module:'kasir', code:'11', role:'Kasir', url:'kasir/piutang',
+  title:'Piutang / Kasbon',
+  desc:'Mengelola transaksi kasbon (utang pasien) beserta cicilan pembayarannya.',
+  bullets:['Setiap kasbon mencatat nama pasien, no. HP, dan sisa piutang','Tombol "Catat Pembayaran" untuk mencatat cicilan — otomatis mengurangi sisa piutang','Tanggal Jatuh Tempo bisa diedit kapan saja'],
+  tabbar:['Piutang'], activeTab:'Piutang',
+  body: `
+    ${row('Bu Sari','Sisa Rp 45.000', '', badge('Belum Lunas','soon'), 'row-piutang')}
+    <div style="text-align:right;margin-top:8px;" data-key="btn-cicil">${btn('💰 Catat Pembayaran','primary')}</div>`,
+  callout:{key:'btn-cicil', tag:'Cicilan', text:'Otomatis tercatat sebagai kas masuk tunai.'},
+},
+{
+  module:'kasir', code:'12', role:'Kasir', url:'kasir',
+  title:'Cetak Dokumen Terpusat',
+  desc:'Karena semua printer terhubung ke komputer Kasir, semua kebutuhan cetak dipusatkan di satu kartu ini.',
+  bullets:['Cari & pilih pasien, lalu pilih resep yang menunggu (jika ada)','Isi Nama Dokter / Diagnosa untuk surat sakit atau rujukan','4 pilihan cetak: Label Obat, Resep Formal, Surat Sakit, Surat Rujukan'],
+  tabbar:['Kasir'], activeTab:'Kasir',
+  body: card('🖨️ Cetak Dokumen (Label / Resep / Surat)','Semua cetak-mencetak dipusatkan di sini.',
+    field('Cari Pasien','Bu Sari') +
+    `<div style="display:flex;gap:6px;flex-wrap:wrap;" data-key="print-buttons">
+      ${btn('🏷️ Cetak Label Obat','primary')}${btn('🖨️ Resep Formal','ghost')}${btn('📄 Surat Sakit','ghost')}
+    </div>`),
+  callout:{key:'print-buttons', tag:'Label baru', text:'Format label kini termasuk usia & indikasi.'},
+},
+{
+  module:'kasir', code:'13', role:'Kasir', url:'kasir',
+  title:'Tutup Kasir / Ganti Kasir',
+  desc:'Di akhir shift, rekonsiliasi kas dilakukan lewat tombol "Ganti Kasir" di pojok kanan atas.',
+  bullets:['Sistem menghitung Kas Seharusnya berdasarkan transaksi & cicilan tunai','Isi Uang Tunai Fisik di laci — selisih otomatis dihitung','Riwayat semua penutupan shift tersimpan di Pengaturan'],
+  tabbar:['Kasir'], activeTab:'Kasir',
+  body: modal('🔁 Tutup Kasir & Ganti',
+    kv('Modal Awal','Rp 500.000') + kv('Kas Seharusnya','Rp 812.500') + field('Uang Tunai Fisik','Rp 812.500') + btn('Tutup Kasir & Ganti','primary'),
+    'tutup-modal'),
+  callout:{key:'tutup-modal', tag:'Akhir shift', text:'Selisih kas langsung terlihat sebelum ditutup.'},
+},
+
+/* ===================== MODUL: KLINIK ===================== */
+{
+  module:'klinik', code:'14', role:'Dokter', url:'login',
+  title:'Login sebagai Dokter',
+  desc:'Dokter login dengan akun terpisah dari kasir dan langsung diarahkan ke area Klinik saja.',
+  bullets:['Pilih tab 🩺 Dokter saat login','Area Kasir otomatis disembunyikan — dokter tidak perlu buka/tutup shift','Setiap dokter punya nama & PIN sendiri, diatur Admin'],
+  tabbar:['Login'], activeTab:'Login',
+  body: `
+    <div style="max-width:300px;margin:10px auto;">
+      <div class="mock-tag-tabs" data-key="dokter-tab"><span>🏪 Kasir</span><span class="active">🩺 Dokter</span></div>
+      ${field('Nama Dokter','drg. Amir')}
+      ${field('PIN','••••')}
+      ${btn('Masuk','primary')}
+    </div>`,
+  callout:{key:'dokter-tab', tag:'Peran terpisah', text:'Login dokter tidak melihat area Kasir.'},
+},
+{
+  module:'klinik', code:'15', role:'Dokter', url:'klinik/pasien',
+  title:'Data Pasien',
+  desc:'Menyimpan seluruh data pasien lengkap dengan Nomor Rekam Medis (No. RM) yang dibuat otomatis.',
+  bullets:['+ Tambah Pasien untuk pendaftaran pasien baru','Import Excel untuk memasukkan banyak pasien / riwayat kunjungan lama sekaligus','Gunakan tombol Template Import agar format kolom pasti benar'],
+  tabbar:['Klinik','Pasien'], activeTab:'Pasien',
+  body: `
+    <div style="text-align:right;margin-bottom:10px;">${btn('+ Tambah Pasien','primary')}${btn(' ⬆️ Import Excel','ghost')}</div>
+    ${row('Bu Sari — RM0012','Wanita, 42 th','Alergi: -')}
+    ${row('Pak Budi — RM0013','Pria, 55 th','Alergi: Amoxicillin')}`,
+},
+{
+  module:'klinik', code:'16', role:'Dokter', url:'klinik/booking',
+  title:'Booking / Jadwal Kunjungan',
+  desc:'Menjadwalkan kunjungan pasien di tanggal manapun, tidak harus hari ini.',
+  bullets:['Cari & pilih pasien yang sudah terdaftar','Pilih tanggal kunjungan yang direncanakan','Saat hari-H tiba, banner "Jadikan Antrian" muncul otomatis di tab Antrian'],
+  tabbar:['Booking'], activeTab:'Booking',
+  body: card('📅 Booking Baru','', field('Pasien','Bu Sari') + field('Tanggal Kunjungan','20 Agustus 2026') + btn('Simpan Booking','primary')),
+},
+{
+  module:'klinik', code:'17', role:'Dokter', url:'klinik/antrian',
+  title:'Antrian Klinik',
+  desc:'Menampilkan antrian pasien hari ini dengan status berjalan: Menunggu → Diperiksa → Selesai.',
+  bullets:['"Daftarkan Pasien ke Antrian" untuk pasien walk-in (datang langsung)','Klik nama pasien saat gilirannya untuk membuka Rekam Medis','Status otomatis berubah mengikuti tahap pemeriksaan'],
+  tabbar:['Antrian'], activeTab:'Antrian',
+  body: `
+    ${row('1. Bu Sari','RM0012', '', badge('Menunggu','soon'), 'row-antrian')}
+    ${row('2. Pak Budi','RM0013', '', badge('Diperiksa','ok'))}`,
+  callout:{key:'row-antrian', tag:'Klik nama', text:'Membuka Rekam Medis pasien ini.'},
+},
+{
+  module:'klinik', code:'18', role:'Dokter', url:'klinik/rme',
+  title:'Rekam Medis (RME) & Tulis Resep',
+  desc:'Tempat dokter mencatat hasil pemeriksaan dan menuliskan resep obat lengkap dengan aturan pakainya.',
+  bullets:['Isi vital signs: tensi, suhu, nadi, BB, TB','Tulis Diagnosa & Keluhan, serta Jadwal Kontrol Berikutnya jika perlu','Tambahkan obat ke Keranjang Resep beserta Aturan Pakai (mis. "3x1 sesudah makan")'],
+  tabbar:['Antrian'], activeTab:'Antrian',
+  body: `
+    <div class="mock-grid" style="margin-bottom:10px;">
+      ${field('Tensi','120/80')}${field('Suhu','36.8°C')}
+    </div>
+    ${field('Diagnosa','ISPA ringan')}
+    ${card('💊 Keranjang Resep','', row('Amoxicillin 500mg','3x1 sesudah makan','Qty 10'))}`,
+},
+{
+  module:'klinik', code:'19', role:'Dokter', url:'klinik/rme',
+  title:'Kirim Resep ke Kasir & Cetak Surat',
+  desc:'Setelah resep selesai ditulis, kirimkan ke Kasir untuk diproses jadi transaksi, atau cetak dokumen resmi langsung.',
+  bullets:['"Kirim Resep ke Kasir" — resep otomatis muncul di kartu Resep Menunggu Kasir','🏷️ Cetak Label Obat bisa langsung dari sini bila dokter punya printer sendiri','Tersedia juga cetak Resep Formal, Surat Sakit, dan Surat Rujukan A4 bernomor otomatis'],
+  tabbar:['Antrian'], activeTab:'Antrian',
+  body: `<div data-key="kirim-resep" style="display:flex;gap:6px;flex-wrap:wrap;">
+      ${btn('📤 Kirim Resep ke Kasir','primary')}${btn('🏷️ Cetak Label','ghost')}${btn('📄 Surat Rujukan','ghost')}
+    </div>`,
+  callout:{key:'kirim-resep', tag:'Penghubung', text:'Menyatukan alur Klinik dengan Kasir.'},
+},
+
+/* ===================== MODUL: PENGATURAN ===================== */
+{
+  module:'admin', code:'20', role:'Admin', url:'pengaturan',
+  title:'PIN Admin & PIN Hapus',
+  desc:'Aplikasi memakai 2 lapis PIN dengan kegunaan berbeda demi keamanan data.',
+  bullets:['PIN Admin — untuk masuk area Admin, edit stok, retur, kelola akun','PIN Hapus — khusus aksi menghapus/mengubah data sensitif secara permanen','Kedua PIN wajib berbeda, dan sebaiknya segera diganti dari nilai default'],
+  tabbar:['Pengaturan'], activeTab:'Pengaturan',
+  body: card('🔐 Ubah PIN Admin','', field('PIN Admin Baru','••••') + btn('Simpan','primary'))
+      + card('🗑️ Ubah PIN Hapus','', field('PIN Hapus Baru','••••') + btn('Simpan','danger')),
+},
+{
+  module:'admin', code:'21', role:'Admin', url:'pengaturan',
+  title:'Akun Kasir & Dokter',
+  desc:'Admin mendaftarkan siapa saja yang boleh login sebagai kasir atau dokter, lengkap dengan PIN masing-masing.',
+  bullets:['Minimal harus ada satu akun kasir agar kasir bisa login','Setiap akun bisa dihapus kapan saja — perlu PIN Hapus','Nama akun ini yang akan tercatat di setiap transaksi & audit log'],
+  tabbar:['Pengaturan'], activeTab:'Pengaturan',
+  body: card('👤 Akun Kasir','', row('Ega','Aktif','') + row('Rani','Aktif','') + btn('+ Tambah Akun Kasir','primary')),
+},
+{
+  module:'admin', code:'22', role:'Admin', url:'pengaturan',
+  title:'Notifikasi & Pengingat Telegram',
+  desc:'Aplikasi bisa mengirim notifikasi otomatis ke Telegram untuk beberapa kejadian penting.',
+  bullets:['Stok menipis/kadaluarsa, ringkasan penjualan, piutang jatuh tempo, jadwal kontrol pasien','Isi Token Bot & Chat ID, lalu aktifkan toggle yang diinginkan','Gunakan tombol "Tes Kirim" untuk memastikan pesan berhasil sebelum diandalkan'],
+  tabbar:['Pengaturan'], activeTab:'Pengaturan',
+  body: card('📨 Pengingat Otomatis via Telegram','',
+    field('Token Bot','123456:AAExxxxxxx') + field('Chat ID','-1001234567')
+    + `<div style="display:flex;gap:6px;">${btn('Tes Kirim','ghost')}${btn('Simpan','primary')}</div>`),
+},
+{
+  module:'admin', code:'23', role:'Admin', url:'pengaturan',
+  title:'Backup Data Otomatis',
+  desc:'Menjaga data tetap aman lewat backup harian otomatis, sebagai jaring pengaman tambahan di luar sinkronisasi cloud.',
+  bullets:['Backup Otomatis Harian dikirim ke Telegram 1x sehari','Tombol Backup Manual tersedia untuk kirim kapan saja','Data bisa dipulihkan kembali lewat menu Pemulihan (perlu PIN Admin)'],
+  tabbar:['Pengaturan'], activeTab:'Pengaturan',
+  body: card('💾 Backup Data Otomatis','Terkirim otomatis 1x sehari ke Telegram.',
+    `<div style="display:flex;gap:6px;">${btn('📤 Kirim Backup Sekarang','primary')}${btn('♻️ Pulihkan dari Backup','ghost')}</div>`),
+},
+];
+
+/* ============ RUNTIME ============ */
+const MODULES = [
+  {key:'kasir', label:'🏪 Kasir & Apotek'},
+  {key:'klinik', label:'🩺 Klinik'},
+  {key:'admin', label:'⚙️ Pengaturan'},
+];
+
+let currentModule = 'kasir';
+let currentIndex = 0; // index within STEPS global array
+
+function stepsOf(mod){ return STEPS.filter(s=>s.module===mod); }
+function globalIndex(step){ return STEPS.indexOf(step); }
+
+function renderModuleSwitch(){
+  const el = document.getElementById('moduleSwitch');
+  el.innerHTML = MODULES.map(m=>`<button data-mod="${m.key}" class="${m.key===currentModule?'active':''}">${m.label}</button>`).join('');
+  el.querySelectorAll('button').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      currentModule = b.dataset.mod;
+      const first = stepsOf(currentModule)[0];
+      goTo(globalIndex(first));
+    });
+  });
+}
+
+function renderStepNav(){
+  const el = document.getElementById('stepNav');
+  const list = stepsOf(currentModule);
+  el.innerHTML = list.map(s=>{
+    const gi = globalIndex(s);
+    return `<button class="step-nav ${gi===currentIndex?'active':''}" data-gi="${gi}">
+      <span class="tag">${s.code}</span><span class="lbl">${s.title}</span>
+    </button>`;
+  }).join('');
+  el.querySelectorAll('.step-nav').forEach(b=>{
+    b.addEventListener('click', ()=> goTo(parseInt(b.dataset.gi)));
+  });
+}
+
+function renderDots(){
+  const el = document.getElementById('dots');
+  const list = stepsOf(currentModule);
+  el.innerHTML = list.map(s=>{
+    const gi = globalIndex(s);
+    return `<span class="${gi===currentIndex?'active':''}" data-gi="${gi}"></span>`;
+  }).join('');
+  el.querySelectorAll('span').forEach(d=>{
+    d.addEventListener('click', ()=> goTo(parseInt(d.dataset.gi)));
+  });
+}
+
+function renderProgress(){
+  const list = stepsOf(currentModule);
+  const posInModule = list.findIndex(s=>globalIndex(s)===currentIndex);
+  const pct = ((posInModule+1)/list.length)*100;
+  document.getElementById('progressBar').style.width = pct+'%';
+}
+
+function positionCallout(step){
+  const bubble = document.getElementById('callout');
+  const tagEl = document.getElementById('calloutTag');
+  const textEl = document.getElementById('calloutText');
+  const wrap = document.querySelector('.frame-wrap');
+  if(!step.callout){ bubble.style.display='none'; return; }
+  const target = document.querySelector(`[data-key="${step.callout.key}"]`);
+  if(!target){ bubble.style.display='none'; return; }
+  tagEl.textContent = step.callout.tag;
+  textEl.textContent = step.callout.text;
+  bubble.style.display='block';
+  const wrapRect = wrap.getBoundingClientRect();
+  const tRect = target.getBoundingClientRect();
+  let top = tRect.bottom - wrapRect.top + 12;
+  let left = tRect.left - wrapRect.left;
+  const maxLeft = wrapRect.width - 220;
+  if(left>maxLeft) left = maxLeft;
+  if(left<8) left = 8;
+  bubble.style.top = top+'px';
+  bubble.style.left = left+'px';
+}
+
+function renderStage(step){
+  document.getElementById('chromeUrl').textContent = 'apotekmasema.github.io/'+step.url;
+  document.getElementById('roleBadge').textContent = step.role;
+  document.getElementById('appTabbar').innerHTML = tabs(step.tabbar, step.activeTab);
+  document.getElementById('appBody').innerHTML = step.body;
+
+  document.querySelectorAll('[data-key]').forEach(el=>el.classList.remove('spot'));
+  if(step.callout){
+    const t = document.querySelector(`[data-key="${step.callout.key}"]`);
+    if(t) t.classList.add('spot');
+  }
+}
+
+function renderCaption(step){
+  document.getElementById('rxLabel').textContent = 'No. '+step.code;
+  document.getElementById('moduleLbl').textContent = MODULES.find(m=>m.key===step.module).label;
+  document.getElementById('stepTitle').textContent = step.title;
+  document.getElementById('stepDesc').textContent = step.desc;
+  document.getElementById('stepBullets').innerHTML = step.bullets.map(b=>`<li>${b}</li>`).join('');
+}
+
+function renderNavButtons(){
+  const list = stepsOf(currentModule);
+  const posInModule = list.findIndex(s=>globalIndex(s)===currentIndex);
+  document.getElementById('btnPrev').disabled = posInModule<=0;
+  const isLast = posInModule>=list.length-1;
+  const nextBtn = document.getElementById('btnNext');
+  const isLastModule = MODULES[MODULES.length-1].key===currentModule;
+  nextBtn.disabled = isLast && isLastModule;
+  nextBtn.textContent = isLast ? (isLastModule? 'Selesai ✓' : 'Modul Berikutnya →') : 'Berikutnya →';
+}
+
+function goTo(gi){
+  currentIndex = gi;
+  currentModule = STEPS[gi].module;
+  const step = STEPS[gi];
+  renderModuleSwitch();
+  renderStepNav();
+  renderDots();
+  renderProgress();
+  renderStage(step);
+  renderCaption(step);
+  renderNavButtons();
+  requestAnimationFrame(()=> setTimeout(()=>positionCallout(step), 60));
+  document.querySelector('main.stage').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+document.getElementById('btnPrev').addEventListener('click', ()=>{
+  const list = stepsOf(currentModule);
+  const pos = list.findIndex(s=>globalIndex(s)===currentIndex);
+  if(pos>0) goTo(globalIndex(list[pos-1]));
+});
+document.getElementById('btnNext').addEventListener('click', ()=>{
+  const list = stepsOf(currentModule);
+  const pos = list.findIndex(s=>globalIndex(s)===currentIndex);
+  if(pos<list.length-1){ goTo(globalIndex(list[pos+1])); return; }
+  const mi = MODULES.findIndex(m=>m.key===currentModule);
+  if(mi<MODULES.length-1){
+    const nextMod = MODULES[mi+1].key;
+    goTo(globalIndex(stepsOf(nextMod)[0]));
+  }
+});
+document.addEventListener('keydown', e=>{
+  if(e.key==='ArrowRight') document.getElementById('btnNext').click();
+  if(e.key==='ArrowLeft') document.getElementById('btnPrev').click();
+});
+window.addEventListener('resize', ()=> positionCallout(STEPS[currentIndex]));
+
+goTo(0);
+</script>
+</body>
+</html>

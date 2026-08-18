@@ -118,6 +118,7 @@
   .btn-sm{padding:6px 10px;font-size:12px;border-radius:7px;}
   .btn-block{width:100%;}
   .btn:disabled{opacity:.5;cursor:default;}
+  a.btn{display:inline-flex;align-items:center;gap:5px;text-decoration:none;}
 
   table{width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
   thead th{
@@ -330,6 +331,7 @@
     <button class="area-tab" data-area="klinik">🏥 Klinik</button>
   </nav>
   <button class="conn-badge" id="connStatusBadge" title="Klik untuk buka pengaturan sinkronisasi cloud"></button>
+  <a class="btn btn-sm" id="btnPanduan" href="panduan-interaktif.html" target="_blank" rel="noopener" title="Buka panduan interaktif cara pakai aplikasi">❓ Panduan</a>
   <div class="kasir-session" id="kasirSessionBadge" style="display:none;">
     <span class="name" id="kasirSessionName"></span>
     <button class="btn btn-sm" id="btnPengeluaran">💸 Pengeluaran</button>
@@ -1048,6 +1050,12 @@
 
   <!-- ===== TAB PENGATURAN ===== -->
   <section class="tab-panel" id="tab-pengaturan">
+    <h2>❓ Panduan Penggunaan</h2>
+    <div class="card">
+      <p class="section-hint" style="margin-top:0;">Bingung cara pakai fitur tertentu? Buka panduan interaktif langkah demi langkah untuk Kasir, Klinik, dan Pengaturan.</p>
+      <a class="btn btn-primary" href="panduan-interaktif.html" target="_blank" rel="noopener">📖 Buka Panduan Interaktif</a>
+    </div>
+
     <h2>Identitas Apotek (untuk struk)</h2>
     <div class="card">
       <div class="form-grid">
