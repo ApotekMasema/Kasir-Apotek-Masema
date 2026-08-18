@@ -1683,6 +1683,25 @@
   </div>
 </div>
 
+<div class="modal-overlay hidden" id="editPengeluaranModal">
+  <div class="modal">
+    <h3>✏️ Edit Pengeluaran</h3>
+    <p class="section-hint" id="editPengeluaranSubtitle">Transaksi -</p>
+    <div class="form-grid" style="margin-bottom:8px;">
+      <div class="field">
+        <label>Jumlah (Rp)</label>
+        <input type="number" id="editPengeluaranJumlah" min="0" placeholder="0" style="text-align:left;letter-spacing:normal;font-size:15px;">
+      </div>
+      <div class="field full">
+        <label>Keterangan</label>
+        <input type="text" id="editPengeluaranKeterangan" placeholder="Contoh: beli galon air">
+      </div>
+    </div>
+    <button class="btn btn-primary btn-block" id="btnSimpanEditPengeluaran">Simpan Perubahan</button>
+    <button class="cancel" id="btnBatalEditPengeluaran">Batal</button>
+  </div>
+</div>
+
 <div class="modal-overlay hidden" id="shiftOpenModal">
   <div class="modal">
     <h3>🧾 Mulai Bertugas</h3>
@@ -5889,7 +5908,10 @@ function buildPengeluaranRows(rows){
       <td>${escapeHtml(p.keterangan||'-')}</td>
       <td>${escapeHtml(p.kasir||'-')}</td>
       <td class="num">${rupiah(p.jumlah)}</td>
-      <td><button class="btn btn-sm btn-danger btn-rp-hapus" data-tanggal="${p.tanggal}" data-id="${p.id}">🗑️ Hapus</button></td>
+      <td>
+        <button class="btn btn-sm btn-rp-edit" data-tanggal="${p.tanggal}" data-id="${p.id}">✏️ Edit</button>
+        <button class="btn btn-sm btn-danger btn-rp-hapus" data-tanggal="${p.tanggal}" data-id="${p.id}">🗑️ Hapus</button>
+      </td>
     </tr>`).join('');
 }
 function wireRpActions(){
@@ -5904,6 +5926,17 @@ function wireRpActions(){
         renderRiwayatPengeluaran();
       };
       openPinModal('Masukkan PIN Hapus untuk menghapus pengeluaran ini.', 'hapus');
+    });
+  });
+  document.querySelectorAll('.btn-rp-edit').forEach(b=>{
+    b.addEventListener('click', e=>{
+      e.stopPropagation();
+      const tanggal = e.target.dataset.tanggal;
+      const id = e.target.dataset.id;
+      const p = rpCache.rows.find(x=>x.id===id && x.tanggal===tanggal);
+      if(!p) return;
+      pinCallback = ()=>openEditPengeluaranModal(p);
+      openPinModal('Masukkan PIN Hapus untuk mengedit pengeluaran ini.', 'hapus');
     });
   });
   document.querySelectorAll('tr[data-detail-pengeluaran-id]').forEach(tr=>{
@@ -5925,6 +5958,40 @@ function openDetailPengeluaranModal(p){
 }
 document.getElementById('btnTutupDetailPengeluaran').addEventListener('click', ()=>{
   document.getElementById('detailPengeluaranModal').classList.add('hidden');
+});
+
+let editPengeluaranTarget = null;
+function openEditPengeluaranModal(p){
+  editPengeluaranTarget = p;
+  document.getElementById('editPengeluaranSubtitle').textContent = `${fmtDateFull(parseDateInput(p.tanggal))} ${p.waktu} — dicatat oleh ${p.kasir||'-'}`;
+  document.getElementById('editPengeluaranJumlah').value = p.jumlah || 0;
+  document.getElementById('editPengeluaranKeterangan').value = p.keterangan || '';
+  document.getElementById('editPengeluaranModal').classList.remove('hidden');
+}
+document.getElementById('btnBatalEditPengeluaran').addEventListener('click', ()=>{
+  document.getElementById('editPengeluaranModal').classList.add('hidden');
+  editPengeluaranTarget = null;
+});
+document.getElementById('btnSimpanEditPengeluaran').addEventListener('click', async ()=>{
+  if(!editPengeluaranTarget) return;
+  const jumlahBaru = Math.floor(Number(document.getElementById('editPengeluaranJumlah').value))||0;
+  const keteranganBaru = document.getElementById('editPengeluaranKeterangan').value.trim();
+  if(jumlahBaru <= 0){ toast('Isi jumlah pengeluaran terlebih dahulu.', true); return; }
+  if(!keteranganBaru){ toast('Isi keterangan pengeluaran.', true); return; }
+
+  const { tanggal, id, jumlah: jumlahLama, keterangan: keteranganLama } = editPengeluaranTarget;
+  const existing = await sGet('pengeluaran/' + tanggal) || {};
+  if(!existing[id]){ toast('Data pengeluaran tidak ditemukan (mungkin sudah dihapus).', true); document.getElementById('editPengeluaranModal').classList.add('hidden'); return; }
+  existing[id].jumlah = jumlahBaru;
+  existing[id].keterangan = keteranganBaru;
+  await sSet('pengeluaran/' + tanggal, existing);
+  pushPathToCloud('pengeluaran/' + tanggal);
+
+  logAudit('Edit Pengeluaran', `${keteranganLama||'-'} (${rupiah(jumlahLama)}) diubah menjadi ${keteranganBaru} (${rupiah(jumlahBaru)})`);
+  toast('Pengeluaran berhasil diubah ✓');
+  document.getElementById('editPengeluaranModal').classList.add('hidden');
+  editPengeluaranTarget = null;
+  renderRiwayatPengeluaran();
 });
 async function renderRiwayatPengeluaran(){
   const startVal = document.getElementById('rpStart').value;
