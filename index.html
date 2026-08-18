@@ -841,6 +841,11 @@
     <h2>Stok Obat</h2>
     <p class="section-hint">Kelola daftar obat, harga, dan jumlah stok.</p>
 
+    <div class="banner-alert hidden" id="stokFilterActiveBanner" style="background:#EAF3F1;border-color:#0E4A41;color:#0E4A41;">
+      <span id="stokFilterActiveText"></span>
+      <button class="link-btn" id="btnClearStokFilter">Tampilkan Semua ✕</button>
+    </div>
+
     <div class="toolbar">
       <div class="field search-inline">
         <label>Cari Obat</label>
@@ -4577,12 +4582,41 @@ function updateKasirBanners(){
   pinBanner.classList.toggle('hidden', adminPin !== '1234');
 }
 
+let stokQuickFilter = null; // null | 'menipis' | 'kadaluarsa'
+
+function isObatKadaluarsaAtauSegera(o){
+  if(!o.kadaluarsa) return false;
+  const d = parseDateInput(o.kadaluarsa);
+  if(isNaN(d)) return false;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const batas = new Date(today); batas.setDate(batas.getDate()+30);
+  return d <= batas;
+}
+
+function updateStokFilterBanner(){
+  const banner = document.getElementById('stokFilterActiveBanner');
+  const text = document.getElementById('stokFilterActiveText');
+  if(stokQuickFilter === 'menipis'){
+    text.textContent = '🔎 Menampilkan hanya obat dengan stok menipis.';
+    banner.classList.remove('hidden');
+  } else if(stokQuickFilter === 'kadaluarsa'){
+    text.textContent = '🔎 Menampilkan hanya obat kadaluarsa / akan kadaluarsa dalam 30 hari.';
+    banner.classList.remove('hidden');
+  } else {
+    banner.classList.add('hidden');
+  }
+}
+
 function renderStokTable(){
   const q = (document.getElementById('stokSearch').value||'').toLowerCase();
   const body = document.getElementById('stokBody');
-  const list = obatList.filter(o=>
-    !q || (o.nama||'').toLowerCase().includes(q) || (o.kategori||'').toLowerCase().includes(q) || (o.kode||'').toLowerCase().includes(q)
-  ).sort((a,b)=>(a.nama||'').localeCompare(b.nama||''));
+  updateStokFilterBanner();
+  const list = obatList.filter(o=>{
+    if(!(!q || (o.nama||'').toLowerCase().includes(q) || (o.kategori||'').toLowerCase().includes(q) || (o.kode||'').toLowerCase().includes(q))) return false;
+    if(stokQuickFilter === 'menipis' && !(Number(o.stok||0) <= Number(o.stokMin||pengaturan.stokMinDefault))) return false;
+    if(stokQuickFilter === 'kadaluarsa' && !isObatKadaluarsaAtauSegera(o)) return false;
+    return true;
+  }).sort((a,b)=>(a.nama||'').localeCompare(b.nama||''));
 
   if(list.length===0){
     body.innerHTML = `<tr><td colspan="9" class="muted" style="padding:20px;text-align:center;">Belum ada data obat.</td></tr>`;
@@ -6570,8 +6604,20 @@ async function pulihkanBackup(data){
   logAudit('Pulihkan dari Backup', `File backup dibuat: ${data.dibuat || '-'} (${(data.obat||[]).length} obat, ${Object.keys(data.transaksi||{}).length} hari transaksi ditimpa)`);
   toast('Data berhasil dipulihkan dari backup ✓');
 }
-document.getElementById('btnGoStokMenipis').addEventListener('click', ()=> goToTab('stok'));
-document.getElementById('btnGoKadaluarsa').addEventListener('click', ()=> goToTab('stok'));
+document.getElementById('btnGoStokMenipis').addEventListener('click', ()=>{
+  stokQuickFilter = 'menipis';
+  document.getElementById('stokSearch').value = '';
+  goToTab('stok');
+});
+document.getElementById('btnGoKadaluarsa').addEventListener('click', ()=>{
+  stokQuickFilter = 'kadaluarsa';
+  document.getElementById('stokSearch').value = '';
+  goToTab('stok');
+});
+document.getElementById('btnClearStokFilter').addEventListener('click', ()=>{
+  stokQuickFilter = null;
+  renderStokTable();
+});
 document.getElementById('btnGoPengaturanPin').addEventListener('click', ()=> goToTab('pengaturan'));
 
 const TAB_AREA = { kasir:'kasir', riwayat:'kasir', riwayatPengeluaran:'kasir', stok:'kasir', resep:'kasir', piutang:'kasir', laporan:'kasir', pengaturan:'kasir', pasien:'klinik', booking:'klinik', antrian:'klinik', laporanKlinik:'klinik' };
