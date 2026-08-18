@@ -138,6 +138,15 @@
   tr.row-void{opacity:0.55;}
   tr.row-void td{text-decoration:line-through;}
   tr.row-void td:last-child{text-decoration:none;}
+  tr.row-clickable{cursor:pointer;}
+  tr.row-clickable:hover td{background:var(--primary-soft);}
+  .detail-modal-table{width:100%;border-collapse:collapse;margin:10px 0;font-size:13px;}
+  .detail-modal-table th,.detail-modal-table td{padding:7px 8px;border-bottom:1px solid var(--border);text-align:left;}
+  .detail-modal-table th{background:#F5F7F6;font-weight:700;}
+  .detail-modal-table td.num, .detail-modal-table th.num{text-align:right;}
+  .detail-kv{display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px dashed var(--border);font-size:13px;}
+  .detail-kv .k{color:var(--muted, var(--ink-soft));}
+  .detail-kv .v{font-weight:700;text-align:right;}
   tr.row-subtotal td{border-top:2px solid var(--border);background:var(--surface-alt,#F5F3EE);}
 
   .empty-state{border:1px dashed var(--border);border-radius:var(--radius);padding:34px;text-align:center;color:var(--ink-soft);}
@@ -1651,6 +1660,26 @@
     </div>
     <button class="btn btn-primary btn-block" id="btnProsesRetur" style="margin-top:12px;">Proses Retur</button>
     <button class="cancel" id="btnBatalRetur">Batal</button>
+  </div>
+</div>
+
+<div class="modal-overlay hidden" id="detailTrxModal">
+  <div class="modal wide" style="text-align:left;max-height:85vh;overflow-y:auto;">
+    <h3 style="text-align:center;">🧾 Detail Transaksi</h3>
+    <p class="section-hint" id="detailTrxSubtitle" style="text-align:center;">-</p>
+    <div id="detailTrxInfo"></div>
+    <div id="detailTrxItemsWrap"></div>
+    <div id="detailTrxBayar"></div>
+    <div id="detailTrxReturLog"></div>
+    <button class="cancel" id="btnTutupDetailTrx" style="margin-top:10px;">Tutup</button>
+  </div>
+</div>
+
+<div class="modal-overlay hidden" id="detailPengeluaranModal">
+  <div class="modal" style="text-align:left;">
+    <h3 style="text-align:center;">🧾 Detail Pengeluaran</h3>
+    <div id="detailPengeluaranInfo"></div>
+    <button class="cancel" id="btnTutupDetailPengeluaran" style="margin-top:10px;">Tutup</button>
   </div>
 </div>
 
@@ -5705,7 +5734,7 @@ function buildRiwayatRows(rows){
     const isVoid = !!r.dibatalkan;
     const adaRetur = (r.returLog||[]).length > 0;
     return `
-    <tr class="${isVoid?'row-void':''}">
+    <tr class="row-clickable ${isVoid?'row-void':''}" data-detail-nostruk="${r.noStruk}">
       <td>${fmtDateFull(parseDateInput(r.tanggal))} ${r.waktu}</td>
       <td>${r.noStruk} ${isVoid?'<span class="tag tag-low">Dibatalkan</span>':''} ${adaRetur?'<span class="tag tag-soon">Retur Sebagian</span>':''} ${r.diskon?'<span class="tag tag-ok">Diskon</span>':''}</td>
       <td>${escapeHtml(r.kasir||'-')}</td>
@@ -5722,25 +5751,102 @@ function buildRiwayatRows(rows){
 }
 function wireRiwayatActions(){
   document.querySelectorAll('.btn-riwayat-reprint').forEach(b=>{
-    b.addEventListener('click', e=>reprintTrxFrom(riwayatCache.rows, e.target.dataset.nostruk));
+    b.addEventListener('click', e=>{ e.stopPropagation(); reprintTrxFrom(riwayatCache.rows, e.target.dataset.nostruk); });
   });
   document.querySelectorAll('.btn-riwayat-label').forEach(b=>{
-    b.addEventListener('click', e=>cetakLabelDariRiwayat(riwayatCache.rows, e.target.dataset.nostruk));
+    b.addEventListener('click', e=>{ e.stopPropagation(); cetakLabelDariRiwayat(riwayatCache.rows, e.target.dataset.nostruk); });
   });
   document.querySelectorAll('.btn-riwayat-retur').forEach(b=>{
     b.addEventListener('click', e=>{
+      e.stopPropagation();
       const trx = riwayatCache.rows.find(r=>r.noStruk===e.target.dataset.nostruk);
       if(trx) openReturModal(trx, ()=>renderRiwayat());
     });
   });
   document.querySelectorAll('.btn-riwayat-batalkan').forEach(b=>{
     b.addEventListener('click', e=>{
+      e.stopPropagation();
       const noStruk = e.target.dataset.nostruk;
       pinCallback = ()=>batalkanTrxRiwayat(noStruk);
       openPinModal('Masukkan PIN Hapus untuk membatalkan transaksi ini.', 'hapus');
     });
   });
+  document.querySelectorAll('tr[data-detail-nostruk]').forEach(tr=>{
+    tr.addEventListener('click', ()=>{
+      const trx = riwayatCache.rows.find(r=>r.noStruk===tr.dataset.detailNostruk);
+      if(trx) openDetailTrxModal(trx);
+    });
+  });
 }
+
+function openDetailTrxModal(trx){
+  const isVoid = !!trx.dibatalkan;
+  document.getElementById('detailTrxSubtitle').innerHTML = `No. Struk <strong>${trx.noStruk}</strong> — ${fmtDateFull(parseDateInput(trx.tanggal))} ${trx.waktu} ${isVoid?'<span class="tag tag-low">Dibatalkan</span>':''}`;
+
+  let infoHtml = `
+    <div class="detail-kv"><span class="k">Kasir</span><span class="v">${escapeHtml(trx.kasir||'-')}</span></div>
+  `;
+  if(trx.pakaiResep){
+    infoHtml += `
+    <div class="detail-kv"><span class="k">Dokter</span><span class="v">${escapeHtml(trx.dokter||'-')}</span></div>
+    <div class="detail-kv"><span class="k">Pasien</span><span class="v">${escapeHtml(trx.pasien||'-')}</span></div>`;
+  }
+  document.getElementById('detailTrxInfo').innerHTML = infoHtml;
+
+  const items = trx.items||[];
+  let itemsHtml = `<table class="detail-modal-table"><thead><tr>
+    <th>Nama Item</th><th class="num">Qty</th><th class="num">Harga</th><th class="num">Subtotal</th>
+  </tr></thead><tbody>`;
+  items.forEach(it=>{
+    const qtyRetur = Number(it.qtyRetur||0);
+    const qtyNet = Math.max(0, (it.qty||0) - qtyRetur);
+    const subtotal = it.subtotal!=null ? it.subtotal : (it.hargaJual||0)*(it.qty||0);
+    itemsHtml += `<tr>
+      <td>${escapeHtml(it.nama)}${it.aturan?`<br><span class="muted">Aturan: ${escapeHtml(it.aturan)}</span>`:''}${qtyRetur>0?`<br><span class="muted" style="color:var(--danger);">Diretur: ${qtyRetur}</span>`:''}</td>
+      <td class="num">${it.qty}${qtyRetur>0?` (net ${qtyNet})`:''}</td>
+      <td class="num">${rupiah(it.hargaJual)}</td>
+      <td class="num">${rupiah(subtotal)}</td>
+    </tr>`;
+  });
+  itemsHtml += `</tbody></table>`;
+  document.getElementById('detailTrxItemsWrap').innerHTML = itemsHtml;
+
+  let bayarHtml = `<div class="detail-kv"><span class="k">Subtotal</span><span class="v">${rupiah(trx.subtotal)}</span></div>`;
+  if(trx.diskon && trx.diskon.nilaiPotongan>0){
+    bayarHtml += `<div class="detail-kv"><span class="k">Diskon${trx.diskon.tipe==='persen'?` (${trx.diskon.nilaiInput}%)`:''}</span><span class="v">- ${rupiah(trx.diskon.nilaiPotongan)}</span></div>`;
+  }
+  bayarHtml += `<div class="detail-kv"><span class="k" style="font-weight:700;">Total</span><span class="v" style="font-size:15px;">${rupiah(trx.total)}</span></div>`;
+  if(trx.pembayaran && trx.pembayaran.length){
+    trx.pembayaran.forEach(p=>{
+      bayarHtml += `<div class="detail-kv"><span class="k">Bayar (${p.metode})</span><span class="v">${rupiah(p.jumlah)}</span></div>`;
+    });
+  }
+  if(trx.metode==='Tunai'){
+    bayarHtml += `<div class="detail-kv"><span class="k">Uang Diterima</span><span class="v">${rupiah(trx.diterima)}</span></div>`;
+    bayarHtml += `<div class="detail-kv"><span class="k">Kembalian</span><span class="v">${rupiah(trx.kembalian)}</span></div>`;
+  }
+  if(trx.piutang){
+    bayarHtml += `<div class="detail-kv"><span class="k">Piutang (${escapeHtml(trx.piutang.namaPasien||'-')})</span><span class="v">${trx.piutang.lunas?'Lunas':'Sisa '+rupiah(trx.piutang.sisaPiutang)}</span></div>`;
+  }
+  document.getElementById('detailTrxBayar').innerHTML = bayarHtml;
+
+  const returLog = trx.returLog||[];
+  if(returLog.length){
+    let returHtml = `<h4 style="margin:14px 0 6px;font-size:13px;">↩️ Riwayat Retur</h4>`;
+    returLog.forEach(rl=>{
+      const itemsRingkas = (rl.items||[]).map(i=>`${i.nama} x${i.qty}`).join(', ');
+      returHtml += `<div class="detail-kv"><span class="k">${new Date(rl.waktu).toLocaleString('id-ID')}${rl.alasan?' — '+escapeHtml(rl.alasan):''}</span><span class="v">${itemsRingkas} (${rupiah(rl.nilai)})</span></div>`;
+    });
+    document.getElementById('detailTrxReturLog').innerHTML = returHtml;
+  } else {
+    document.getElementById('detailTrxReturLog').innerHTML = '';
+  }
+
+  document.getElementById('detailTrxModal').classList.remove('hidden');
+}
+document.getElementById('btnTutupDetailTrx').addEventListener('click', ()=>{
+  document.getElementById('detailTrxModal').classList.add('hidden');
+});
 async function renderRiwayat(){
   const startVal = document.getElementById('riwayatStart').value;
   const endVal = document.getElementById('riwayatEnd').value;
@@ -5777,7 +5883,7 @@ function filterRiwayat(query){
 let rpCache = { rows: [] };
 function buildPengeluaranRows(rows){
   return rows.map(p=>`
-    <tr>
+    <tr class="row-clickable" data-detail-pengeluaran-tanggal="${p.tanggal}" data-detail-pengeluaran-id="${p.id}">
       <td>${fmtDateFull(parseDateInput(p.tanggal))}</td>
       <td>${p.waktu}</td>
       <td>${escapeHtml(p.keterangan||'-')}</td>
@@ -5789,6 +5895,7 @@ function buildPengeluaranRows(rows){
 function wireRpActions(){
   document.querySelectorAll('.btn-rp-hapus').forEach(b=>{
     b.addEventListener('click', e=>{
+      e.stopPropagation();
       const tanggal = e.target.dataset.tanggal;
       const id = e.target.dataset.id;
       pinCallback = async ()=>{
@@ -5799,7 +5906,26 @@ function wireRpActions(){
       openPinModal('Masukkan PIN Hapus untuk menghapus pengeluaran ini.', 'hapus');
     });
   });
+  document.querySelectorAll('tr[data-detail-pengeluaran-id]').forEach(tr=>{
+    tr.addEventListener('click', ()=>{
+      const p = rpCache.rows.find(x=>x.id===tr.dataset.detailPengeluaranId && x.tanggal===tr.dataset.detailPengeluaranTanggal);
+      if(p) openDetailPengeluaranModal(p);
+    });
+  });
 }
+function openDetailPengeluaranModal(p){
+  document.getElementById('detailPengeluaranInfo').innerHTML = `
+    <div class="detail-kv"><span class="k">Tanggal</span><span class="v">${fmtDateFull(parseDateInput(p.tanggal))}</span></div>
+    <div class="detail-kv"><span class="k">Waktu</span><span class="v">${p.waktu}</span></div>
+    <div class="detail-kv"><span class="k">Keterangan</span><span class="v">${escapeHtml(p.keterangan||'-')}</span></div>
+    <div class="detail-kv"><span class="k">Dicatat Oleh</span><span class="v">${escapeHtml(p.kasir||'-')}</span></div>
+    <div class="detail-kv"><span class="k" style="font-weight:700;">Jumlah</span><span class="v" style="font-size:15px;">${rupiah(p.jumlah)}</span></div>
+  `;
+  document.getElementById('detailPengeluaranModal').classList.remove('hidden');
+}
+document.getElementById('btnTutupDetailPengeluaran').addEventListener('click', ()=>{
+  document.getElementById('detailPengeluaranModal').classList.add('hidden');
+});
 async function renderRiwayatPengeluaran(){
   const startVal = document.getElementById('rpStart').value;
   const endVal = document.getElementById('rpEnd').value;
