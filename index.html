@@ -218,10 +218,12 @@
   .toast.err{background:var(--danger);}
 
   /* ---------- Sync/connection badge ---------- */
-  .conn-badge{border:none;border-radius:99px;padding:7px 13px;font-size:12px;font-weight:700;white-space:nowrap;}
+  .conn-badge{border:none;border-radius:99px;padding:7px 13px;font-size:12px;font-weight:700;white-space:nowrap;cursor:pointer;}
   .conn-badge.conn-ok{background:var(--primary-soft);color:var(--primary-dark);}
   .conn-badge.conn-warn{background:var(--accent-soft);color:var(--accent);}
   .conn-badge.conn-off{background:var(--danger-soft);color:var(--danger);}
+  .conn-badge.conn-stuck{background:var(--danger);color:#fff;animation:connStuckBlink 1.4s ease-in-out infinite;}
+  @keyframes connStuckBlink{0%,100%{opacity:1;}50%{opacity:.55;}}
 
   .summary-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px;}
   .s-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;}
@@ -425,7 +427,7 @@
     <div class="kasir-grid">
       <div>
         <h2>Cari Obat</h2>
-        <p class="section-hint">Ketik nama atau kode obat, klik untuk menambahkan ke keranjang.</p>
+        <p class="section-hint">Ketik nama atau kode obat, klik untuk menambahkan ke keranjang. <span style="color:var(--ink-faint);">Shortcut: <b>F2</b> fokus ke sini, <b>Enter</b> setelah scan/ketik kode langsung menambahkan, <b>F9</b> langsung Proses Bayar.</span></p>
         <div class="search-box">
           <input type="text" id="kasirSearch" placeholder="Cari nama / kode obat...">
         </div>
@@ -2183,6 +2185,9 @@ async function loadLocalDBFromStorage(){
     if(!Array.isArray(syncMeta.dirtyKeys)) syncMeta.dirtyKeys = [];
     if(syncMeta.lastKnownRev === undefined) syncMeta.lastKnownRev = null;
   }catch(e){ syncMeta = { lastSyncAt: null, dirtyKeys: [], lastKnownRev: null }; }
+  // Kalau sudah ada perubahan yang belum tersinkron dari sebelum halaman ini dibuka
+  // (mis. sesi lalu ditutup saat offline), mulai hitung "sejak kapan macet" dari sekarang.
+  if((syncMeta.dirtyKeys||[]).length > 0) dirtySinceTs = Date.now();
 }
 async function persistLocalDB(){
   try{
@@ -2193,12 +2198,18 @@ async function persistLocalDB(){
   }
 }
 function persistSyncMeta(){
+  if((syncMeta.dirtyKeys||[]).length === 0) dirtySinceTs = null; // semua sudah tersinkron, reset penanda "macet"
   try{ localStorage.setItem(SYNC_META_KEY, JSON.stringify(syncMeta)); }catch(e){}
   updateSyncBadge();
 }
+let dirtySinceTs = null;      // kapan pertama kali ada perubahan yang BELUM tersinkron (sesi berjalan ini)
+let syncStuckToastShown = false; // supaya toast peringatan "gagal sinkron lama" tidak muncul berulang tiap 12 detik
 function markDirty(key){
   if(!key) return;
-  if(!syncMeta.dirtyKeys.includes(key)){ syncMeta.dirtyKeys.push(key); }
+  if(!syncMeta.dirtyKeys.includes(key)){
+    if(syncMeta.dirtyKeys.length === 0) dirtySinceTs = Date.now();
+    syncMeta.dirtyKeys.push(key);
+  }
   persistSyncMeta();
 }
 
@@ -2510,23 +2521,38 @@ async function pullFromCloud(opts){
   }
 }
 
+const SYNC_STUCK_THRESHOLD_MS = 3 * 60 * 1000; // dianggap "macet" kalau belum tersinkron > 3 menit padahal online
 function updateSyncBadge(){
   const online = navigator.onLine;
   const dirty = (syncMeta.dirtyKeys || []).length > 0;
+  const stuckMs = (online && dirty && dirtySinceTs) ? (Date.now() - dirtySinceTs) : 0;
+  const stuck = stuckMs > SYNC_STUCK_THRESHOLD_MS;
   const badge = document.getElementById('connStatusBadge');
   if(badge){
-    if(online){
-      badge.textContent = dirty ? '🟡 Online — menyinkron...' : '🟢 Online — auto-sync aktif';
-      badge.className = 'conn-badge ' + (dirty ? 'conn-warn' : 'conn-ok');
-    } else {
+    if(!online){
       badge.textContent = '🔴 Offline — data aman di komputer ini';
       badge.className = 'conn-badge conn-off';
+    } else if(stuck){
+      const menit = Math.max(1, Math.floor(stuckMs/60000));
+      badge.textContent = `⚠️ Gagal sinkron ${menit} menit — cek internet!`;
+      badge.className = 'conn-badge conn-stuck';
+    } else {
+      badge.textContent = dirty ? '🟡 Online — menyinkron...' : '🟢 Online — auto-sync aktif';
+      badge.className = 'conn-badge ' + (dirty ? 'conn-warn' : 'conn-ok');
     }
   }
   const detail = document.getElementById('syncStatusDetail');
   if(detail){
     const last = syncMeta.lastSyncAt ? new Date(syncMeta.lastSyncAt).toLocaleString('id-ID') : 'belum pernah';
     detail.textContent = `Status koneksi: ${online ? 'Online (auto-sync tiap ~12 detik)' : 'Offline'}  •  Terakhir sinkron ke cloud: ${last}  •  ${dirty ? 'Ada perubahan yang sedang menunggu diunggah ke cloud' : 'Semua data sudah tersinkron ke cloud'}`;
+  }
+  // Peringatan sekali (bukan tiap 12 detik) begitu status "macet" > 3 menit tercapai,
+  // supaya kasir sadar harus segera cek koneksi - direset lagi kalau nanti macet berulang.
+  if(stuck && !syncStuckToastShown){
+    syncStuckToastShown = true;
+    toast('⚠️ Sudah beberapa menit data belum berhasil tersinkron ke cloud. Data Anda tetap AMAN tersimpan di komputer ini, tapi komputer lain (mis. PC Klinik) belum melihat perubahan terbaru. Segera cek koneksi internet.', true);
+  } else if(!stuck){
+    syncStuckToastShown = false;
   }
 }
 window.addEventListener('offline', updateSyncBadge);
@@ -7231,6 +7257,44 @@ document.getElementById('btnSimpanPinRecovery').addEventListener('click', async 
 
 
 document.getElementById('kasirSearch').addEventListener('input', e=>renderSearchResults(e.target.value.trim()));
+
+/* ---------------- shortcut keyboard tab Kasir (mempercepat kasir berpengalaman) ----------------
+   F2  = fokus ke kolom Cari Obat (juga cocok dipakai sebelum scan barcode)
+   Enter di kolom Cari Obat = langsung tambah ke keranjang kalau kode obat cocok persis (mis. hasil
+                              scan barcode) ATAU kalau hasil pencarian tinggal 1 (tidak ambigu)
+   F9  = langsung klik "Proses & Cetak Struk" (sengaja bukan Enter, supaya tidak konflik dengan
+         Enter yang dipakai di banyak kolom form lain seperti nama pasien/kasbon) */
+document.getElementById('kasirSearch').addEventListener('keydown', e=>{
+  if(e.key !== 'Enter') return;
+  e.preventDefault();
+  const q = e.target.value.trim().toLowerCase();
+  if(!q) return;
+  const exactKode = obatList.find(o => (o.kode||'').toLowerCase() === q);
+  const target = exactKode || (()=>{
+    const hasil = obatList.filter(o => (o.nama||'').toLowerCase().includes(q) || (o.kode||'').toLowerCase().includes(q));
+    return hasil.length === 1 ? hasil[0] : null;
+  })();
+  if(target){
+    addToCart(target.id);
+    e.target.value = '';
+    renderSearchResults('');
+    e.target.focus(); // fokus tetap di kolom cari supaya bisa lanjut scan barcode berikutnya
+  }
+});
+document.addEventListener('keydown', e=>{
+  const tabKasirAktif = document.getElementById('tab-kasir')?.classList.contains('active');
+  const adaModalTerbuka = document.querySelector('.modal-overlay:not(.hidden)');
+  if(!tabKasirAktif || adaModalTerbuka) return;
+  if(e.key === 'F2'){
+    e.preventDefault();
+    const el = document.getElementById('kasirSearch');
+    el.focus();
+    el.select();
+  } else if(e.key === 'F9'){
+    e.preventDefault();
+    document.getElementById('btnProsesBayar')?.click();
+  }
+});
 document.getElementById('pakaiResep').addEventListener('change', e=>{
   document.getElementById('resepFields').style.display = e.target.checked ? '' : 'none';
 });
