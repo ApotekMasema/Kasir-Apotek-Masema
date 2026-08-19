@@ -1225,6 +1225,9 @@
 
     <p class="section-hint">Kelola nama & PIN setiap kasir. Kasir wajib login pakai akun ini sebelum bisa memakai aplikasi, agar otomatis tercatat siapa yang bertugas di setiap transaksi.</p>
     <div class="card">
+      <div class="mock-banner-static" style="background:#EAF3F1;border:1px solid #cfe3da;border-radius:9px;padding:10px 12px;margin-bottom:12px;font-size:12.5px;color:#0E4A41;">
+        🔒 <b>Kasir Biasa</b> hanya bisa bertransaksi & lihat stok — tab <b>Laporan Keuangan</b> dan <b>Pengaturan</b> disembunyikan. <b>Pemilik / Admin</b> bisa mengakses semuanya.
+      </div>
       <div class="form-grid">
         <div class="field">
           <label>Nama Kasir Baru</label>
@@ -1234,10 +1237,17 @@
           <label>PIN Kasir (4 digit)</label>
           <input type="password" id="fAkunKasirPin" maxlength="4" inputmode="numeric" placeholder="••••">
         </div>
+        <div class="field">
+          <label>Peran</label>
+          <select id="fAkunKasirPeran">
+            <option value="kasir">Kasir Biasa</option>
+            <option value="pemilik">Pemilik / Admin</option>
+          </select>
+        </div>
       </div>
       <button class="btn btn-primary" id="btnTambahAkunKasir" style="margin-top:10px;">+ Tambah Akun Kasir</button>
       <table style="margin-top:14px;">
-        <thead><tr><th>Nama</th><th>PIN</th><th>Aksi</th></tr></thead>
+        <thead><tr><th>Nama</th><th>Peran</th><th>PIN</th><th>Aksi</th></tr></thead>
         <tbody id="akunKasirBody"></tbody>
       </table>
     </div>
@@ -5057,12 +5067,17 @@ async function saveKasirAkunList(){
 function renderAkunKasirTable(){
   const body = document.getElementById('akunKasirBody');
   if(!body) return;
-  body.innerHTML = kasirAkunList.length ? kasirAkunList.map(a=>`
+  body.innerHTML = kasirAkunList.length ? kasirAkunList.map(a=>{
+    const peran = a.peran || 'pemilik'; // akun lama (belum punya field peran) dianggap Pemilik/Admin agar akses tidak berubah tiba-tiba
+    const peranLabel = peran==='pemilik' ? '<span class="mock-badge ok" style="background:var(--primary-soft);color:var(--primary-dark);padding:2px 8px;border-radius:6px;font-size:10.5px;font-weight:700;">👑 Pemilik/Admin</span>' : '<span style="background:#EFEAE0;color:#555;padding:2px 8px;border-radius:6px;font-size:10.5px;font-weight:700;">🧾 Kasir Biasa</span>';
+    return `
     <tr>
       <td>${escapeHtml(a.nama)}</td>
+      <td>${peranLabel}</td>
       <td class="num">${'•'.repeat((a.pin||'').length)}</td>
       <td><button class="btn btn-sm btn-danger" data-id="${a.id}">Hapus</button></td>
-    </tr>`).join('') : `<tr><td colspan="3" class="muted" style="padding:14px;text-align:center;">Belum ada akun kasir. Tambahkan minimal satu agar kasir bisa login.</td></tr>`;
+    </tr>`;
+  }).join('') : `<tr><td colspan="4" class="muted" style="padding:14px;text-align:center;">Belum ada akun kasir. Tambahkan minimal satu agar kasir bisa login.</td></tr>`;
   body.querySelectorAll('button[data-id]').forEach(b=>{
     b.addEventListener('click', ()=> hapusAkunKasir(b.dataset.id));
   });
@@ -5082,15 +5097,18 @@ async function hapusAkunKasir(id){
 document.getElementById('btnTambahAkunKasir').addEventListener('click', async ()=>{
   const nama = document.getElementById('fAkunKasirNama').value.trim();
   const pin = document.getElementById('fAkunKasirPin').value.trim();
+  const peran = document.getElementById('fAkunKasirPeran').value || 'kasir';
   if(!nama){ toast('Isi nama kasir.', true); return; }
   if(!/^\d{4}$/.test(pin)){ toast('PIN harus 4 digit angka.', true); return; }
   if(kasirAkunList.some(a=>a.nama.toLowerCase()===nama.toLowerCase())){ toast('Nama kasir sudah terdaftar.', true); return; }
-  kasirAkunList.push({ id: crypto.randomUUID(), nama, pin });
+  kasirAkunList.push({ id: crypto.randomUUID(), nama, pin, peran });
   await saveKasirAkunList();
   document.getElementById('fAkunKasirNama').value='';
   document.getElementById('fAkunKasirPin').value='';
+  document.getElementById('fAkunKasirPeran').value='kasir';
   renderAkunKasirTable();
   refreshLoginKasirOptions();
+  logAudit('Tambah Akun Kasir', `${nama} (${peran==='pemilik'?'Pemilik/Admin':'Kasir Biasa'})`);
   toast('Akun kasir ditambahkan ✓');
 });
 
@@ -5189,10 +5207,17 @@ function loginSukses(nama, role){
 function applyRoleUI(){
   const kasirAreaBtn = document.querySelector('.area-tab[data-area="kasir"]');
   if(kasirAreaBtn) kasirAreaBtn.style.display = currentUserRole==='dokter' ? 'none' : '';
+  // Tab Laporan Keuangan & Pengaturan hanya untuk akun berperan Pemilik/Admin.
+  const ownerOnlyBtns = document.querySelectorAll('.tab[data-tab="laporan"], .tab[data-tab="pengaturan"]');
+  ownerOnlyBtns.forEach(btn=>{
+    btn.style.display = (currentUserRole==='kasir') ? 'none' : '';
+  });
 }
 let pendingLoginNama = null;
-function promptShiftOpen(nama){
+let pendingLoginPeran = 'kasir';
+function promptShiftOpen(nama, peran){
   pendingLoginNama = nama;
+  pendingLoginPeran = peran || 'kasir';
   document.getElementById('loginGateModal').classList.add('hidden');
   document.getElementById('shiftModalAwal').value = '';
   document.getElementById('shiftOpenModal').classList.remove('hidden');
@@ -5214,7 +5239,7 @@ document.getElementById('btnMulaiShift').addEventListener('click', async ()=>{
   currentShift = shift;
   sessionStorage.setItem('currentShift', JSON.stringify(shift));
   document.getElementById('shiftOpenModal').classList.add('hidden');
-  loginSukses(pendingLoginNama, 'kasir');
+  loginSukses(pendingLoginNama, pendingLoginPeran);
   pendingLoginNama = null;
 });
 // Cari shift berstatus 'buka' (belum ditutup) milik kasir tsb, cek hari ini & kemarin
@@ -5235,6 +5260,8 @@ document.getElementById('btnLoginKasir').addEventListener('click', async ()=>{
   const akun = kasirAkunList.find(a=>a.id===id);
   if(!akun){ toast('Pilih nama kasir terlebih dahulu (hubungi admin bila belum ada akun).', true); return; }
   if(pin !== akun.pin){ toast('PIN salah.', true); return; }
+  // Akun lama yang belum punya field peran dianggap Pemilik/Admin (grandfather) supaya akses tidak berubah tiba-tiba.
+  const peran = akun.peran || 'pemilik';
   const shiftTerbuka = await cariShiftTerbukaUntukKasir(akun.nama);
   if(shiftTerbuka){
     // Lanjutkan shift yang sudah berjalan - TIDAK minta modal awal baru, dan transaksi
@@ -5242,11 +5269,11 @@ document.getElementById('btnLoginKasir').addEventListener('click', async ()=>{
     currentShift = shiftTerbuka;
     sessionStorage.setItem('currentShift', JSON.stringify(shiftTerbuka));
     document.getElementById('loginGateModal').classList.add('hidden');
-    loginSukses(akun.nama, 'kasir');
+    loginSukses(akun.nama, peran);
     toast(`Melanjutkan shift yang sedang berjalan (mulai ${shiftTerbuka.waktuMulai}) ✓`);
     return;
   }
-  promptShiftOpen(akun.nama);
+  promptShiftOpen(akun.nama, peran);
 });
 document.getElementById('loginKasirPin').addEventListener('keydown', e=>{ if(e.key==='Enter') document.getElementById('btnLoginKasir').click(); });
 document.getElementById('btnLoginDokter').addEventListener('click', ()=>{
@@ -6518,10 +6545,15 @@ document.getElementById('recoveryForm').addEventListener('submit', async (e)=>{
    ========================================================= */
 const PROTECTED_TABS = ['stok','laporan','pengaturan'];
 const KASIR_ONLY_TABS = ['kasir','riwayat','stok','resep','piutang','laporan'];
+const OWNER_ONLY_TABS = ['laporan','pengaturan'];
 
 function goToTab(target){
   if(currentUserRole==='dokter' && KASIR_ONLY_TABS.includes(target)){
     toast('Area Kasir tidak tersedia untuk akun Dokter.', true);
+    return;
+  }
+  if(OWNER_ONLY_TABS.includes(target) && currentUserRole==='kasir'){
+    toast('Tab ini hanya bisa diakses oleh akun Pemilik/Admin.', true);
     return;
   }
   if(PROTECTED_TABS.includes(target) && !pinUnlocked){

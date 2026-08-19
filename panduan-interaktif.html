@@ -611,6 +611,22 @@ const STEPS = [
 },
 {
   module:'admin', code:'22', role:'Admin', url:'pengaturan',
+  title:'Peran Akun — Kasir Biasa vs Pemilik/Admin',
+  desc:'Setiap akun kasir kini punya Peran, supaya tidak semua orang otomatis bisa melihat laba atau masuk Pengaturan.',
+  bullets:['🧾 Kasir Biasa — cuma bisa bertransaksi & lihat stok; tab Laporan Keuangan & Pengaturan otomatis disembunyikan','👑 Pemilik/Admin — bisa mengakses semua tab, termasuk Laporan Keuangan & Pengaturan','Pilih Peran saat menambah akun baru di kartu Akun Kasir — default-nya Kasir Biasa','Akun lama yang sudah ada sebelum fitur ini tetap dianggap Pemilik/Admin, supaya aksesnya tidak berubah tiba-tiba'],
+  tabbar:['Pengaturan'], activeTab:'Pengaturan',
+  body: card('👤 Tambah Akun Kasir','',
+    field('Nama Kasir Baru','Rani') +
+    `<div data-key="peran-select">${field('Peran','🧾 Kasir Biasa')}</div>` +
+    btn('+ Tambah Akun Kasir','primary')
+  ) + card('Daftar Akun','',
+    row('Ega','👑 Pemilik/Admin','') +
+    row('Rani','🧾 Kasir Biasa','')
+  ),
+  callout:{key:'peran-select', tag:'Fitur baru', text:'Menentukan tab mana yang boleh diakses akun ini.'},
+},
+{
+  module:'admin', code:'23', role:'Admin', url:'pengaturan',
   title:'Notifikasi & Pengingat Telegram',
   desc:'Aplikasi bisa mengirim notifikasi otomatis ke Telegram untuk beberapa kejadian penting.',
   bullets:['Stok menipis/kadaluarsa, ringkasan penjualan, piutang jatuh tempo, jadwal kontrol pasien','Isi Token Bot & Chat ID, lalu aktifkan toggle yang diinginkan','Gunakan tombol "Tes Kirim" untuk memastikan pesan berhasil sebelum diandalkan'],
@@ -620,7 +636,7 @@ const STEPS = [
     + `<div style="display:flex;gap:6px;">${btn('Tes Kirim','ghost')}${btn('Simpan','primary')}</div>`),
 },
 {
-  module:'admin', code:'23', role:'Admin', url:'pengaturan',
+  module:'admin', code:'24', role:'Admin', url:'pengaturan',
   title:'Backup Data Otomatis',
   desc:'Menjaga data tetap aman lewat backup harian otomatis, sebagai jaring pengaman tambahan di luar sinkronisasi cloud.',
   bullets:['Backup Otomatis Harian dikirim ke Telegram 1x sehari','Tombol Backup Manual tersedia untuk kirim kapan saja','Data bisa dipulihkan kembali lewat menu Pemulihan (perlu PIN Admin)'],
