@@ -279,7 +279,9 @@
     .card,.emp-card{box-shadow:none;}
   }
   .struk-box{max-width:80mm;margin:0 auto;font-family:var(--font-mono);font-size:12px;color:#000;}
-  .struk-box .struk-logo{display:block;margin:0 auto 4px;max-width:65%;height:auto;}
+  .struk-box .struk-kop{position:relative;text-align:center;min-height:20px;display:flex;align-items:center;justify-content:center;}
+  .struk-box .struk-logo{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);max-width:34%;height:auto;opacity:.16;z-index:0;pointer-events:none;}
+  .struk-box .struk-kop h3{position:relative;z-index:1;margin:0;}
 
   .banner-alert{display:flex;align-items:center;justify-content:space-between;gap:12px;background:#FFF4E5;border:1px solid #F0B429;color:#7A4A00;border-radius:10px;padding:11px 14px;margin-bottom:14px;font-size:13px;font-weight:600;flex-wrap:wrap;}
   .banner-alert.danger{background:#FDEBEA;border-color:#E5A29E;color:#8A241C;}
@@ -4311,8 +4313,10 @@ function applyStrukSize(el){
 function buildStrukHeader(trx, cfg){
   cfg = cfg || pengaturan;
   return `
-    <img class="struk-logo" src="${APP_LOGO_DATA_URI}" alt="Logo">
-    <h3>${escapeHtml(cfg.namaApotek||'Apotek Masema Medika')}</h3>
+    <div class="struk-kop">
+      <img class="struk-logo" src="${APP_LOGO_DATA_URI}" alt="">
+      <h3>${escapeHtml(cfg.namaApotek||'Apotek Masema Medika')}</h3>
+    </div>
     ${cfg.tampilkanAlamat !== false && cfg.alamat ? `<div class="center">${escapeHtml(cfg.alamat)}</div>` : ''}
     ${cfg.tampilkanTelp !== false && cfg.telp ? `<div class="center">${escapeHtml(cfg.telp)}</div>` : ''}
     ${cfg.headerTambahan ? `<div class="center">${escapeHtml(cfg.headerTambahan)}</div>` : ''}
