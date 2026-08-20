@@ -1070,7 +1070,58 @@
       <a class="btn btn-primary" href="panduan-interaktif.html" target="_blank" rel="noopener">📖 Buka Panduan Interaktif</a>
     </div>
 
-    <h2>Identitas Apotek (untuk struk)</h2>
+    <h2 style="margin-top:26px;">🖼️ Logo Aplikasi</h2>
+    <p class="section-hint">Logo ini tampil di Halaman Depan (pojok kiri atas), watermark di tengah Struk, dan di bagian atas Label Obat. Upload logo baru kapan saja tanpa perlu ubah kode — cukup atur di sini.</p>
+    <div class="card">
+      <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:16px;">
+        <div style="width:76px;height:76px;border-radius:14px;border:1px solid var(--border);background:#fff;display:flex;align-items:center;justify-content:center;overflow:hidden;flex:none;">
+          <img id="logoPreviewImg" src="" alt="Preview Logo" style="width:100%;height:100%;object-fit:contain;">
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <label class="btn btn-sm" for="setLogoUpload" style="display:inline-flex;width:fit-content;">📤 Upload Logo Baru</label>
+          <input type="file" id="setLogoUpload" accept="image/*" style="display:none;">
+          <button type="button" class="btn btn-sm btn-danger" id="btnResetLogoDefault">↺ Kembalikan ke Logo Default</button>
+        </div>
+      </div>
+      <div class="form-grid">
+        <div class="field">
+          <label>Opacity Logo Halaman Depan (%)</label>
+          <input type="number" id="setLogoOpacityDepan" min="0" max="100" placeholder="100">
+        </div>
+        <div class="field">
+          <label style="visibility:hidden;">.</label>
+          <div class="toggle-row" style="margin:0;">
+            <input type="checkbox" id="setLogoTampilDepan">
+            <label for="setLogoTampilDepan">Tampilkan di Halaman Depan</label>
+          </div>
+        </div>
+        <div class="field">
+          <label>Opacity Logo Struk / watermark (%)</label>
+          <input type="number" id="setLogoOpacityStruk" min="0" max="100" placeholder="20">
+        </div>
+        <div class="field">
+          <label style="visibility:hidden;">.</label>
+          <div class="toggle-row" style="margin:0;">
+            <input type="checkbox" id="setLogoTampilStruk">
+            <label for="setLogoTampilStruk">Tampilkan di Struk</label>
+          </div>
+        </div>
+        <div class="field">
+          <label>Opacity Logo Label Obat (%)</label>
+          <input type="number" id="setLogoOpacityLabel" min="0" max="100" placeholder="100">
+        </div>
+        <div class="field">
+          <label style="visibility:hidden;">.</label>
+          <div class="toggle-row" style="margin:0;">
+            <input type="checkbox" id="setLogoTampilLabel">
+            <label for="setLogoTampilLabel">Tampilkan di Label Obat</label>
+          </div>
+        </div>
+      </div>
+      <button class="btn btn-primary" id="btnSimpanLogo" style="margin-top:12px;">💾 Simpan Pengaturan Logo</button>
+    </div>
+
+    <h2 style="margin-top:26px;">Identitas Apotek (untuk struk)</h2>
     <div class="card">
       <div class="form-grid">
         <div class="field full">
@@ -2070,7 +2121,10 @@ let adminRecovery = { question:'', answer:'' };
 let pinUnlocked = false;
 let pinCallback = null;
 let pendingTabAfterPin = null;
-let pengaturan = { namaApotek:'Apotek Masema Medika', alamat:'', telp:'', stokMinDefault:10, tampilkanAlamat:true, tampilkanTelp:true, tampilkanKasir:true, headerTambahan:'' };
+let pengaturan = { namaApotek:'Apotek Masema Medika', alamat:'', telp:'', stokMinDefault:10, tampilkanAlamat:true, tampilkanTelp:true, tampilkanKasir:true, headerTambahan:'',
+  logoDataUri:null, logoTampilHalamanDepan:true, logoTampilStruk:true, logoTampilLabel:true,
+  logoOpacityHalamanDepan:100, logoOpacityStruk:20, logoOpacityLabel:100 };
+let pendingLogoDataUri = undefined; // undefined = tidak ada perubahan; null = reset ke default; string = logo baru (belum disimpan)
 let kasirAkunList = [];      // [{id,nama,peran,pinHash,pinSalt}] (akun lama: {id,nama,peran,pin})
 let dokterAkunList = [];     // [{id,nama,pinHash,pinSalt}] (akun lama: {id,nama,pin})
 let currentKasirNama = null; // nama orang yang sedang login (kasir/dokter/Admin)
@@ -2614,6 +2668,7 @@ async function initData(){
   } else {
     await sSet('pengaturan', pengaturan);
   }
+  applyLogoSettings();
 
   const akunRaw = await sGet('kasir-akun');
   kasirAkunList = akunRaw ? Object.values(akunRaw) : [];
@@ -4310,8 +4365,12 @@ function applyStrukSize(el){
 
 function buildStrukHeader(trx, cfg){
   cfg = cfg || pengaturan;
+  const logoTampil = cfg.logoTampilStruk !== false;
+  const logoOpacity = (cfg.logoOpacityStruk != null ? cfg.logoOpacityStruk : 20) / 100;
+  const logoSrc = cfg.logoSrcOverride || getLogoSrc();
+  const logoHtml = logoTampil ? `<img class="struk-logo" src="${logoSrc}" alt="" style="opacity:${logoOpacity};">` : '';
   return `
-    <img class="struk-logo" src="${APP_LOGO_DATA_URI}" alt="">
+    ${logoHtml}
     <h3>${escapeHtml(cfg.namaApotek||'Apotek Masema Medika')}</h3>
     ${cfg.tampilkanAlamat !== false && cfg.alamat ? `<div class="center">${escapeHtml(cfg.alamat)}</div>` : ''}
     ${cfg.tampilkanTelp !== false && cfg.telp ? `<div class="center">${escapeHtml(cfg.telp)}</div>` : ''}
@@ -4410,6 +4469,9 @@ function cetakLabelObatItems(items, pasien, indikasi){
   const usia = p.tglLahir ? calcUmurDetail(p.tglLahir) : '';
   const indikasiText = (indikasi||'').trim();
   const hmm = getLabelHeightMm();
+  const logoTampil = pengaturan.logoTampilLabel !== false;
+  const logoOpacity = (pengaturan.logoOpacityLabel != null ? pengaturan.logoOpacityLabel : 100) / 100;
+  const logoHtml = logoTampil ? `<img class="lo-logo" src="${getLogoSrc()}" alt="" style="opacity:${logoOpacity};">` : '';
   const el = document.getElementById('labelContent');
   el.innerHTML = items.map(c=>{
     const obatMaster = c.obatId ? obatList.find(o=>o.id===c.obatId) : null;
@@ -4417,7 +4479,7 @@ function cetakLabelObatItems(items, pasien, indikasi){
     const exp = expD && !isNaN(expD) ? fmtDateFull(expD) : '';
     return `
     <div class="label-obat" style="height:${hmm}mm;">
-      <img class="lo-logo" src="${APP_LOGO_DATA_URI}" alt="Logo">
+      ${logoHtml}
       <div class="lo-header"><span>${escapeHtml(namaPasien)}</span><span>${escapeHtml(usia)}</span></div>
       <div class="lo-aturan2">${escapeHtml(c.aturan && c.aturan.trim() ? c.aturan.trim() : '-')}</div>
       <div class="lo-obat2">${escapeHtml(c.nama)}</div>
@@ -4733,6 +4795,9 @@ document.getElementById('btnPratinjauStruk').addEventListener('click', ()=>{
     tampilkanKasir: document.getElementById('setTampilkanKasir').checked,
     strukWidth: document.getElementById('setStrukWidth').value || '80',
     strukWidthCustom: Number(document.getElementById('setStrukWidthCustom').value) || 0,
+    logoTampilStruk: document.getElementById('setLogoTampilStruk').checked,
+    logoOpacityStruk: Number(document.getElementById('setLogoOpacityStruk').value) || 0,
+    logoSrcOverride: pendingLogoDataUri !== undefined ? (pendingLogoDataUri || APP_LOGO_DATA_URI) : getLogoSrc(),
   };
   pratinjauStruk(cfg);
 });
@@ -6408,10 +6473,88 @@ function fillPengaturanForm(){
   document.getElementById('setTelegramAktifKontrol').checked = !!pengaturan.telegramAktifKontrol;
   document.getElementById('setBackupOtomatisAktif').checked = !!pengaturan.backupOtomatisAktif;
   updateBackupOtomatisLastInfo();
+  pendingLogoDataUri = undefined;
+  document.getElementById('logoPreviewImg').src = getLogoSrc();
+  document.getElementById('setLogoTampilDepan').checked = pengaturan.logoTampilHalamanDepan !== false;
+  document.getElementById('setLogoOpacityDepan').value = pengaturan.logoOpacityHalamanDepan != null ? pengaturan.logoOpacityHalamanDepan : 100;
+  document.getElementById('setLogoTampilStruk').checked = pengaturan.logoTampilStruk !== false;
+  document.getElementById('setLogoOpacityStruk').value = pengaturan.logoOpacityStruk != null ? pengaturan.logoOpacityStruk : 20;
+  document.getElementById('setLogoTampilLabel').checked = pengaturan.logoTampilLabel !== false;
+  document.getElementById('setLogoOpacityLabel').value = pengaturan.logoOpacityLabel != null ? pengaturan.logoOpacityLabel : 100;
   document.getElementById('recoveryQuestion').value = adminRecovery.question||'';
   document.getElementById('recoveryAnswer').value = '';
   renderAkunKasirTable();
 }
+/* ---------------- Logo Aplikasi ---------------- */
+function getLogoSrc(){
+  return pengaturan.logoDataUri || APP_LOGO_DATA_URI;
+}
+function applyLogoSettings(){
+  const src = getLogoSrc();
+  const brandMark = document.querySelector('.brand-mark');
+  const brandImg = brandMark ? brandMark.querySelector('img') : null;
+  if(brandImg) brandImg.src = src;
+  if(brandMark) brandMark.style.display = (pengaturan.logoTampilHalamanDepan === false) ? 'none' : '';
+  if(brandImg) brandImg.style.opacity = (pengaturan.logoOpacityHalamanDepan != null ? pengaturan.logoOpacityHalamanDepan : 100) / 100;
+  const favicon = document.querySelector('link[rel="icon"]');
+  if(favicon) favicon.href = src;
+}
+function handleLogoUploadFile(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  if(!file.type.startsWith('image/')){ toast('File harus berupa gambar.', true); e.target.value=''; return; }
+  const reader = new FileReader();
+  reader.onload = function(ev){
+    const img = new Image();
+    img.onload = function(){
+      const maxSide = 500;
+      let w = img.width, h = img.height;
+      if(w > maxSide || h > maxSide){
+        if(w >= h){ h = Math.round(h * maxSide / w); w = maxSide; }
+        else { w = Math.round(w * maxSide / h); h = maxSide; }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, w, h);
+      pendingLogoDataUri = canvas.toDataURL('image/png');
+      document.getElementById('logoPreviewImg').src = pendingLogoDataUri;
+      toast('Logo baru siap — klik "Simpan Pengaturan Logo" untuk menerapkan.');
+    };
+    img.onerror = function(){ toast('Gagal membaca file gambar.', true); };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+  e.target.value = '';
+}
+document.getElementById('setLogoUpload').addEventListener('change', handleLogoUploadFile);
+document.getElementById('btnResetLogoDefault').addEventListener('click', ()=>{
+  pendingLogoDataUri = null;
+  document.getElementById('logoPreviewImg').src = APP_LOGO_DATA_URI;
+  toast('Logo direset ke default — klik "Simpan Pengaturan Logo" untuk menerapkan.');
+});
+async function simpanLogoSettings(){
+  const clamp01to100 = v => Math.max(0, Math.min(100, Number(v)||0));
+  if(pendingLogoDataUri !== undefined){
+    pengaturan.logoDataUri = pendingLogoDataUri; // bisa null (default) atau string base64 logo baru
+  }
+  pengaturan = {
+    ...pengaturan,
+    logoTampilHalamanDepan: document.getElementById('setLogoTampilDepan').checked,
+    logoOpacityHalamanDepan: clamp01to100(document.getElementById('setLogoOpacityDepan').value),
+    logoTampilStruk: document.getElementById('setLogoTampilStruk').checked,
+    logoOpacityStruk: clamp01to100(document.getElementById('setLogoOpacityStruk').value),
+    logoTampilLabel: document.getElementById('setLogoTampilLabel').checked,
+    logoOpacityLabel: clamp01to100(document.getElementById('setLogoOpacityLabel').value),
+  };
+  await sSet('pengaturan', pengaturan);
+  pendingLogoDataUri = undefined;
+  applyLogoSettings();
+  document.getElementById('logoPreviewImg').src = getLogoSrc();
+  toast('Pengaturan logo disimpan ✓');
+}
+document.getElementById('btnSimpanLogo').addEventListener('click', simpanLogoSettings);
+
 async function simpanPengaturan(){
   const strukWidth = document.getElementById('setStrukWidth').value || '80';
   let strukWidthCustom = Number(document.getElementById('setStrukWidthCustom').value) || 0;

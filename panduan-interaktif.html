@@ -623,6 +623,23 @@ const STEPS = [
 },
 {
   module:'admin', code:'22', role:'Admin', url:'pengaturan',
+  title:'Logo Aplikasi',
+  desc:'Logo apotek bisa diganti sendiri kapan saja dari sini — tanpa perlu minta bantuan ubah kode — dan otomatis tampil di Halaman Depan, Struk, dan Label Obat.',
+  bullets:['📤 Upload Logo Baru — pilih file gambar dari komputer, otomatis diperkecil & dirapikan','↺ Kembalikan ke Logo Default kapan saja bila ingin balik ke logo semula','Atur tampil/sembunyikan & tingkat transparansi (opacity) logo secara terpisah untuk Halaman Depan, Struk (watermark di tengah), dan Label Obat','Klik "💾 Simpan Pengaturan Logo" agar logo baru ikut tersinkron ke semua komputer'],
+  tabbar:['Pengaturan'], activeTab:'Pengaturan',
+  body: card('🖼️ Logo Aplikasi','',
+    `<div data-key="logo-preview" style="display:flex;gap:10px;align-items:center;margin-bottom:10px;">
+      <div style="width:44px;height:44px;border-radius:9px;border:1px solid var(--line);background:#fff;"></div>
+      ${btn('📤 Upload Logo Baru','ghost')}${btn('↺ Reset Default','danger')}
+    </div>`
+    + field('Opacity Logo Struk (%)','20')
+    + field('Opacity Logo Label (%)','100')
+    + btn('💾 Simpan Pengaturan Logo','primary')
+  ),
+  callout:{key:'logo-preview', tag:'Baru', text:'Ganti logo sendiri kapan saja, tanpa edit kode.'},
+},
+{
+  module:'admin', code:'23', role:'Admin', url:'pengaturan',
   title:'Akun Kasir & Dokter',
   desc:'Admin mendaftarkan siapa saja yang boleh login sebagai kasir atau dokter, lengkap dengan PIN masing-masing.',
   bullets:['Minimal harus ada satu akun kasir agar kasir bisa login','Setiap akun bisa dihapus kapan saja — perlu PIN Hapus','Nama akun ini yang akan tercatat di setiap transaksi & audit log'],
@@ -630,7 +647,7 @@ const STEPS = [
   body: card('👤 Akun Kasir','', row('Ega','Aktif','') + row('Rani','Aktif','') + btn('+ Tambah Akun Kasir','primary')),
 },
 {
-  module:'admin', code:'23', role:'Admin', url:'pengaturan',
+  module:'admin', code:'24', role:'Admin', url:'pengaturan',
   title:'Peran Akun — Kasir Biasa vs Pemilik/Admin',
   desc:'Setiap akun kasir kini punya Peran, supaya tidak semua orang otomatis bisa melihat laba atau masuk Pengaturan.',
   bullets:['🧾 Kasir Biasa — cuma bisa bertransaksi & lihat stok; tab Laporan Keuangan & Pengaturan otomatis disembunyikan','👑 Pemilik/Admin — bisa mengakses semua tab, termasuk Laporan Keuangan & Pengaturan','Pilih Peran saat menambah akun baru di kartu Akun Kasir — default-nya Kasir Biasa','Akun lama yang sudah ada sebelum fitur ini tetap dianggap Pemilik/Admin, supaya aksesnya tidak berubah tiba-tiba'],
@@ -646,7 +663,7 @@ const STEPS = [
   callout:{key:'peran-select', tag:'Fitur baru', text:'Menentukan tab mana yang boleh diakses akun ini.'},
 },
 {
-  module:'admin', code:'24', role:'Admin', url:'pengaturan',
+  module:'admin', code:'25', role:'Admin', url:'pengaturan',
   title:'Notifikasi & Pengingat Telegram',
   desc:'Aplikasi bisa mengirim notifikasi otomatis ke Telegram untuk beberapa kejadian penting.',
   bullets:['Stok menipis/kadaluarsa, ringkasan penjualan, piutang jatuh tempo, jadwal kontrol pasien','Isi Token Bot & Chat ID, lalu aktifkan toggle yang diinginkan','Gunakan tombol "Tes Kirim" untuk memastikan pesan berhasil sebelum diandalkan'],
@@ -656,7 +673,7 @@ const STEPS = [
     + `<div style="display:flex;gap:6px;">${btn('Tes Kirim','ghost')}${btn('Simpan','primary')}</div>`),
 },
 {
-  module:'admin', code:'25', role:'Admin', url:'pengaturan',
+  module:'admin', code:'26', role:'Admin', url:'pengaturan',
   title:'Backup Data Otomatis',
   desc:'Menjaga data tetap aman lewat backup harian otomatis, sebagai jaring pengaman tambahan di luar sinkronisasi cloud.',
   bullets:['Backup Otomatis Harian dikirim ke Telegram 1x sehari','Tombol Backup Manual tersedia untuk kirim kapan saja','Data bisa dipulihkan kembali lewat menu Pemulihan (perlu PIN Admin)'],
@@ -665,7 +682,7 @@ const STEPS = [
     `<div style="display:flex;gap:6px;">${btn('📤 Kirim Backup Sekarang','primary')}${btn('♻️ Pulihkan dari Backup','ghost')}</div>`),
 },
 {
-  module:'admin', code:'26', role:'Admin', url:'pengaturan',
+  module:'admin', code:'27', role:'Admin', url:'pengaturan',
   title:'Arsipkan & Bersihkan Data Lama',
   desc:'Supaya aplikasi tetap ringan dalam jangka panjang, transaksi & pengeluaran lama bisa diarsipkan ke Excel lalu dihapus dari database aktif — datanya tetap aman di file Excel.',
   bullets:['Pilih tanggal batas, lalu "🔍 Cek Jumlah Data" untuk lihat berapa banyak yang akan diarsipkan','"⬇️ 1. Download Arsip Excel Dulu" — WAJIB dilakukan lebih dulu, berisi rincian transaksi & item','"🗑️ 2. Hapus dari Database" baru aktif setelah arsip diunduh, dan perlu PIN Hapus','Data yang sudah dihapus dari database TETAP tersimpan aman di file Excel yang diunduh'],
