@@ -17,8 +17,10 @@
     --ink-faint:#93A19C;
     --primary:#146356;
     --primary-dark:#0E4A41;
+    --primary-light:#1C8A76;
     --primary-soft:#E4F1EC;
     --accent:#C2760C;
+    --accent-light:#E0930F;
     --accent-soft:#FBEEDC;
     --danger:#B3261E;
     --danger-soft:#FBEAE9;
@@ -28,6 +30,8 @@
     --font-body:'Inter',sans-serif;
     --font-mono:'JetBrains Mono',monospace;
     --shadow:0 1px 2px rgba(28,42,38,.04), 0 8px 24px -12px rgba(28,42,38,.18);
+    --grad-primary:linear-gradient(135deg,var(--primary-light) 0%,var(--primary) 45%,var(--primary-dark) 100%);
+    --grad-accent:linear-gradient(135deg,var(--accent-light) 0%,var(--accent) 100%);
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
@@ -44,47 +48,49 @@
   /* ---------- Topbar ---------- */
   .topbar{
     display:flex;align-items:center;justify-content:space-between;
-    padding:16px 20px;background:var(--surface);
+    padding:14px 20px;background:var(--surface);
     border-bottom:1px solid var(--border);
+    box-shadow:0 2px 10px -6px rgba(28,42,38,.15);
     position:sticky;top:0;z-index:20;
     flex-wrap:wrap;gap:12px;
   }
-  .brand{display:flex;align-items:center;gap:10px;font-family:var(--font-display);font-weight:800;font-size:17px;color:var(--primary-dark);}
+  .brand{display:flex;align-items:center;gap:11px;font-family:var(--font-display);font-weight:800;font-size:17px;color:var(--primary-dark);}
   .brand-mark{
     display:inline-flex;align-items:center;justify-content:center;
-    width:32px;height:32px;border-radius:9px;background:var(--primary);color:#fff;
-    font-size:17px;font-weight:800;flex:none;
+    width:36px;height:36px;border-radius:11px;background:var(--grad-primary);color:#fff;
+    font-size:18px;font-weight:800;flex:none;
+    box-shadow:0 4px 12px -3px rgba(14,74,65,.55), inset 0 1px 0 rgba(255,255,255,.25);
   }
   .brand small{display:block;font-family:var(--font-body);font-weight:500;font-size:11.5px;color:var(--ink-soft);}
   .kasir-session{display:flex;align-items:center;gap:10px;font-size:12.5px;font-weight:700;color:var(--ink-soft);}
   .kasir-session .name{color:var(--primary-dark);}
-  .tabs{display:flex;gap:6px;background:var(--bg);padding:4px;border-radius:11px;border:1px solid var(--border);flex-wrap:wrap;}
+  .tabs{display:flex;gap:5px;background:var(--surface);padding:5px;border-radius:12px;border:1px solid var(--border);flex-wrap:wrap;box-shadow:0 1px 4px -2px rgba(28,42,38,.08);}
   .tab{
-    border:none;background:transparent;padding:9px 14px;border-radius:8px;
-    font-weight:700;font-size:13px;color:var(--ink-soft);transition:.15s;white-space:nowrap;
+    border:none;background:transparent;padding:9px 15px;border-radius:9px;
+    font-weight:700;font-size:13px;color:var(--ink-soft);transition:.18s cubic-bezier(.4,0,.2,1);white-space:nowrap;
   }
-  .tab.active{background:var(--primary);color:#fff;}
-  .tab:not(.active):hover{color:var(--ink);background:var(--surface);}
+  .tab.active{background:var(--grad-accent);color:#fff;box-shadow:0 3px 10px -3px rgba(194,118,12,.5);transform:translateY(-1px);}
+  .tab:not(.active):hover{color:var(--primary-dark);background:var(--primary-soft);transform:translateY(-1px);}
 
-  .area-tabs{display:flex;gap:8px;}
+  .area-tabs{display:flex;gap:5px;background:var(--bg);padding:5px;border-radius:14px;border:1px solid var(--border);}
   .area-tab{
-    border:1.5px solid var(--border);background:var(--surface);padding:9px 18px;border-radius:10px;
-    font-family:var(--font-display);font-weight:800;font-size:13.5px;color:var(--ink-soft);transition:.15s;
+    border:none;background:transparent;padding:10px 20px;border-radius:10px;
+    font-family:var(--font-display);font-weight:800;font-size:13.5px;color:var(--ink-soft);transition:.2s cubic-bezier(.4,0,.2,1);
   }
-  .area-tab.active{background:var(--primary-dark);color:#fff;border-color:var(--primary-dark);}
-  .area-tab:not(.active):hover{border-color:var(--primary);color:var(--primary-dark);}
+  .area-tab.active{background:var(--grad-primary);color:#fff;box-shadow:0 4px 14px -4px rgba(14,74,65,.55);transform:translateY(-1px);}
+  .area-tab:not(.active):hover{background:var(--primary-soft);color:var(--primary-dark);}
   .login-role-tab{
     border:1.5px solid var(--border);background:var(--surface);padding:9px 18px;border-radius:10px;
     font-family:var(--font-display);font-weight:800;font-size:13.5px;color:var(--ink-soft);transition:.15s;
   }
-  .login-role-tab.active{background:var(--primary-dark);color:#fff;border-color:var(--primary-dark);}
+  .login-role-tab.active{background:var(--grad-primary);color:#fff;border-color:var(--primary-dark);box-shadow:0 4px 14px -4px rgba(14,74,65,.5);}
   .login-role-tab:not(.active):hover{border-color:var(--primary);color:var(--primary-dark);}
   .subtopbar{
-    background:var(--bg);border-bottom:1px solid var(--border);
+    background:linear-gradient(var(--bg),#F5F3EC);border-bottom:1px solid var(--border);
     padding:10px 20px;
     display:flex;overflow-x:auto;
   }
-  .subtopbar .tabs{border:none;background:transparent;padding:0;}
+  .subtopbar .tabs{border:none;background:transparent;padding:0;box-shadow:none;}
   .subtopbar .tabs.hidden{display:none;}
 
   main{max-width:1180px;margin:0 auto;padding:26px 20px 80px;}
@@ -92,8 +98,8 @@
   .tab-panel.active{display:block;animation:fade .25s ease;}
   @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 
-  h2{font-family:var(--font-display);font-size:16px;margin:0 0 4px;color:var(--primary-dark);}
-  .section-hint{color:var(--ink-soft);font-size:13px;margin:0 0 16px;}
+  h2{font-family:var(--font-display);font-size:16px;margin:0 0 4px;color:var(--primary-dark);padding-left:11px;border-left:4px solid var(--accent);border-radius:2px;}
+  .section-hint{color:var(--ink-soft);font-size:13px;margin:0 0 16px;padding-left:11px;}
 
   .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:18px;box-shadow:var(--shadow);}
 
@@ -109,10 +115,10 @@
     background:var(--surface);border:1px solid var(--border);color:var(--ink);
   }
   .btn:hover{border-color:var(--primary);color:var(--primary-dark);}
-  .btn-primary{background:var(--primary);color:#fff;border-color:var(--primary);}
-  .btn-primary:hover{background:var(--primary-dark);}
-  .btn-accent{background:var(--accent);color:#fff;border-color:var(--accent);}
-  .btn-accent:hover{background:#a2620a;}
+  .btn-primary{background:var(--grad-primary);color:#fff;border-color:var(--primary);box-shadow:0 2px 8px -3px rgba(14,74,65,.4);}
+  .btn-primary:hover{filter:brightness(1.08);}
+  .btn-accent{background:var(--grad-accent);color:#fff;border-color:var(--accent);box-shadow:0 2px 8px -3px rgba(194,118,12,.4);}
+  .btn-accent:hover{filter:brightness(1.08);}
   .btn-danger{color:var(--danger);}
   .btn-danger:hover{border-color:var(--danger);background:var(--danger-soft);}
   .btn-sm{padding:6px 10px;font-size:12px;border-radius:7px;}
@@ -226,7 +232,8 @@
   @keyframes connStuckBlink{0%,100%{opacity:1;}50%{opacity:.55;}}
 
   .summary-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px;}
-  .s-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;}
+  .s-card{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--primary);border-radius:12px;padding:14px 16px;box-shadow:0 1px 3px -1px rgba(28,42,38,.06);transition:.18s;}
+  .s-card:hover{transform:translateY(-2px);box-shadow:0 6px 16px -6px rgba(28,42,38,.18);}
   .s-card .k{font-size:11.5px;color:var(--ink-soft);font-weight:600;}
   .s-card .v{font-family:var(--font-display);font-size:19px;font-weight:800;color:var(--primary-dark);margin-top:2px;}
 
@@ -343,20 +350,20 @@
 
 <div class="subtopbar">
   <nav class="tabs" id="areaSubTabs-kasir">
-    <button class="tab active" data-tab="kasir">Kasir</button>
-    <button class="tab" data-tab="riwayat">Riwayat Transaksi</button>
-    <button class="tab" data-tab="riwayatPengeluaran">Riwayat Pengeluaran</button>
-    <button class="tab" data-tab="stok">Stok Obat</button>
-    <button class="tab" data-tab="resep">Resep Dokter</button>
-    <button class="tab" data-tab="piutang">Piutang</button>
-    <button class="tab" data-tab="laporan">Laporan Keuangan</button>
-    <button class="tab" data-tab="pengaturan">Pengaturan</button>
+    <button class="tab active" data-tab="kasir">🛒 Kasir</button>
+    <button class="tab" data-tab="riwayat">🧾 Riwayat Transaksi</button>
+    <button class="tab" data-tab="riwayatPengeluaran">💸 Riwayat Pengeluaran</button>
+    <button class="tab" data-tab="stok">💊 Stok Obat</button>
+    <button class="tab" data-tab="resep">📋 Resep Dokter</button>
+    <button class="tab" data-tab="piutang">💳 Piutang</button>
+    <button class="tab" data-tab="laporan">📊 Laporan Keuangan</button>
+    <button class="tab" data-tab="pengaturan">⚙️ Pengaturan</button>
   </nav>
   <nav class="tabs hidden" id="areaSubTabs-klinik">
-    <button class="tab" data-tab="pasien">Pasien</button>
-    <button class="tab" data-tab="booking">Booking</button>
-    <button class="tab" data-tab="antrian">Antrian Klinik</button>
-    <button class="tab" data-tab="laporanKlinik">Laporan Klinik</button>
+    <button class="tab" data-tab="pasien">🧑‍⚕️ Pasien</button>
+    <button class="tab" data-tab="booking">📅 Booking</button>
+    <button class="tab" data-tab="antrian">🎫 Antrian Klinik</button>
+    <button class="tab" data-tab="laporanKlinik">📈 Laporan Klinik</button>
   </nav>
 </div>
 
