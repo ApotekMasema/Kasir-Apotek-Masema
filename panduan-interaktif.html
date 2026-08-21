@@ -516,7 +516,24 @@ const STEPS = [
   callout:{key:'btn-cicil', tag:'Cicilan', text:'Otomatis tercatat sebagai kas masuk tunai.'},
 },
 {
-  module:'kasir', code:'13', role:'Kasir', url:'kasir',
+  module:'kasir', code:'13', role:'Kasir', url:'kasir/laporan',
+  title:'Laporan Keuangan — Pilih Model Grafik',
+  desc:'Grafik pada Laporan Keuangan sekarang bisa dipilih tampilannya lewat dropdown "Model Grafik", sesuai preferensi masing-masing.',
+  bullets:['📊 Batang & 📈 Garis & 🏔️ Area — menampilkan tren total penjualan per hari','🥧 Pie — menampilkan proporsi penjualan per kategori obat (bukan per hari)','Arahkan kursor ke batang/titik/potongan pie untuk lihat nilai persisnya','Pilihan model grafik otomatis diingat di komputer ini untuk kunjungan berikutnya'],
+  tabbar:['Laporan Keuangan'], activeTab:'Laporan Keuangan',
+  body: `
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+      <h4 style="margin:0;">Tren Penjualan Harian</h4>
+      <div class="mock-field" style="margin-bottom:0;min-width:170px;" data-key="pilih-model-grafik">
+        <label>Model Grafik</label>
+        <div class="mock-input">📈 Garis (Line) ▾</div>
+      </div>
+    </div>
+    <div class="mock-card"><div style="text-align:center;padding:18px;color:var(--ink-soft);font-size:12.5px;">— grafik tren mengikuti model yang dipilih —</div></div>`,
+  callout:{key:'pilih-model-grafik', tag:'Baru', text:'4 model grafik: Bar, Line, Area, Pie.'},
+},
+{
+  module:'kasir', code:'14', role:'Kasir', url:'kasir',
   title:'Cetak Dokumen Terpusat',
   desc:'Karena semua printer terhubung ke komputer Kasir, semua kebutuhan cetak dipusatkan di satu kartu ini.',
   bullets:['Cari & pilih pasien, lalu pilih resep yang menunggu (jika ada)','Isi Nama Dokter / Diagnosa untuk surat sakit atau rujukan','4 pilihan cetak: Label Obat, Resep Formal, Surat Sakit, Surat Rujukan'],
@@ -529,7 +546,7 @@ const STEPS = [
   callout:{key:'print-buttons', tag:'Label baru', text:'Format label kini termasuk usia & indikasi.'},
 },
 {
-  module:'kasir', code:'14', role:'Kasir', url:'kasir',
+  module:'kasir', code:'15', role:'Kasir', url:'kasir',
   title:'Tutup Kasir / Ganti Kasir',
   desc:'Di akhir shift, rekonsiliasi kas dilakukan lewat tombol "Ganti Kasir" di pojok kanan atas.',
   bullets:['Sistem menghitung Kas Seharusnya berdasarkan transaksi & cicilan tunai','Isi Uang Tunai Fisik di laci — selisih otomatis dihitung','Riwayat semua penutupan shift tersimpan di Pengaturan'],
@@ -542,7 +559,7 @@ const STEPS = [
 
 /* ===================== MODUL: KLINIK ===================== */
 {
-  module:'klinik', code:'15', role:'Dokter', url:'login',
+  module:'klinik', code:'16', role:'Dokter', url:'login',
   title:'Login sebagai Dokter',
   desc:'Dokter login dengan akun terpisah dari kasir dan langsung diarahkan ke area Klinik saja.',
   bullets:['Pilih tab 🩺 Dokter saat login','Area Kasir otomatis disembunyikan — dokter tidak perlu buka/tutup shift','Setiap dokter punya nama & PIN sendiri, diatur Admin'],
@@ -557,7 +574,7 @@ const STEPS = [
   callout:{key:'dokter-tab', tag:'Peran terpisah', text:'Login dokter tidak melihat area Kasir.'},
 },
 {
-  module:'klinik', code:'16', role:'Dokter', url:'klinik/pasien',
+  module:'klinik', code:'17', role:'Dokter', url:'klinik/pasien',
   title:'Data Pasien',
   desc:'Menyimpan seluruh data pasien lengkap dengan Nomor Rekam Medis (No. RM) yang dibuat otomatis.',
   bullets:['+ Tambah Pasien untuk pendaftaran pasien baru','Import Excel untuk memasukkan banyak pasien / riwayat kunjungan lama sekaligus','Gunakan tombol Template Import agar format kolom pasti benar'],
@@ -568,7 +585,7 @@ const STEPS = [
     ${row('Pak Budi — RM0013','Pria, 55 th','Alergi: Amoxicillin')}`,
 },
 {
-  module:'klinik', code:'17', role:'Dokter', url:'klinik/booking',
+  module:'klinik', code:'18', role:'Dokter', url:'klinik/booking',
   title:'Booking / Jadwal Kunjungan',
   desc:'Menjadwalkan kunjungan pasien di tanggal manapun, tidak harus hari ini.',
   bullets:['Cari & pilih pasien yang sudah terdaftar','Pilih tanggal kunjungan yang direncanakan','Saat hari-H tiba, banner "Jadikan Antrian" muncul otomatis di tab Antrian'],
@@ -576,7 +593,7 @@ const STEPS = [
   body: card('📅 Booking Baru','', field('Pasien','Bu Sari') + field('Tanggal Kunjungan','20 Agustus 2026') + btn('Simpan Booking','primary')),
 },
 {
-  module:'klinik', code:'18', role:'Dokter', url:'klinik/antrian',
+  module:'klinik', code:'19', role:'Dokter', url:'klinik/antrian',
   title:'Antrian Klinik',
   desc:'Menampilkan antrian pasien hari ini dengan status berjalan: Menunggu → Diperiksa → Selesai.',
   bullets:['"Daftarkan Pasien ke Antrian" untuk pasien walk-in (datang langsung)','Klik nama pasien saat gilirannya untuk membuka Rekam Medis','Status otomatis berubah mengikuti tahap pemeriksaan'],
@@ -587,7 +604,7 @@ const STEPS = [
   callout:{key:'row-antrian', tag:'Klik nama', text:'Membuka Rekam Medis pasien ini.'},
 },
 {
-  module:'klinik', code:'19', role:'Dokter', url:'klinik/rme',
+  module:'klinik', code:'20', role:'Dokter', url:'klinik/rme',
   title:'Rekam Medis (RME) & Tulis Resep',
   desc:'Tempat dokter mencatat hasil pemeriksaan dan menuliskan resep obat lengkap dengan aturan pakainya.',
   bullets:['Isi vital signs: tensi, suhu, nadi, BB, TB','Tulis Diagnosa & Keluhan, serta Jadwal Kontrol Berikutnya jika perlu','Tambahkan obat ke Keranjang Resep beserta Aturan Pakai (mis. "3x1 sesudah makan")'],
@@ -600,7 +617,7 @@ const STEPS = [
     ${card('💊 Keranjang Resep','', row('Amoxicillin 500mg','3x1 sesudah makan','Qty 10'))}`,
 },
 {
-  module:'klinik', code:'20', role:'Dokter', url:'klinik/rme',
+  module:'klinik', code:'21', role:'Dokter', url:'klinik/rme',
   title:'Kirim Resep ke Kasir & Cetak Surat',
   desc:'Setelah resep selesai ditulis, kirimkan ke Kasir untuk diproses jadi transaksi, atau cetak dokumen resmi langsung.',
   bullets:['"Kirim Resep ke Kasir" — resep otomatis muncul di kartu Resep Menunggu Kasir','🏷️ Cetak Label Obat bisa langsung dari sini bila dokter punya printer sendiri','Tersedia juga cetak Resep Formal, Surat Sakit, dan Surat Rujukan A4 bernomor otomatis'],
@@ -613,7 +630,7 @@ const STEPS = [
 
 /* ===================== MODUL: PENGATURAN ===================== */
 {
-  module:'admin', code:'21', role:'Admin', url:'pengaturan',
+  module:'admin', code:'22', role:'Admin', url:'pengaturan',
   title:'PIN Admin & PIN Hapus',
   desc:'Aplikasi memakai 2 lapis PIN dengan kegunaan berbeda demi keamanan data.',
   bullets:['PIN Admin — untuk masuk area Admin, edit stok, retur, kelola akun','PIN Hapus — khusus aksi menghapus/mengubah data sensitif secara permanen','Kedua PIN wajib berbeda, dan sebaiknya segera diganti dari nilai default','🔒 Sejak update terbaru, setiap PIN otomatis dienkripsi (hash) saat disimpan/diganti — bukan lagi tersimpan polos di database'],
@@ -622,7 +639,7 @@ const STEPS = [
       + card('🗑️ Ubah PIN Hapus','', field('PIN Hapus Baru','••••') + btn('Simpan','danger')),
 },
 {
-  module:'admin', code:'22', role:'Admin', url:'pengaturan',
+  module:'admin', code:'23', role:'Admin', url:'pengaturan',
   title:'Logo Aplikasi',
   desc:'Logo apotek bisa diganti sendiri kapan saja dari sini — tanpa perlu minta bantuan ubah kode — dan otomatis tampil di Halaman Depan, Struk, dan Label Obat.',
   bullets:['📤 Upload Logo Baru — pilih file gambar dari komputer, otomatis diperkecil & dirapikan','↺ Kembalikan ke Logo Default kapan saja bila ingin balik ke logo semula','Atur tampil/sembunyikan & tingkat transparansi (opacity) logo secara terpisah untuk Halaman Depan, Struk (watermark di tengah), dan Label Obat','Klik "💾 Simpan Pengaturan Logo" agar logo baru ikut tersinkron ke semua komputer'],
@@ -639,7 +656,7 @@ const STEPS = [
   callout:{key:'logo-preview', tag:'Baru', text:'Ganti logo sendiri kapan saja, tanpa edit kode.'},
 },
 {
-  module:'admin', code:'23', role:'Admin', url:'pengaturan',
+  module:'admin', code:'24', role:'Admin', url:'pengaturan',
   title:'Akun Kasir & Dokter',
   desc:'Admin mendaftarkan siapa saja yang boleh login sebagai kasir atau dokter, lengkap dengan PIN masing-masing.',
   bullets:['Minimal harus ada satu akun kasir agar kasir bisa login','Setiap akun bisa dihapus kapan saja — perlu PIN Hapus','Nama akun ini yang akan tercatat di setiap transaksi & audit log'],
@@ -647,7 +664,7 @@ const STEPS = [
   body: card('👤 Akun Kasir','', row('Ega','Aktif','') + row('Rani','Aktif','') + btn('+ Tambah Akun Kasir','primary')),
 },
 {
-  module:'admin', code:'24', role:'Admin', url:'pengaturan',
+  module:'admin', code:'25', role:'Admin', url:'pengaturan',
   title:'Peran Akun — Kasir Biasa vs Pemilik/Admin',
   desc:'Setiap akun kasir kini punya Peran, supaya tidak semua orang otomatis bisa melihat laba atau masuk Pengaturan.',
   bullets:['🧾 Kasir Biasa — cuma bisa bertransaksi & lihat stok; tab Laporan Keuangan & Pengaturan otomatis disembunyikan','👑 Pemilik/Admin — bisa mengakses semua tab, termasuk Laporan Keuangan & Pengaturan','Pilih Peran saat menambah akun baru di kartu Akun Kasir — default-nya Kasir Biasa','Akun lama yang sudah ada sebelum fitur ini tetap dianggap Pemilik/Admin, supaya aksesnya tidak berubah tiba-tiba'],
@@ -663,7 +680,7 @@ const STEPS = [
   callout:{key:'peran-select', tag:'Fitur baru', text:'Menentukan tab mana yang boleh diakses akun ini.'},
 },
 {
-  module:'admin', code:'25', role:'Admin', url:'pengaturan',
+  module:'admin', code:'26', role:'Admin', url:'pengaturan',
   title:'Notifikasi & Pengingat Telegram',
   desc:'Aplikasi bisa mengirim notifikasi otomatis ke Telegram untuk beberapa kejadian penting.',
   bullets:['Stok menipis/kadaluarsa, ringkasan penjualan, piutang jatuh tempo, jadwal kontrol pasien','Isi Token Bot & Chat ID, lalu aktifkan toggle yang diinginkan','Gunakan tombol "Tes Kirim" untuk memastikan pesan berhasil sebelum diandalkan'],
@@ -673,7 +690,7 @@ const STEPS = [
     + `<div style="display:flex;gap:6px;">${btn('Tes Kirim','ghost')}${btn('Simpan','primary')}</div>`),
 },
 {
-  module:'admin', code:'26', role:'Admin', url:'pengaturan',
+  module:'admin', code:'27', role:'Admin', url:'pengaturan',
   title:'Backup Data Otomatis',
   desc:'Menjaga data tetap aman lewat backup harian otomatis, sebagai jaring pengaman tambahan di luar sinkronisasi cloud.',
   bullets:['Backup Otomatis Harian dikirim ke Telegram 1x sehari','Tombol Backup Manual tersedia untuk kirim kapan saja','Data bisa dipulihkan kembali lewat menu Pemulihan (perlu PIN Admin)'],
@@ -682,7 +699,7 @@ const STEPS = [
     `<div style="display:flex;gap:6px;">${btn('📤 Kirim Backup Sekarang','primary')}${btn('♻️ Pulihkan dari Backup','ghost')}</div>`),
 },
 {
-  module:'admin', code:'27', role:'Admin', url:'pengaturan',
+  module:'admin', code:'28', role:'Admin', url:'pengaturan',
   title:'Arsipkan & Bersihkan Data Lama',
   desc:'Supaya aplikasi tetap ringan dalam jangka panjang, transaksi & pengeluaran lama bisa diarsipkan ke Excel lalu dihapus dari database aktif — datanya tetap aman di file Excel.',
   bullets:['Pilih tanggal batas, lalu "🔍 Cek Jumlah Data" untuk lihat berapa banyak yang akan diarsipkan','"⬇️ 1. Download Arsip Excel Dulu" — WAJIB dilakukan lebih dulu, berisi rincian transaksi & item','"🗑️ 2. Hapus dari Database" baru aktif setelah arsip diunduh, dan perlu PIN Hapus','Data yang sudah dihapus dari database TETAP tersimpan aman di file Excel yang diunduh'],
