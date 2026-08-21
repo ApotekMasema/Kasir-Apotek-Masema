@@ -315,6 +315,12 @@
   .label-obat .lo-aturan2{font-weight:700;font-size:10px;text-align:center;margin:1.5mm 0;line-height:1.3;}
   .label-obat .lo-obat2{font-weight:700;font-size:9.5px;margin:0.8mm 0;line-height:1.2;}
   .label-obat .lo-row{font-size:8px;margin:0.5mm 0;line-height:1.25;}
+  .label-preview-box{background:#fff;border:1.5px solid #999;box-shadow:0 2px 6px rgba(0,0,0,.15);box-sizing:border-box;flex:none;}
+  .label-preview-box .label-obat{page-break-after:auto;}
+  .wiz-size-btn{border:1.5px solid var(--border);border-radius:10px;padding:12px 8px;background:var(--surface);cursor:pointer;font-size:13px;font-weight:700;color:var(--ink);text-align:center;transition:.15s;}
+  .wiz-size-btn small{font-weight:500;color:var(--ink-soft);}
+  .wiz-size-btn:hover{border-color:var(--primary);}
+  .wiz-size-btn.selected{border-color:var(--primary);background:var(--primary-soft);box-shadow:0 0 0 2px var(--primary) inset;}
   .surat-a4 .surat-nomor{text-align:center;font-size:12px;margin-bottom:18px;}
   .surat-a4 table.surat-data{border:none;width:100%;margin:10px 0 16px;}
   .surat-a4 table.surat-data td{border:none;padding:2px 6px 2px 0;vertical-align:top;font-size:13px;}
@@ -1719,6 +1725,105 @@
     <button class="cancel" id="btnTutupStrukPreview">Tutup</button>
   </div>
 </div>
+
+<div class="modal-overlay hidden" id="labelPreviewModal">
+  <div class="modal" style="max-width:420px;">
+    <h3>🏷️ Pratinjau Label Obat</h3>
+    <p class="section-hint">Ukuran di bawah ini mendekati ukuran fisik sebenarnya, supaya bisa dicek dulu sebelum benar-benar dicetak. <span id="labelPreviewCount"></span></p>
+    <div style="background:#e8e8e8;border:1px solid var(--border);border-radius:10px;padding:14px;max-height:55vh;overflow-y:auto;display:flex;flex-direction:column;align-items:center;gap:10px;">
+      <div id="labelPreviewBoxes" style="display:flex;flex-direction:column;align-items:center;gap:10px;"></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:12px;">
+      <button class="btn" id="btnLabelPreviewBatal" style="flex:1;">Batal</button>
+      <button class="btn btn-primary" id="btnLabelPreviewCetak" style="flex:1;">🖨️ Sudah Pas, Cetak</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay hidden" id="setupWizardModal">
+  <div class="modal" style="max-width:460px;">
+    <div style="display:flex;gap:5px;margin-bottom:14px;">
+      <div class="wiz-dot" data-wizdot="1" style="flex:1;height:5px;border-radius:99px;background:var(--primary);"></div>
+      <div class="wiz-dot" data-wizdot="2" style="flex:1;height:5px;border-radius:99px;background:var(--border);"></div>
+      <div class="wiz-dot" data-wizdot="3" style="flex:1;height:5px;border-radius:99px;background:var(--border);"></div>
+      <div class="wiz-dot" data-wizdot="4" style="flex:1;height:5px;border-radius:99px;background:var(--border);"></div>
+    </div>
+
+    <div id="wizStep1">
+      <h3>👋 Selamat Datang! Yuk Setup Sebentar</h3>
+      <p class="section-hint">Cuma perlu 1 menit, sekali saja. Isi identitas apotek/klinik Anda dulu.</p>
+      <div class="form-grid">
+        <div class="field full">
+          <label>Nama Apotek / Klinik</label>
+          <input type="text" id="wizNamaApotek" placeholder="Apotek Masema Medika">
+        </div>
+        <div class="field full">
+          <label>Alamat (opsional)</label>
+          <input type="text" id="wizAlamat" placeholder="Jl. Contoh No. 123">
+        </div>
+        <div class="field full">
+          <label>No. Telepon (opsional)</label>
+          <input type="text" id="wizTelp" placeholder="08xxxxxxxxxx">
+        </div>
+      </div>
+      <button class="btn btn-primary btn-block" id="btnWiz1Next" style="margin-top:14px;">Lanjut →</button>
+      <button class="cancel" id="btnWizSkipAll1" style="margin-top:6px;">Lewati semua, atur nanti saja</button>
+    </div>
+
+    <div id="wizStep2" class="hidden">
+      <h3>🏷️ Ukuran Label Obat</h3>
+      <p class="section-hint">Pilih yang paling mendekati ukuran fisik label/stiker printer Anda. Kalau belum yakin, pilih 60×40mm dulu — bisa diubah kapan saja nanti lewat Pengaturan.</p>
+      <div id="wizLabelSizeGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0;">
+        <button type="button" class="wiz-size-btn" data-w="40" data-h="30">40 × 30mm<br><small>Label kecil</small></button>
+        <button type="button" class="wiz-size-btn" data-w="50" data-h="30">50 × 30mm<br><small>Label kecil</small></button>
+        <button type="button" class="wiz-size-btn selected" data-w="60" data-h="40">60 × 40mm<br><small>Paling umum</small></button>
+        <button type="button" class="wiz-size-btn" data-w="80" data-h="50">80 × 50mm<br><small>Label besar</small></button>
+      </div>
+      <p class="muted" style="font-size:12px;">Preview kasar (bukan skala sebenarnya):</p>
+      <div style="display:flex;justify-content:center;padding:10px;background:#e8e8e8;border-radius:10px;">
+        <div id="wizLabelPreviewBox" style="background:#fff;border:1.5px solid #999;box-sizing:border-box;"></div>
+      </div>
+      <button class="btn btn-primary btn-block" id="btnWiz2Next" style="margin-top:14px;">Lanjut →</button>
+      <button class="cancel" id="btnWiz2Back">← Kembali</button>
+    </div>
+
+    <div id="wizStep3" class="hidden">
+      <h3>🔒 Amankan PIN</h3>
+      <p class="section-hint">PIN Admin dipakai buka tab Stok/Laporan/Pengaturan. PIN Hapus dipakai khusus hapus/batalkan data — sengaja dipisah supaya bisa dipegang orang berbeda. Boleh dilewati (tetap pakai default 1234 / 5678).</p>
+      <div class="form-grid">
+        <div class="field">
+          <label>PIN Admin baru (4 digit)</label>
+          <input type="password" id="wizAdminPin" maxlength="4" inputmode="numeric" placeholder="Default: 1234">
+        </div>
+        <div class="field">
+          <label>PIN Hapus baru (4 digit)</label>
+          <input type="password" id="wizDeletePin" maxlength="4" inputmode="numeric" placeholder="Default: 5678">
+        </div>
+      </div>
+      <button class="btn btn-primary btn-block" id="btnWiz3Next" style="margin-top:14px;">Lanjut →</button>
+      <button class="cancel" id="btnWiz3Back">← Kembali</button>
+    </div>
+
+    <div id="wizStep4" class="hidden">
+      <h3>🆘 Kalau Nanti Lupa PIN</h3>
+      <p class="section-hint">Isi pertanyaan keamanan ini SEKARANG, supaya kalau lupa PIN nanti, Anda bisa atur PIN baru sendiri lewat tombol "Lupa PIN?" — tanpa perlu hubungi siapa-siapa. Sangat disarankan diisi.</p>
+      <div class="form-grid">
+        <div class="field full">
+          <label>Pertanyaan Keamanan</label>
+          <input type="text" id="wizRecoveryQuestion" placeholder="Contoh: Nama kecil pemilik apotek?">
+        </div>
+        <div class="field full">
+          <label>Jawaban Keamanan</label>
+          <input type="text" id="wizRecoveryAnswer" placeholder="Jawaban (tidak case-sensitive)">
+        </div>
+      </div>
+      <button class="btn btn-primary btn-block" id="btnWizFinish" style="margin-top:14px;">✓ Selesai, Mulai Pakai Aplikasi</button>
+      <button class="cancel" id="btnWiz4Back">← Kembali</button>
+    </div>
+  </div>
+</div>
+
+
 
 <div class="modal-overlay hidden" id="bayarPiutangModal">
   <div class="modal">
@@ -3879,7 +3984,7 @@ async function renderResepPendingBanner(){
     const r = list.find(x=>x.id===e.target.dataset.id);
     if(!r) return;
     const p = pasienList.find(x=>x.id===r.pasienId) || { nama: r.namaPasien };
-    cetakLabelObatItems(r.items, p, r.diagnosa||'');
+    previewCetakLabelObatItems(r.items, p, r.diagnosa||'');
   }));
   wrap.querySelectorAll('[data-act="resep"]').forEach(b=>b.addEventListener('click', e=>{
     const r = list.find(x=>x.id===e.target.dataset.id);
@@ -3978,7 +4083,7 @@ document.getElementById('kdBtnCetakLabel').addEventListener('click', ()=>{
   if(!r){ toast('Pilih resep menunggu terlebih dahulu.', true); return; }
   const p = pasienList.find(x=>x.id===r.pasienId) || { nama: r.namaPasien };
   const indikasi = document.getElementById('kdDiagnosa').value.trim() || r.diagnosa || '';
-  cetakLabelObatItems(r.items, p, indikasi);
+  previewCetakLabelObatItems(r.items, p, indikasi);
 });
 document.getElementById('kdBtnCetakResepFormal').addEventListener('click', ()=>{
   const id = document.getElementById('kdPilihResepPending').value;
@@ -4484,18 +4589,17 @@ function getLabelWidthMm(){
 function getLabelHeightMm(){
   return Number(pengaturan.labelHeight) > 0 ? Number(pengaturan.labelHeight) : 40;
 }
-function cetakLabelObatItems(items, pasien, indikasi){
-  if(!items || items.length===0){ toast('Belum ada obat untuk dicetak labelnya.', true); return; }
+function buildLabelObatHtmlArr(items, pasien, indikasi){
   const p = (typeof pasien === 'string') ? { nama: pasien, tglLahir: '' } : (pasien || { nama:'', tglLahir:'' });
   const namaPasien = p.nama || '';
   const usia = p.tglLahir ? calcUmurDetail(p.tglLahir) : '';
   const indikasiText = (indikasi||'').trim();
   const hmm = getLabelHeightMm();
+  const mm = getLabelWidthMm();
   const logoTampil = pengaturan.logoTampilLabel !== false;
   const logoOpacity = (pengaturan.logoOpacityLabel != null ? pengaturan.logoOpacityLabel : 100) / 100;
   const logoHtml = logoTampil ? `<img class="lo-logo" src="${getLogoSrc()}" alt="" style="opacity:${logoOpacity};">` : '';
-  const el = document.getElementById('labelContent');
-  el.innerHTML = items.map(c=>{
+  const htmlArr = items.map(c=>{
     const obatMaster = c.obatId ? obatList.find(o=>o.id===c.obatId) : null;
     const expD = obatMaster && obatMaster.kadaluarsa ? parseDateInput(obatMaster.kadaluarsa) : null;
     const exp = expD && !isNaN(expD) ? fmtDateFull(expD) : '';
@@ -4510,11 +4614,18 @@ function cetakLabelObatItems(items, pasien, indikasi){
       <div class="lo-row">INDIKASI : ${escapeHtml(indikasiText.toUpperCase())}</div>
     </div>
   `;
-  }).join('');
+  });
+  return { htmlArr, mm, hmm };
+}
+// Cetak fisik langsung (dipanggil dari modal preview setelah user klik "Cetak", atau
+// bisa juga dipanggil langsung tanpa preview kalau suatu saat dibutuhkan).
+function printLabelObatHtmlArr(htmlArr, mm, hmm){
+  if(!htmlArr || htmlArr.length===0){ toast('Belum ada obat untuk dicetak labelnya.', true); return; }
+  const el = document.getElementById('labelContent');
+  el.innerHTML = htmlArr.join('');
   // Setel ukuran halaman cetak supaya PAS dengan ukuran fisik label roll (lebar x tinggi,
   // BUKAN "auto" lagi - untuk label die-cut kecil seperti 60x40mm, tinggi harus pasti
   // supaya tidak menyisakan banyak area kosong dan tidak nyambung ke label berikutnya).
-  const mm = getLabelWidthMm();
   const pageStyle = document.getElementById('printPageSizeStyle');
   const prevPageStyle = pageStyle ? pageStyle.textContent : '';
   if(pageStyle) pageStyle.textContent = `@media print { @page { size: ${mm}mm ${hmm}mm; margin: 0; } }`;
@@ -4527,13 +4638,41 @@ function cetakLabelObatItems(items, pasien, indikasi){
     if(pageStyle) pageStyle.textContent = prevPageStyle; // kembalikan ke ukuran struk semula
   }, 500);
 }
+function cetakLabelObatItems(items, pasien, indikasi){
+  if(!items || items.length===0){ toast('Belum ada obat untuk dicetak labelnya.', true); return; }
+  const { htmlArr, mm, hmm } = buildLabelObatHtmlArr(items, pasien, indikasi);
+  printLabelObatHtmlArr(htmlArr, mm, hmm);
+}
+// Preview visual (ukuran sebenarnya dalam mm) sebelum benar-benar cetak fisik,
+// supaya user bisa cek dulu apakah tata letak/ukuran sudah pas dengan label rollnya
+// sebelum buang-buang kertas/waktu untuk trial-and-error di printer.
+let labelPreviewPending = null;
+function previewCetakLabelObatItems(items, pasien, indikasi){
+  if(!items || items.length===0){ toast('Belum ada obat untuk dicetak labelnya.', true); return; }
+  const { htmlArr, mm, hmm } = buildLabelObatHtmlArr(items, pasien, indikasi);
+  labelPreviewPending = { htmlArr, mm, hmm };
+  const wrap = document.getElementById('labelPreviewBoxes');
+  wrap.innerHTML = htmlArr.map(h=>`<div class="label-preview-box" style="width:${mm}mm;">${h}</div>`).join('');
+  document.getElementById('labelPreviewCount').textContent = `${items.length} label · ukuran ${mm}mm × ${hmm}mm`;
+  document.getElementById('labelPreviewModal').classList.remove('hidden');
+}
+document.getElementById('btnLabelPreviewCetak').addEventListener('click', ()=>{
+  if(!labelPreviewPending) return;
+  printLabelObatHtmlArr(labelPreviewPending.htmlArr, labelPreviewPending.mm, labelPreviewPending.hmm);
+  document.getElementById('labelPreviewModal').classList.add('hidden');
+  labelPreviewPending = null;
+});
+document.getElementById('btnLabelPreviewBatal').addEventListener('click', ()=>{
+  document.getElementById('labelPreviewModal').classList.add('hidden');
+  labelPreviewPending = null;
+});
 // Dicetak oleh DOKTER langsung setelah menulis resep di RME (bukan di Kasir),
 // pakai printer label terpisah (mis. Grozzie TP612) - tidak tercampur dengan
 // printer struk thermal yang dipakai Kasir untuk cetak struk transaksi.
 document.getElementById('btnCetakLabelRme').addEventListener('click', ()=>{
   const p = rmeAntrianAktif ? (pasienList.find(x=>x.id===rmeAntrianAktif.pasienId) || { nama: rmeAntrianAktif.namaPasien }) : null;
   const indikasi = document.getElementById('rmeDiagnosa').value.trim();
-  cetakLabelObatItems(rmeResepCart, p, indikasi);
+  previewCetakLabelObatItems(rmeResepCart, p, indikasi);
 });
 // Cetak ulang label obat secara massal dari sebuah transaksi lama di Riwayat Transaksi -
 // mencetak label untuk SEMUA item obat dalam transaksi itu sekaligus (bukan satu-satu),
@@ -4552,7 +4691,7 @@ function cetakLabelDariRiwayat(rows, noStruk){
     .filter(it => it.qty > 0);
   if(items.length === 0){ toast('Tidak ada item obat untuk dicetak labelnya di transaksi ini (mungkin semua custom item atau sudah diretur semua).', true); return; }
   const p = trx.pasienId ? (pasienList.find(x=>x.id===trx.pasienId) || { nama: trx.pasien||'' }) : { nama: trx.pasien||'' };
-  cetakLabelObatItems(items, p, trx.diagnosa||'');
+  previewCetakLabelObatItems(items, p, trx.diagnosa||'');
 }
 
 
@@ -5436,6 +5575,11 @@ function loginSukses(nama, role){
   document.getElementById('btnPengeluaran').style.display = currentUserRole==='dokter' ? 'none' : '';
   document.getElementById('btnGantiKasir').textContent = currentUserRole==='dokter' ? 'Ganti Akun' : 'Ganti Kasir';
   applyRoleUI();
+  // Tampilkan wizard setup awal sekali saja, khusus utk akun Admin/Pemilik yang belum pernah menyelesaikannya -
+  // supaya identitas usaha, ukuran label, PIN, dan pertanyaan keamanan langsung terisi dari awal.
+  if((currentUserRole==='admin' || currentUserRole==='pemilik') && !pengaturan.setupWizardSelesai){
+    setTimeout(openSetupWizard, 300);
+  }
 }
 function applyRoleUI(){
   const kasirAreaBtn = document.querySelector('.area-tab[data-area="kasir"]');
@@ -7968,6 +8112,120 @@ document.getElementById('btnSyncPull').addEventListener('click', async ()=>{
   if(ok){ toast('Berhasil, memuat ulang halaman...'); setTimeout(()=>location.reload(), 1000); }
 });
 document.getElementById('connStatusBadge').addEventListener('click', ()=> goToTab('pengaturan'));
+
+/* =========================================================
+   WIZARD SETUP AWAL
+   Tampil sekali (per instalasi/apotek, ditandai pengaturan.setupWizardSelesai)
+   setelah akun Admin/Pemilik pertama kali login, supaya identitas usaha,
+   ukuran label, PIN, dan pertanyaan keamanan langsung terisi tanpa harus
+   mencari-cari sendiri ke tab Pengaturan.
+   ========================================================= */
+let wizStep = 1;
+let wizLabelW = 60, wizLabelH = 40;
+function wizShowStep(n){
+  wizStep = n;
+  [1,2,3,4].forEach(i=>{
+    document.getElementById('wizStep'+i).classList.toggle('hidden', i!==n);
+    const dot = document.querySelector(`[data-wizdot="${i}"]`);
+    if(dot) dot.style.background = i<=n ? 'var(--primary)' : 'var(--border)';
+  });
+}
+function wizUpdateLabelPreview(){
+  document.querySelectorAll('.wiz-size-btn').forEach(b=>{
+    b.classList.toggle('selected', Number(b.dataset.w)===wizLabelW && Number(b.dataset.h)===wizLabelH);
+  });
+  const box = document.getElementById('wizLabelPreviewBox');
+  // Skala visual saja (bukan mm asli) supaya tetap muat di modal, dengan proporsi lebar:tinggi asli dijaga.
+  const scale = 3;
+  box.style.width = (wizLabelW*scale)+'px';
+  box.style.height = (wizLabelH*scale)+'px';
+}
+document.querySelectorAll('.wiz-size-btn').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    wizLabelW = Number(b.dataset.w);
+    wizLabelH = Number(b.dataset.h);
+    wizUpdateLabelPreview();
+  });
+});
+function openSetupWizard(){
+  document.getElementById('wizNamaApotek').value = pengaturan.namaApotek || '';
+  document.getElementById('wizAlamat').value = pengaturan.alamat || '';
+  document.getElementById('wizTelp').value = pengaturan.telp || '';
+  wizLabelW = 60; wizLabelH = 40;
+  wizUpdateLabelPreview();
+  document.getElementById('wizAdminPin').value = '';
+  document.getElementById('wizDeletePin').value = '';
+  document.getElementById('wizRecoveryQuestion').value = '';
+  document.getElementById('wizRecoveryAnswer').value = '';
+  wizShowStep(1);
+  document.getElementById('setupWizardModal').classList.remove('hidden');
+}
+async function wizMarkDone(){
+  pengaturan = { ...pengaturan, setupWizardSelesai: true };
+  await sSet('pengaturan', pengaturan);
+}
+document.getElementById('btnWizSkipAll1').addEventListener('click', async ()=>{
+  document.getElementById('setupWizardModal').classList.add('hidden');
+  await wizMarkDone();
+});
+document.getElementById('btnWiz1Next').addEventListener('click', ()=> wizShowStep(2));
+document.getElementById('btnWiz2Back').addEventListener('click', ()=> wizShowStep(1));
+document.getElementById('btnWiz2Next').addEventListener('click', ()=> wizShowStep(3));
+document.getElementById('btnWiz3Back').addEventListener('click', ()=> wizShowStep(2));
+document.getElementById('btnWiz3Next').addEventListener('click', ()=>{
+  const a = document.getElementById('wizAdminPin').value.trim();
+  const d = document.getElementById('wizDeletePin').value.trim();
+  if(a && !/^\d{4}$/.test(a)){ toast('PIN Admin harus 4 digit angka, atau kosongkan saja.', true); return; }
+  if(d && !/^\d{4}$/.test(d)){ toast('PIN Hapus harus 4 digit angka, atau kosongkan saja.', true); return; }
+  if(a && d && a===d){ toast('PIN Admin dan PIN Hapus tidak boleh sama.', true); return; }
+  wizShowStep(4);
+});
+document.getElementById('btnWiz4Back').addEventListener('click', ()=> wizShowStep(3));
+document.getElementById('btnWizFinish').addEventListener('click', async ()=>{
+  const btn = document.getElementById('btnWizFinish');
+  btn.disabled = true; btn.textContent = 'Menyimpan...';
+  try{
+    // 1) Identitas usaha + ukuran label
+    pengaturan = {
+      ...pengaturan,
+      namaApotek: document.getElementById('wizNamaApotek').value.trim() || pengaturan.namaApotek,
+      alamat: document.getElementById('wizAlamat').value.trim(),
+      telp: document.getElementById('wizTelp').value.trim(),
+      labelWidth: String(wizLabelW),
+      labelHeight: wizLabelH,
+      setupWizardSelesai: true,
+    };
+    await sSet('pengaturan', pengaturan);
+    // 2) PIN Admin & PIN Hapus (opsional)
+    const newAdminPin = document.getElementById('wizAdminPin').value.trim();
+    const newDeletePin = document.getElementById('wizDeletePin').value.trim();
+    if(newAdminPin){
+      adminPin = await makePinCred(newAdminPin);
+      await sSet('admin-pin', adminPin);
+      logAudit('Ubah PIN Admin', 'PIN Admin diatur lewat wizard setup awal (nilai baru tidak dicatat di log ini demi keamanan)');
+    }
+    if(newDeletePin){
+      deletePin = await makePinCred(newDeletePin);
+      await sSet('delete-pin', deletePin);
+      logAudit('Ubah PIN Hapus/Batal', 'PIN Hapus diatur lewat wizard setup awal (nilai baru tidak dicatat di log ini demi keamanan)');
+    }
+    // 3) Pertanyaan keamanan (opsional)
+    const q = document.getElementById('wizRecoveryQuestion').value.trim();
+    const a = document.getElementById('wizRecoveryAnswer').value.trim();
+    if(q && a){
+      adminRecovery = { question:q, answer:a };
+      await sSet('admin-recovery', adminRecovery);
+    }
+    document.getElementById('setupWizardModal').classList.add('hidden');
+    toast('Setup awal selesai ✓ Selamat menggunakan aplikasi!');
+    fillPengaturanForm();
+  }catch(e){
+    console.error('Gagal menyimpan setup wizard', e);
+    toast('Gagal menyimpan sebagian pengaturan. Coba lagi lewat tab Pengaturan.', true);
+  }finally{
+    btn.disabled = false; btn.textContent = '✓ Selesai, Mulai Pakai Aplikasi';
+  }
+});
 
 /* ---------------- boot ---------------- */
 (async function boot(){
