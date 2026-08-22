@@ -444,6 +444,7 @@
       <div class="toolbar" style="margin-bottom:12px;">
         <button class="btn" id="kdBtnCetakLabel" type="button">🏷️ Cetak Label Obat</button>
         <button class="btn" id="kdBtnCetakResepFormal" type="button">🖨️ Cetak Resep Formal</button>
+        <button class="btn btn-secondary" id="kdBtnCetakKalibrasi" type="button" title="Cetak 1 label uji untuk cek batas area cetak fisik printer">🧪 Tes Kalibrasi Label</button>
       </div>
       <h3>Surat Dokter</h3>
       <div class="toolbar">
@@ -4093,6 +4094,9 @@ document.getElementById('kdBtnCetakResepFormal').addEventListener('click', ()=>{
   const p = pasienList.find(x=>x.id===r.pasienId) || { nama: r.namaPasien };
   cetakResepFormal(p, r.dokter, r.items);
 });
+document.getElementById('kdBtnCetakKalibrasi').addEventListener('click', ()=>{
+  cetakLabelKalibrasi();
+});
 document.getElementById('kdBtnCetakSuratSakit').addEventListener('click', ()=>{
   if(!kdPasienSelected){ toast('Cari dan pilih pasien terlebih dahulu.', true); return; }
   kasirSuratCtx = {
@@ -4648,6 +4652,20 @@ function cetakLabelObatItems(items, pasien, indikasi){
   if(!items || items.length===0){ toast('Belum ada obat untuk dicetak labelnya.', true); return; }
   const { htmlArr, mm, hmm } = buildLabelObatHtmlArr(items, pasien, indikasi);
   printLabelObatHtmlArr(htmlArr, mm, hmm);
+}
+// Label KALIBRASI khusus untuk uji coba menemukan batas area cetak fisik yang sebenarnya -
+// border merah supaya kelihatan jelas batas kotaknya, beberapa baris teks ukuran berbeda-beda
+// (10/14/18/24/32px) supaya bisa dilihat baris mana yang MUNCUL dan mana yang KEPOTONG/HILANG.
+function cetakLabelKalibrasi(){
+  const html = `<div class="label-obat" style="border:2px solid red;">
+    <div style="font-size:32px;font-weight:900;text-align:center;">TES A</div>
+    <div style="font-size:10px;border-top:1px dashed #000;">baris 10px - aaaaaaaaaa</div>
+    <div style="font-size:14px;border-top:1px dashed #000;">baris 14px - bbbbbbbbbb</div>
+    <div style="font-size:18px;border-top:1px dashed #000;">baris 18px - cccccccccc</div>
+    <div style="font-size:24px;border-top:1px dashed #000;">baris 24px - dddddddddd</div>
+    <div style="font-size:32px;font-weight:900;text-align:center;border-top:2px solid red;">TES Z</div>
+  </div>`;
+  printLabelObatHtmlArr([html], null, null);
 }
 // Preview visual (ukuran sebenarnya dalam mm) sebelum benar-benar cetak fisik,
 // supaya user bisa cek dulu apakah tata letak/ukuran sudah pas dengan label rollnya
