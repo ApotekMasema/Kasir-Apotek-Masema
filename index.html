@@ -4623,12 +4623,17 @@ function printLabelObatHtmlArr(htmlArr, mm, hmm){
   if(!htmlArr || htmlArr.length===0){ toast('Belum ada obat untuk dicetak labelnya.', true); return; }
   const el = document.getElementById('labelContent');
   el.innerHTML = htmlArr.join('');
-  // Setel ukuran halaman cetak supaya PAS dengan ukuran fisik label roll (lebar x tinggi,
-  // BUKAN "auto" lagi - untuk label die-cut kecil seperti 60x40mm, tinggi harus pasti
-  // supaya tidak menyisakan banyak area kosong dan tidak nyambung ke label berikutnya).
+  // PENTING: untuk label, JANGAN paksa ukuran @page dalam mm (size: XmmYmm) -
+  // untuk printer label thermal seperti TP870G, ukuran mm custom dari CSS terbukti
+  // bikin printer bingung (hasil fisik terputar/korup walau preview di layar sudah benar),
+  // karena bentrok dengan preset ukuran kertas baku milik driver (mis. "50*30") yang
+  // dipilih manual oleh user di dialog print. Cukup margin:0 saja, biarkan Windows/driver
+  // yang menentukan ukuran halaman sesuai Paper size yang dipilih user di dialog print
+  // (dan Orientation Portrait) - selaras dengan cara aplikasi lain (eclinic) yang terbukti
+  // berhasil di printer fisik yang sama.
   const pageStyle = document.getElementById('printPageSizeStyle');
   const prevPageStyle = pageStyle ? pageStyle.textContent : '';
-  if(pageStyle) pageStyle.textContent = `@media print { @page { size: ${mm}mm ${hmm}mm; margin: 0; } }`;
+  if(pageStyle) pageStyle.textContent = `@media print { @page { margin: 0; } }`;
   document.body.classList.add('printing-label');
   if(pengaturan.labelRotate180) document.body.classList.add('label-rotate180');
   window.print();
