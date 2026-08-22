@@ -308,13 +308,13 @@
   .surat-a4 h4{text-align:center;text-decoration:underline;margin:0 0 4px;font-size:15px;letter-spacing:0.5px;}
   #labelContent{display:block;}
   body.label-rotate180 .label-obat{transform:rotate(180deg);}
-  .label-obat{width:100%;height:100%;box-sizing:border-box;padding:1.5mm 2.5mm;color:#000;font-family:var(--font-mono, monospace);page-break-after:always;overflow:hidden;}
-  .label-obat .lo-logo{display:block;margin:0 auto 0.6mm;max-height:7mm;max-width:80%;width:auto;height:auto;}
+  .label-obat{width:100%;height:100%;box-sizing:border-box;padding:0.8mm 1mm;color:#000;font-family:var(--font-mono, monospace);page-break-after:always;overflow:hidden;}
+  .label-obat .lo-logo{display:block;margin:0 auto 0.4mm;max-height:5mm;max-width:80%;width:auto;height:auto;}
   .label-obat:last-child{page-break-after:auto;}
-  .label-obat .lo-header{display:flex;justify-content:space-between;align-items:baseline;font-weight:700;font-size:9px;gap:2mm;}
-  .label-obat .lo-aturan2{font-weight:700;font-size:10px;text-align:center;margin:1.5mm 0;line-height:1.3;}
-  .label-obat .lo-obat2{font-weight:700;font-size:9.5px;margin:0.8mm 0;line-height:1.2;}
-  .label-obat .lo-row{font-size:8px;margin:0.5mm 0;line-height:1.25;}
+  .label-obat .lo-header{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;font-weight:700;font-size:7px;gap:1mm;}
+  .label-obat .lo-aturan2{font-weight:700;font-size:7.5px;text-align:center;margin:0.8mm 0;line-height:1.2;}
+  .label-obat .lo-obat2{font-weight:700;font-size:7.5px;margin:0.5mm 0;line-height:1.15;}
+  .label-obat .lo-row{font-size:6.5px;margin:0.3mm 0;line-height:1.15;word-break:break-word;}
   .label-preview-box{background:#fff;border:1.5px solid #999;box-shadow:0 2px 6px rgba(0,0,0,.15);box-sizing:border-box;flex:none;}
   .label-preview-box .label-obat{page-break-after:auto;}
   .wiz-size-btn{border:1.5px solid var(--border);border-radius:10px;padding:12px 8px;background:var(--surface);cursor:pointer;font-size:13px;font-weight:700;color:var(--ink);text-align:center;transition:.15s;}
@@ -1194,6 +1194,7 @@
         <div class="field">
           <label>Lebar Label Obat (mm) — sesuaikan dengan roll printer label Anda (mis. Grozzie TP612)</label>
           <select id="setLabelWidth">
+            <option value="30">30mm</option>
             <option value="40">40mm</option>
             <option value="50">50mm</option>
             <option value="58">58mm</option>
