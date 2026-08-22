@@ -311,7 +311,9 @@
   .label-obat{width:300px;box-sizing:border-box;padding:6px 8px;color:#000;font-family:var(--font-mono, monospace);page-break-after:always;overflow:visible;}
   .label-obat .lo-logo{display:block;margin:0 auto 5px;max-height:30px;max-width:80%;width:auto;height:auto;}
   .label-obat:last-child{page-break-after:auto;}
-  .label-obat .lo-header{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;font-weight:700;font-size:16px;gap:5px;}
+  .label-obat .lo-header{width:100%;border-collapse:collapse;font-weight:700;font-size:16px;}
+  .label-obat .lo-header td{padding:0;}
+  .label-obat .lo-header td:last-child{text-align:right;}
   .label-obat .lo-aturan2{font-weight:700;font-size:17px;text-align:center;margin:6px 0;line-height:1.25;}
   .label-obat .lo-obat2{font-weight:700;font-size:17px;margin:4px 0;line-height:1.2;}
   .label-obat .lo-row{font-size:15px;margin:3px 0;line-height:1.25;word-break:break-word;}
@@ -4611,7 +4613,7 @@ function buildLabelObatHtmlArr(items, pasien, indikasi){
     return `
     <div class="label-obat">
       ${logoHtml}
-      <div class="lo-header"><span>${escapeHtml(namaPasien)}</span><span>${escapeHtml(usia)}</span></div>
+      <table class="lo-header"><tr><td>${escapeHtml(namaPasien)}</td><td>${escapeHtml(usia)}</td></tr></table>
       <div class="lo-aturan2">${escapeHtml(c.aturan && c.aturan.trim() ? c.aturan.trim() : '-')}</div>
       <div class="lo-obat2">${escapeHtml(c.nama)}</div>
       <div class="lo-row">JUMLAH OBAT : ${c.qty} ${escapeHtml(c.satuan||'')}</div>
