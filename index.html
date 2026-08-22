@@ -308,15 +308,15 @@
   .surat-a4 h4{text-align:center;text-decoration:underline;margin:0 0 4px;font-size:15px;letter-spacing:0.5px;}
   #labelContent{display:block;}
   body.label-rotate180 .label-obat{transform:rotate(180deg);}
-  .label-obat{width:100%;height:100%;box-sizing:border-box;padding:0.8mm 1mm;color:#000;font-family:var(--font-mono, monospace);page-break-after:always;overflow:hidden;}
-  .label-obat .lo-logo{display:block;margin:0 auto 0.4mm;max-height:5mm;max-width:80%;width:auto;height:auto;}
+  .label-obat{width:300px;box-sizing:border-box;padding:4px 5px;color:#000;font-family:var(--font-mono, monospace);page-break-after:always;overflow:visible;}
+  .label-obat .lo-logo{display:block;margin:0 auto 3px;max-height:28px;max-width:80%;width:auto;height:auto;}
   .label-obat:last-child{page-break-after:auto;}
-  .label-obat .lo-header{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;font-weight:700;font-size:7px;gap:1mm;}
-  .label-obat .lo-aturan2{font-weight:700;font-size:7.5px;text-align:center;margin:0.8mm 0;line-height:1.2;}
-  .label-obat .lo-obat2{font-weight:700;font-size:7.5px;margin:0.5mm 0;line-height:1.15;}
-  .label-obat .lo-row{font-size:6.5px;margin:0.3mm 0;line-height:1.15;word-break:break-word;}
-  .label-preview-box{background:#fff;border:1.5px solid #999;box-shadow:0 2px 6px rgba(0,0,0,.15);box-sizing:border-box;flex:none;}
-  .label-preview-box .label-obat{page-break-after:auto;}
+  .label-obat .lo-header{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;font-weight:700;font-size:13px;gap:4px;}
+  .label-obat .lo-aturan2{font-weight:700;font-size:14px;text-align:center;margin:3px 0;line-height:1.2;}
+  .label-obat .lo-obat2{font-weight:700;font-size:14px;margin:2px 0;line-height:1.15;}
+  .label-obat .lo-row{font-size:12px;margin:1px 0;line-height:1.15;word-break:break-word;}
+  .label-preview-box{background:#fff;border:1.5px solid #999;box-shadow:0 2px 6px rgba(0,0,0,.15);box-sizing:border-box;flex:none;overflow:hidden;}
+  .label-preview-box .label-obat{width:100%;height:100%;page-break-after:auto;}
   .wiz-size-btn{border:1.5px solid var(--border);border-radius:10px;padding:12px 8px;background:var(--surface);cursor:pointer;font-size:13px;font-weight:700;color:var(--ink);text-align:center;transition:.15s;}
   .wiz-size-btn small{font-weight:500;color:var(--ink-soft);}
   .wiz-size-btn:hover{border-color:var(--primary);}
@@ -4605,7 +4605,7 @@ function buildLabelObatHtmlArr(items, pasien, indikasi){
     const expD = obatMaster && obatMaster.kadaluarsa ? parseDateInput(obatMaster.kadaluarsa) : null;
     const exp = expD && !isNaN(expD) ? fmtDateFull(expD) : '';
     return `
-    <div class="label-obat" style="height:${hmm}mm;">
+    <div class="label-obat">
       ${logoHtml}
       <div class="lo-header"><span>${escapeHtml(namaPasien)}</span><span>${escapeHtml(usia)}</span></div>
       <div class="lo-aturan2">${escapeHtml(c.aturan && c.aturan.trim() ? c.aturan.trim() : '-')}</div>
@@ -4658,7 +4658,7 @@ function previewCetakLabelObatItems(items, pasien, indikasi){
   const { htmlArr, mm, hmm } = buildLabelObatHtmlArr(items, pasien, indikasi);
   labelPreviewPending = { htmlArr, mm, hmm };
   const wrap = document.getElementById('labelPreviewBoxes');
-  wrap.innerHTML = htmlArr.map(h=>`<div class="label-preview-box" style="width:${mm}mm;">${h}</div>`).join('');
+  wrap.innerHTML = htmlArr.map(h=>`<div class="label-preview-box" style="width:${mm}mm;height:${hmm}mm;">${h}</div>`).join('');
   document.getElementById('labelPreviewCount').textContent = `${items.length} label · ukuran ${mm}mm × ${hmm}mm`;
   document.getElementById('labelPreviewModal').classList.remove('hidden');
 }
