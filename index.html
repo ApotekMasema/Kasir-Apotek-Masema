@@ -4603,7 +4603,7 @@ function buildLabelObatHtmlArr(items, pasien, indikasi){
   const indikasiText = (indikasi||'').trim();
   const hmm = getLabelHeightMm();
   const mm = getLabelWidthMm();
-  const logoTampil = pengaturan.logoTampilLabel !== false;
+  const logoTampil = false; // TEMP: dimatikan sementara untuk uji apakah <img> logo penyebab gagal cetak fisik
   const logoOpacity = (pengaturan.logoOpacityLabel != null ? pengaturan.logoOpacityLabel : 100) / 100;
   const logoHtml = logoTampil ? `<img class="lo-logo" src="${getLogoSrc()}" alt="" style="opacity:${logoOpacity};">` : '';
   const htmlArr = items.map(c=>{
