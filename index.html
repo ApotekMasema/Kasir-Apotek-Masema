@@ -813,6 +813,7 @@
       </div>
       <button class="btn" id="btnRiwayatHariIni">Hari Ini</button>
       <button class="btn" id="btnRiwayat7Hari">7 Hari Terakhir</button>
+      <button class="btn" id="btnRiwayatExcel">⬇️ Download Excel</button>
     </div>
 
     <div class="toolbar" style="margin-bottom:10px;">
@@ -852,6 +853,7 @@
       </div>
       <button class="btn" id="btnRpHariIni">Hari Ini</button>
       <button class="btn" id="btnRp7Hari">7 Hari Terakhir</button>
+      <button class="btn" id="btnRpExcel">⬇️ Download Excel</button>
       <button class="btn btn-primary" id="btnRpTambah">+ Tambah Pengeluaran</button>
     </div>
 
@@ -6430,6 +6432,7 @@ async function renderRiwayat(){
     const rowsTerbaru = [...rows].reverse();
     document.getElementById('riwayatTransBody').innerHTML = rowsTerbaru.length ? buildRiwayatRows(rowsTerbaru) : `<tr><td colspan="6" class="muted" style="padding:14px;text-align:center;">Tidak ada transaksi.</td></tr>`;
     riwayatCache = { rows: rowsTerbaru };
+    riwayatShownRows = rowsTerbaru;
     wireRiwayatActions();
   }catch(e){
     console.error('Gagal memuat riwayat', e);
@@ -6443,14 +6446,31 @@ async function renderRiwayat(){
   const searchInput = document.getElementById('riwayatSearch');
   if(searchInput) searchInput.value = '';
 }
+let riwayatShownRows = [];
 function filterRiwayat(query){
   query = query.trim().toLowerCase();
   const body = document.getElementById('riwayatTransBody');
-  if(!query){ body.innerHTML = buildRiwayatRows(riwayatCache.rows); wireRiwayatActions(); return; }
+  if(!query){ body.innerHTML = buildRiwayatRows(riwayatCache.rows); riwayatShownRows = riwayatCache.rows; wireRiwayatActions(); return; }
   const filtered = riwayatCache.rows.filter(r=>r.noStruk.toLowerCase().includes(query));
   body.innerHTML = filtered.length ? buildRiwayatRows(filtered) : `<tr><td colspan="6" class="muted" style="padding:14px;text-align:center;">Tidak ditemukan.</td></tr>`;
+  riwayatShownRows = filtered;
   wireRiwayatActions();
 }
+function exportRiwayatExcel(){
+  if(!riwayatShownRows.length){ toast('Tidak ada data transaksi untuk diunduh.', true); return; }
+  const startVal = document.getElementById('riwayatStart').value;
+  const endVal = document.getElementById('riwayatEnd').value;
+  const ws = XLSX.utils.json_to_sheet(riwayatShownRows.map(t=>({
+    'Tanggal': t.tanggal, 'Waktu': t.waktu||'-', 'No Struk': t.noStruk, 'Kasir': t.kasir||'-',
+    'Metode': formatMetodeTampil(t)+(t.pakaiResep?' (Resep)':''), 'Total': t.total||0,
+    'Diskon': t.diskon ? 'Ya' : '-', 'Retur Sebagian': (t.returLog||[]).length>0 ? 'Ya' : '-',
+    'Status': t.dibatalkan ? 'Dibatalkan' : 'Aktif',
+  })));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Riwayat Transaksi');
+  XLSX.writeFile(wb, `Riwayat-Transaksi-${startVal}_${endVal}.xlsx`);
+}
+document.getElementById('btnRiwayatExcel').addEventListener('click', exportRiwayatExcel);
 let rpCache = { rows: [] };
 function buildPengeluaranRows(rows){
   return rows.map(p=>`
@@ -6568,6 +6588,7 @@ async function renderRiwayatPengeluaran(){
       <div class="s-card"><div class="k">Total Pengeluaran</div><div class="v" style="color:#B3261E;">${rupiah(total)}</div></div>
     `;
     document.getElementById('rpBody').innerHTML = rows.length ? buildPengeluaranRows(rows) : `<tr><td colspan="6" class="muted" style="padding:14px;text-align:center;">Tidak ada pengeluaran.</td></tr>`;
+    rpShownRows = rows;
     wireRpActions();
   }catch(e){
     console.error('Gagal memuat riwayat pengeluaran', e);
@@ -6581,14 +6602,30 @@ async function renderRiwayatPengeluaran(){
   const searchInput = document.getElementById('rpSearch');
   if(searchInput) searchInput.value = '';
 }
+let rpShownRows = [];
 function filterRp(query){
   query = query.trim().toLowerCase();
   const body = document.getElementById('rpBody');
-  if(!query){ body.innerHTML = buildPengeluaranRows(rpCache.rows); wireRpActions(); return; }
+  if(!query){ body.innerHTML = buildPengeluaranRows(rpCache.rows); rpShownRows = rpCache.rows; wireRpActions(); return; }
   const filtered = rpCache.rows.filter(p=>(p.keterangan||'').toLowerCase().includes(query));
   body.innerHTML = filtered.length ? buildPengeluaranRows(filtered) : `<tr><td colspan="6" class="muted" style="padding:14px;text-align:center;">Tidak ditemukan.</td></tr>`;
+  rpShownRows = filtered;
   wireRpActions();
 }
+function exportRpExcel(){
+  if(!rpShownRows.length){ toast('Tidak ada data pengeluaran untuk diunduh.', true); return; }
+  const startVal = document.getElementById('rpStart').value;
+  const endVal = document.getElementById('rpEnd').value;
+  const total = rpShownRows.reduce((s,p)=>s+(p.jumlah||0),0);
+  const ws = XLSX.utils.json_to_sheet(rpShownRows.map(p=>({
+    'Tanggal': p.tanggal, 'Waktu': p.waktu, 'Keterangan': p.keterangan||'-', 'Kasir': p.kasir||'-', 'Jumlah': p.jumlah||0,
+  })));
+  XLSX.utils.sheet_add_aoa(ws, [[], ['', '', '', 'Total', total]], { origin: -1 });
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Riwayat Pengeluaran');
+  XLSX.writeFile(wb, `Riwayat-Pengeluaran-${startVal}_${endVal}.xlsx`);
+}
+document.getElementById('btnRpExcel').addEventListener('click', exportRpExcel);
 document.getElementById('rpSearch').addEventListener('input', e=>filterRp(e.target.value));
 document.getElementById('rpStart').addEventListener('change', renderRiwayatPengeluaran);
 document.getElementById('rpEnd').addEventListener('change', renderRiwayatPengeluaran);

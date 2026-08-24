@@ -434,7 +434,7 @@ const STEPS = [
   module:'kasir', code:'07', role:'Kasir', url:'kasir/riwayat',
   title:'Riwayat Transaksi — Lihat Detail',
   desc:'Semua transaksi tersimpan rapi di sini. Klik baris mana saja untuk membuka rincian lengkapnya.',
-  bullets:['Klik di baris transaksi (di luar tombol aksi) untuk buka Detail Transaksi','Detail menampilkan item, diskon, metode bayar, kembalian, hingga riwayat retur','Bisa dicari berdasarkan No. Struk, atau pakai pintasan "7 Hari Terakhir"'],
+  bullets:['Klik di baris transaksi (di luar tombol aksi) untuk buka Detail Transaksi','Detail menampilkan item, diskon, metode bayar, kembalian, hingga riwayat retur','Bisa dicari berdasarkan No. Struk, atau pakai pintasan "7 Hari Terakhir"','⬇️ Download Excel — mengunduh transaksi yang sedang tampil (sesuai filter tanggal/pencarian) ke file Excel'],
   tabbar:['Kasir','Riwayat Transaksi'], activeTab:'Riwayat Transaksi',
   body: `
     ${row('20260817-99830','17 Agu 2026 · Ega','Rp 11.500', badge('','ok'), 'row-trx')}
@@ -462,7 +462,7 @@ const STEPS = [
   module:'kasir', code:'09', role:'Kasir', url:'kasir/pengeluaran',
   title:'Riwayat Pengeluaran',
   desc:'Mencatat pengeluaran kas harian di luar penjualan (mis. beli galon), tanpa perlu shift aktif.',
-  bullets:['+ Tambah Pengeluaran — isi jumlah & keterangan','✏️ Edit dan 🗑️ Hapus tersedia per baris — keduanya perlu PIN Hapus','Klik baris untuk melihat detail lengkapnya'],
+  bullets:['+ Tambah Pengeluaran — isi jumlah & keterangan','✏️ Edit dan 🗑️ Hapus tersedia per baris — keduanya perlu PIN Hapus','Klik baris untuk melihat detail lengkapnya','⬇️ Download Excel — mengunduh pengeluaran yang sedang tampil (sesuai filter tanggal/pencarian) ke file Excel'],
   tabbar:['Riwayat Pengeluaran'], activeTab:'Riwayat Pengeluaran',
   body: `
     <div style="text-align:right;margin-bottom:10px;">${btn('+ Tambah Pengeluaran','primary')}</div>
