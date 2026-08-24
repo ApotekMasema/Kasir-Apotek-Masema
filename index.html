@@ -822,6 +822,7 @@
         <input type="text" id="riwayatSearch" placeholder="Ketik No. Struk...">
       </div>
     </div>
+    <div class="summary-cards" id="riwayatSummaryCards"></div>
     <table>
       <thead>
         <tr>
@@ -859,8 +860,8 @@
 
     <div class="toolbar" style="margin-bottom:10px;">
       <div class="field search-inline">
-        <label>Cari Keterangan</label>
-        <input type="text" id="rpSearch" placeholder="Ketik keterangan pengeluaran...">
+        <label>Cari Kode / Keterangan</label>
+        <input type="text" id="rpSearch" placeholder="Ketik kode atau keterangan pengeluaran...">
       </div>
     </div>
 
@@ -870,6 +871,7 @@
       <thead>
         <tr>
           <th>Tanggal</th>
+          <th>Kode</th>
           <th>Waktu</th>
           <th>Keterangan</th>
           <th>Kasir</th>
@@ -1092,6 +1094,21 @@
         </tr>
       </thead>
       <tbody id="lapTransBody"></tbody>
+    </table>
+
+    <h2 style="margin-top:22px;">Daftar Pengeluaran</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Tanggal</th>
+          <th>Kode</th>
+          <th>Waktu</th>
+          <th>Keterangan</th>
+          <th>Kasir</th>
+          <th class="num">Jumlah</th>
+        </tr>
+      </thead>
+      <tbody id="lapPengeluaranBody"></tbody>
     </table>
   </section>
 
@@ -1869,8 +1886,8 @@
     <button class="btn btn-primary btn-block" id="btnSimpanPengeluaran">Tambah Pengeluaran</button>
     <h4 style="margin-top:16px;text-align:left;" id="pengeluaranListLabel">Pengeluaran Shift Ini</h4>
     <table>
-      <thead><tr><th>Waktu</th><th>Keterangan</th><th class="num">Jumlah</th><th></th></tr></thead>
-      <tbody id="pengeluaranBody"><tr><td colspan="4" class="muted" style="padding:12px;text-align:center;">Belum ada pengeluaran tercatat.</td></tr></tbody>
+      <thead><tr><th>Kode</th><th>Waktu</th><th>Keterangan</th><th class="num">Jumlah</th><th></th></tr></thead>
+      <tbody id="pengeluaranBody"><tr><td colspan="5" class="muted" style="padding:12px;text-align:center;">Belum ada pengeluaran tercatat.</td></tr></tbody>
     </table>
     <div class="total-row grand" style="margin-top:8px;">
       <span>Total Pengeluaran</span>
@@ -5728,12 +5745,16 @@ function doLogoutKasir(){
   activateTab('kasir');
   openLoginGate();
 }
+function generateKodePengeluaran(now){
+  return `PNG-${dateKey(now).replace(/-/g,'')}-${String(Date.now()).slice(-5)}`;
+}
 async function tambahPengeluaran(jumlah, keterangan){
   const now = new Date();
   const tanggal = dateKey(now);
   const existing = await sGet('pengeluaran/' + tanggal) || {};
   const id = crypto.randomUUID();
-  existing[id] = { id, jumlah, keterangan, kasir: currentKasirNama || 'Admin', tanggal, waktu: timeStr(now) };
+  const kode = generateKodePengeluaran(now);
+  existing[id] = { id, kode, jumlah, keterangan, kasir: currentKasirNama || 'Admin', tanggal, waktu: timeStr(now) };
   await sSet('pengeluaran/' + tanggal, existing);
   return existing[id];
 }
@@ -5758,11 +5779,12 @@ async function renderPengeluaranList(){
   document.getElementById('pengeluaranTotal').textContent = rupiah(total);
   body.innerHTML = rows.length ? rows.map(p=>`
     <tr>
+      <td style="font-family:monospace;font-size:12px;">${escapeHtml(p.kode||'-')}</td>
       <td>${p.waktu}</td>
       <td>${escapeHtml(p.keterangan||'-')}</td>
       <td class="num">${rupiah(p.jumlah)}</td>
       <td><button class="btn btn-sm btn-hapus-pengeluaran" data-id="${p.id}">🗑️</button></td>
-    </tr>`).join('') : `<tr><td colspan="4" class="muted" style="padding:12px;text-align:center;">Belum ada pengeluaran tercatat.</td></tr>`;
+    </tr>`).join('') : `<tr><td colspan="5" class="muted" style="padding:12px;text-align:center;">Belum ada pengeluaran tercatat.</td></tr>`;
   body.querySelectorAll('.btn-hapus-pengeluaran').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       const id = btn.dataset.id;
@@ -6097,6 +6119,17 @@ async function renderLaporan(){
 
     document.getElementById('lapTransBody').innerHTML = rows.length ? buildLapTransRows(rows) : `<tr><td colspan="8" class="muted" style="padding:14px;text-align:center;">Tidak ada transaksi.</td></tr>`;
 
+    const pengeluaranSorted = (pengeluaranRows||[]).slice().sort((a,b)=>(b.tanggal+b.waktu).localeCompare(a.tanggal+a.waktu));
+    document.getElementById('lapPengeluaranBody').innerHTML = pengeluaranSorted.length ? pengeluaranSorted.map(p=>`
+      <tr>
+        <td>${fmtDateFull(parseDateInput(p.tanggal))}</td>
+        <td style="font-family:monospace;font-size:12px;">${escapeHtml(p.kode||'-')}</td>
+        <td>${p.waktu}</td>
+        <td>${escapeHtml(p.keterangan||'-')}</td>
+        <td>${escapeHtml(p.kasir||'-')}</td>
+        <td class="num">${rupiah(p.jumlah)}</td>
+      </tr>`).join('') : `<tr><td colspan="6" class="muted" style="padding:14px;text-align:center;">Tidak ada pengeluaran pada periode ini.</td></tr>`;
+
     lapCache = { rows, produk: produkArr, kategori: kategoriArr, range: `${startVal}_sd_${endVal}`, startVal, endVal,
       ringkasan: { totalPenjualan, totalHpp, labaKotor, totalPengeluaran, labaBersih, jumlahTrx }, pengeluaranRows };
     wireLapTransActions();
@@ -6108,6 +6141,7 @@ async function renderLaporan(){
       <span style="color:var(--danger);">Gagal memuat laporan. Cek koneksi internet Anda.</span><br>
       <button class="btn btn-sm" id="btnRetryLaporan" style="margin-top:8px;">🔄 Coba Lagi</button>
     </td></tr>`;
+    document.getElementById('lapPengeluaranBody').innerHTML = '';
     const retryBtn = document.getElementById('btnRetryLaporan');
     if(retryBtn) retryBtn.addEventListener('click', renderLaporan);
   }
@@ -6433,6 +6467,7 @@ async function renderRiwayat(){
     document.getElementById('riwayatTransBody').innerHTML = rowsTerbaru.length ? buildRiwayatRows(rowsTerbaru) : `<tr><td colspan="6" class="muted" style="padding:14px;text-align:center;">Tidak ada transaksi.</td></tr>`;
     riwayatCache = { rows: rowsTerbaru };
     riwayatShownRows = rowsTerbaru;
+    renderRiwayatSummary(riwayatShownRows);
     wireRiwayatActions();
   }catch(e){
     console.error('Gagal memuat riwayat', e);
@@ -6440,6 +6475,8 @@ async function renderRiwayat(){
       <span style="color:var(--danger);">Gagal memuat riwayat. Cek koneksi internet Anda.</span><br>
       <button class="btn btn-sm" id="btnRetryRiwayat" style="margin-top:8px;">🔄 Coba Lagi</button>
     </td></tr>`;
+    document.getElementById('riwayatSummaryCards').innerHTML = '';
+    riwayatShownRows = [];
     const retryBtn = document.getElementById('btnRetryRiwayat');
     if(retryBtn) retryBtn.addEventListener('click', renderRiwayat);
   }
@@ -6447,13 +6484,23 @@ async function renderRiwayat(){
   if(searchInput) searchInput.value = '';
 }
 let riwayatShownRows = [];
+function renderRiwayatSummary(rows){
+  const aktif = rows.filter(r=>!r.dibatalkan);
+  const totalNilai = aktif.reduce((s,r)=>s+(r.total||0),0);
+  document.getElementById('riwayatSummaryCards').innerHTML = `
+    <div class="s-card"><div class="k">Jumlah Transaksi</div><div class="v">${rows.length}</div></div>
+    <div class="s-card"><div class="k">Transaksi Dibatalkan</div><div class="v">${rows.length-aktif.length}</div></div>
+    <div class="s-card"><div class="k">Total Transaksi</div><div class="v">${rupiah(totalNilai)}</div></div>
+  `;
+}
 function filterRiwayat(query){
   query = query.trim().toLowerCase();
   const body = document.getElementById('riwayatTransBody');
-  if(!query){ body.innerHTML = buildRiwayatRows(riwayatCache.rows); riwayatShownRows = riwayatCache.rows; wireRiwayatActions(); return; }
+  if(!query){ body.innerHTML = buildRiwayatRows(riwayatCache.rows); riwayatShownRows = riwayatCache.rows; renderRiwayatSummary(riwayatShownRows); wireRiwayatActions(); return; }
   const filtered = riwayatCache.rows.filter(r=>r.noStruk.toLowerCase().includes(query));
   body.innerHTML = filtered.length ? buildRiwayatRows(filtered) : `<tr><td colspan="6" class="muted" style="padding:14px;text-align:center;">Tidak ditemukan.</td></tr>`;
   riwayatShownRows = filtered;
+  renderRiwayatSummary(riwayatShownRows);
   wireRiwayatActions();
 }
 function exportRiwayatExcel(){
@@ -6476,6 +6523,7 @@ function buildPengeluaranRows(rows){
   return rows.map(p=>`
     <tr class="row-clickable" data-detail-pengeluaran-tanggal="${p.tanggal}" data-detail-pengeluaran-id="${p.id}">
       <td>${fmtDateFull(parseDateInput(p.tanggal))}</td>
+      <td style="font-family:monospace;font-size:12px;">${escapeHtml(p.kode||'-')}</td>
       <td>${p.waktu}</td>
       <td>${escapeHtml(p.keterangan||'-')}</td>
       <td>${escapeHtml(p.kasir||'-')}</td>
@@ -6520,6 +6568,7 @@ function wireRpActions(){
 }
 function openDetailPengeluaranModal(p){
   document.getElementById('detailPengeluaranInfo').innerHTML = `
+    <div class="detail-kv"><span class="k">Kode</span><span class="v" style="font-family:monospace;">${escapeHtml(p.kode||'-')}</span></div>
     <div class="detail-kv"><span class="k">Tanggal</span><span class="v">${fmtDateFull(parseDateInput(p.tanggal))}</span></div>
     <div class="detail-kv"><span class="k">Waktu</span><span class="v">${p.waktu}</span></div>
     <div class="detail-kv"><span class="k">Keterangan</span><span class="v">${escapeHtml(p.keterangan||'-')}</span></div>
@@ -6571,7 +6620,7 @@ async function renderRiwayatPengeluaran(){
   if(!startVal || !endVal) return;
   if(startVal > endVal){ toast('Tanggal "Dari" tidak boleh lebih besar dari "Sampai".', true); return; }
 
-  document.getElementById('rpBody').innerHTML = `<tr><td colspan="6" class="muted">Memuat riwayat pengeluaran...</td></tr>`;
+  document.getElementById('rpBody').innerHTML = `<tr><td colspan="7" class="muted">Memuat riwayat pengeluaran...</td></tr>`;
   try{
     const dates = [];
     let d = parseDateInput(startVal);
@@ -6587,12 +6636,12 @@ async function renderRiwayatPengeluaran(){
       <div class="s-card"><div class="k">Jumlah Pengeluaran</div><div class="v">${rows.length}</div></div>
       <div class="s-card"><div class="k">Total Pengeluaran</div><div class="v" style="color:#B3261E;">${rupiah(total)}</div></div>
     `;
-    document.getElementById('rpBody').innerHTML = rows.length ? buildPengeluaranRows(rows) : `<tr><td colspan="6" class="muted" style="padding:14px;text-align:center;">Tidak ada pengeluaran.</td></tr>`;
+    document.getElementById('rpBody').innerHTML = rows.length ? buildPengeluaranRows(rows) : `<tr><td colspan="7" class="muted" style="padding:14px;text-align:center;">Tidak ada pengeluaran.</td></tr>`;
     rpShownRows = rows;
     wireRpActions();
   }catch(e){
     console.error('Gagal memuat riwayat pengeluaran', e);
-    document.getElementById('rpBody').innerHTML = `<tr><td colspan="6" style="padding:14px;text-align:center;">
+    document.getElementById('rpBody').innerHTML = `<tr><td colspan="7" style="padding:14px;text-align:center;">
       <span style="color:var(--danger);">Gagal memuat riwayat pengeluaran. Cek koneksi internet Anda.</span><br>
       <button class="btn btn-sm" id="btnRetryRp" style="margin-top:8px;">🔄 Coba Lagi</button>
     </td></tr>`;
@@ -6607,8 +6656,8 @@ function filterRp(query){
   query = query.trim().toLowerCase();
   const body = document.getElementById('rpBody');
   if(!query){ body.innerHTML = buildPengeluaranRows(rpCache.rows); rpShownRows = rpCache.rows; wireRpActions(); return; }
-  const filtered = rpCache.rows.filter(p=>(p.keterangan||'').toLowerCase().includes(query));
-  body.innerHTML = filtered.length ? buildPengeluaranRows(filtered) : `<tr><td colspan="6" class="muted" style="padding:14px;text-align:center;">Tidak ditemukan.</td></tr>`;
+  const filtered = rpCache.rows.filter(p=>(p.keterangan||'').toLowerCase().includes(query) || (p.kode||'').toLowerCase().includes(query));
+  body.innerHTML = filtered.length ? buildPengeluaranRows(filtered) : `<tr><td colspan="7" class="muted" style="padding:14px;text-align:center;">Tidak ditemukan.</td></tr>`;
   rpShownRows = filtered;
   wireRpActions();
 }
@@ -6618,9 +6667,9 @@ function exportRpExcel(){
   const endVal = document.getElementById('rpEnd').value;
   const total = rpShownRows.reduce((s,p)=>s+(p.jumlah||0),0);
   const ws = XLSX.utils.json_to_sheet(rpShownRows.map(p=>({
-    'Tanggal': p.tanggal, 'Waktu': p.waktu, 'Keterangan': p.keterangan||'-', 'Kasir': p.kasir||'-', 'Jumlah': p.jumlah||0,
+    'Tanggal': p.tanggal, 'Kode': p.kode||'-', 'Waktu': p.waktu, 'Keterangan': p.keterangan||'-', 'Kasir': p.kasir||'-', 'Jumlah': p.jumlah||0,
   })));
-  XLSX.utils.sheet_add_aoa(ws, [[], ['', '', '', 'Total', total]], { origin: -1 });
+  XLSX.utils.sheet_add_aoa(ws, [[], ['', '', '', '', 'Total', total]], { origin: -1 });
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Riwayat Pengeluaran');
   XLSX.writeFile(wb, `Riwayat-Pengeluaran-${startVal}_${endVal}.xlsx`);
@@ -6728,7 +6777,7 @@ function exportLapExcel(){
     'Laba Kotor': (t.total||0)-(t.totalHpp||0), 'Status': t.dibatalkan?'Dibatalkan':'Aktif',
   })));
   const wsPengeluaran = XLSX.utils.json_to_sheet((lapCache.pengeluaranRows||[]).slice().sort((a,b)=>(a.tanggal+a.waktu).localeCompare(b.tanggal+b.waktu)).map(p=>({
-    'Tanggal': p.tanggal, 'Waktu': p.waktu, 'Keterangan': p.keterangan||'-', 'Kasir': p.kasir||'-', 'Jumlah': p.jumlah||0,
+    'Tanggal': p.tanggal, 'Kode': p.kode||'-', 'Waktu': p.waktu, 'Keterangan': p.keterangan||'-', 'Kasir': p.kasir||'-', 'Jumlah': p.jumlah||0,
   })));
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, wsRingkasan, 'Ringkasan');

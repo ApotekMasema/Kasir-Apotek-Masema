@@ -434,7 +434,7 @@ const STEPS = [
   module:'kasir', code:'07', role:'Kasir', url:'kasir/riwayat',
   title:'Riwayat Transaksi — Lihat Detail',
   desc:'Semua transaksi tersimpan rapi di sini. Klik baris mana saja untuk membuka rincian lengkapnya.',
-  bullets:['Klik di baris transaksi (di luar tombol aksi) untuk buka Detail Transaksi','Detail menampilkan item, diskon, metode bayar, kembalian, hingga riwayat retur','Bisa dicari berdasarkan No. Struk, atau pakai pintasan "7 Hari Terakhir"','⬇️ Download Excel — mengunduh transaksi yang sedang tampil (sesuai filter tanggal/pencarian) ke file Excel'],
+  bullets:['Klik di baris transaksi (di luar tombol aksi) untuk buka Detail Transaksi','Detail menampilkan item, diskon, metode bayar, kembalian, hingga riwayat retur','Bisa dicari berdasarkan No. Struk, atau pakai pintasan "7 Hari Terakhir"','Kartu ringkasan di atas tabel menampilkan Jumlah Transaksi, Transaksi Dibatalkan, dan Total Transaksi sesuai periode/pencarian yang aktif','⬇️ Download Excel — mengunduh transaksi yang sedang tampil (sesuai filter tanggal/pencarian) ke file Excel'],
   tabbar:['Kasir','Riwayat Transaksi'], activeTab:'Riwayat Transaksi',
   body: `
     ${row('20260817-99830','17 Agu 2026 · Ega','Rp 11.500', badge('','ok'), 'row-trx')}
@@ -462,7 +462,7 @@ const STEPS = [
   module:'kasir', code:'09', role:'Kasir', url:'kasir/pengeluaran',
   title:'Riwayat Pengeluaran',
   desc:'Mencatat pengeluaran kas harian di luar penjualan (mis. beli galon), tanpa perlu shift aktif.',
-  bullets:['+ Tambah Pengeluaran — isi jumlah & keterangan','✏️ Edit dan 🗑️ Hapus tersedia per baris — keduanya perlu PIN Hapus','Klik baris untuk melihat detail lengkapnya','⬇️ Download Excel — mengunduh pengeluaran yang sedang tampil (sesuai filter tanggal/pencarian) ke file Excel'],
+  bullets:['Setiap pengeluaran otomatis diberi Kode unik (format PNG-tanggal-nomor) untuk memudahkan penelusuran','+ Tambah Pengeluaran — isi jumlah & keterangan','✏️ Edit dan 🗑️ Hapus tersedia per baris — keduanya perlu PIN Hapus','Klik baris untuk melihat detail lengkapnya','Kolom pencarian bisa dipakai untuk cari berdasarkan Kode maupun Keterangan','⬇️ Download Excel — mengunduh pengeluaran yang sedang tampil (sesuai filter tanggal/pencarian) ke file Excel'],
   tabbar:['Riwayat Pengeluaran'], activeTab:'Riwayat Pengeluaran',
   body: `
     <div style="text-align:right;margin-bottom:10px;">${btn('+ Tambah Pengeluaran','primary')}</div>
@@ -519,7 +519,7 @@ const STEPS = [
   module:'kasir', code:'13', role:'Kasir', url:'kasir/laporan',
   title:'Laporan Keuangan — Pilih Model Grafik',
   desc:'Grafik pada Laporan Keuangan sekarang bisa dipilih tampilannya lewat dropdown "Model Grafik", sesuai preferensi masing-masing.',
-  bullets:['📊 Batang & 📈 Garis & 🏔️ Area — menampilkan tren total penjualan per hari','🥧 Pie — menampilkan proporsi penjualan per kategori obat (bukan per hari)','Arahkan kursor ke batang/titik/potongan pie untuk lihat nilai persisnya','Pilihan model grafik otomatis diingat di komputer ini untuk kunjungan berikutnya'],
+  bullets:['📊 Batang & 📈 Garis & 🏔️ Area — menampilkan tren total penjualan per hari','🥧 Pie — menampilkan proporsi penjualan per kategori obat (bukan per hari)','Arahkan kursor ke batang/titik/potongan pie untuk lihat nilai persisnya','Pilihan model grafik otomatis diingat di komputer ini untuk kunjungan berikutnya','Tabel "Daftar Pengeluaran" kini juga tampil di bawah "Daftar Transaksi", lengkap dengan Kode Pengeluaran untuk penelusuran'],
   tabbar:['Laporan Keuangan'], activeTab:'Laporan Keuangan',
   body: `
     <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
