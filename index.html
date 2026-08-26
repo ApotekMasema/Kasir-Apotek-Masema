@@ -8397,6 +8397,39 @@ document.getElementById('btnWizFinish').addEventListener('click', async ()=>{
   cekPengingatOtomatisHarian(); // jalan di background, tidak perlu ditunggu (tidak menghambat tampilan awal)
   cekBackupOtomatisHarian(); // jalan di background juga, tidak menghambat tampilan awal
 })();
+
+// ===== Klik di luar modal (area gelap/backdrop) otomatis menutup modal =====
+// Supaya tidak perlu scroll ke bawah cari tombol "Tutup" di modal yang isinya panjang.
+// Beberapa fungsi close sudah ada & punya cleanup tambahan (mis. reset variabel) - dipakai kalau tersedia,
+// selain itu langsung disembunyikan (classList hidden), sama persis seperti tombol Tutup/Batal masing-masing.
+(function(){
+  const FUNGSI_TUTUP_KHUSUS = {
+    pasienModal: 'closePasienModal',
+    antrianModal: 'closeAntrianModal',
+    bookingModal: 'closeBookingModal',
+    rmeModal: 'closeRmeModal',
+    obatModal: 'closeObatModal',
+    recoveryModal: 'closeRecoveryModal'
+  };
+  // Modal "terkunci" ini SENGAJA dikecualikan - klik di luar tidak menutupnya, karena wajib direspon
+  // dulu (login, verifikasi PIN, buka shift, wizard setup awal) supaya alur/keamanan tidak ke-skip tidak sengaja.
+  const MODAL_DIKECUALIKAN = new Set(['loginGateModal', 'pinModal', 'shiftOpenModal', 'setupWizardModal', 'setupWarning']);
+
+  document.addEventListener('DOMContentLoaded', function(){
+    document.querySelectorAll('.modal-overlay').forEach(function(overlay){
+      overlay.addEventListener('click', function(e){
+        if(e.target !== overlay) return; // hanya kalau klik area backdrop, bukan konten modal di dalamnya
+        if(MODAL_DIKECUALIKAN.has(overlay.id)) return;
+        const namaFungsi = FUNGSI_TUTUP_KHUSUS[overlay.id];
+        if(namaFungsi && typeof window[namaFungsi] === 'function'){
+          window[namaFungsi]();
+        } else {
+          overlay.classList.add('hidden');
+        }
+      });
+    });
+  });
+})();
 </script>
 </body>
 </html>
