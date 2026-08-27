@@ -358,6 +358,7 @@
     </div>
   </div>
   <nav class="area-tabs">
+    <button class="area-tab" data-area="beranda">🏠 Beranda</button>
     <button class="area-tab active" data-area="kasir">🏪 Kasir</button>
     <button class="area-tab" data-area="klinik">🏥 Klinik</button>
   </nav>
@@ -390,6 +391,13 @@
 </div>
 
 <main>
+
+  <!-- ===== TAB BERANDA ===== -->
+  <section class="tab-panel" id="tab-beranda">
+    <h2 style="margin-top:0;">🏠 Beranda</h2>
+    <p class="muted" style="margin-top:-8px;">Ringkasan kondisi hari ini — klik kartu untuk langsung buka tabnya.</p>
+    <div class="summary-cards" id="berandaSummaryCards"></div>
+  </section>
 
   <!-- ===== TAB KASIR ===== -->
   <section class="tab-panel active" id="tab-kasir">
@@ -5014,6 +5022,49 @@ document.getElementById('btnTutupStrukPreview').addEventListener('click', ()=>{
 /* =========================================================
    TAB STOK OBAT
    ========================================================= */
+async function renderBeranda(){
+  const wrap = document.getElementById('berandaSummaryCards');
+  if(!wrap) return;
+  wrap.innerHTML = `<div class="s-card"><div class="k">Memuat...</div><div class="v">-</div></div>`;
+
+  // Transaksi & omzet hari ini (reuse buildLaporan yang sudah dipakai di Laporan Keuangan)
+  const today = dateKey(new Date());
+  const { rows: trxHariIni } = await buildLaporan(today, today);
+  const trxAktif = trxHariIni.filter(r=>!r.dibatalkan);
+  const jumlahTrx = trxAktif.length;
+  const omzetHariIni = trxAktif.reduce((s,r)=>s+Number(r.total||0),0);
+
+  // Stok menipis & kadaluarsa (pola sama seperti updateKasirBanners)
+  const stokMenipis = obatList.filter(o=>Number(o.stok||0) <= Number(o.stokMin||pengaturan.stokMinDefault)).length;
+  const todayZero = new Date(); todayZero.setHours(0,0,0,0);
+  const batasKadaluarsa = new Date(todayZero); batasKadaluarsa.setDate(batasKadaluarsa.getDate()+30);
+  let expiredCount = 0, soonCount = 0;
+  obatList.forEach(o=>{
+    if(!o.kadaluarsa) return;
+    const d = parseDateInput(o.kadaluarsa);
+    if(isNaN(d)) return;
+    if(d < todayZero) expiredCount++;
+    else if(d <= batasKadaluarsa) soonCount++;
+  });
+
+  // Piutang jatuh tempo (reuse fungsi yang sudah dipakai utk pengingat Telegram)
+  const piutangJT = await cekPiutangJatuhTempo();
+  const nilaiPiutangJT = piutangJT.reduce((s,r)=>s+Number(r.piutang.sisaPiutang||0),0);
+
+  // Antrian klinik aktif hari ini
+  if(antrianTanggalAktif !== today){ await loadAntrianHariIni(); }
+  const antrianAktif = antrianList.filter(a=>a.status==='Menunggu' || a.status==='Diperiksa').length;
+
+  wrap.innerHTML = `
+    <div class="s-card" style="cursor:pointer;" onclick="goToTab('kasir')"><div class="k">Transaksi Hari Ini</div><div class="v">${jumlahTrx}</div></div>
+    <div class="s-card" style="cursor:pointer;" onclick="goToTab('laporan')"><div class="k">Omzet Hari Ini</div><div class="v" style="font-size:16px;">${rupiah(omzetHariIni)}</div></div>
+    <div class="s-card" style="cursor:pointer;" onclick="goToTab('stok')"><div class="k">Stok Menipis</div><div class="v" style="color:${stokMenipis>0?'#B3261E':'#0E4A41'};">${stokMenipis}</div></div>
+    <div class="s-card" style="cursor:pointer;" onclick="goToTab('stok')"><div class="k">Kadaluarsa / ≤30 Hari</div><div class="v" style="color:${(expiredCount+soonCount)>0?'#B3261E':'#0E4A41'};">${expiredCount} / ${soonCount}</div></div>
+    <div class="s-card" style="cursor:pointer;" onclick="goToTab('piutang')"><div class="k">Piutang Jatuh Tempo</div><div class="v" style="color:${piutangJT.length>0?'#B3261E':'#0E4A41'};">${piutangJT.length} (${rupiah(nilaiPiutangJT)})</div></div>
+    <div class="s-card" style="cursor:pointer;" onclick="goToTab('antrian')"><div class="k">Antrian Klinik Aktif</div><div class="v">${antrianAktif}</div></div>
+  `;
+}
+
 function renderStokSummary(){
   const totalObat = obatList.length;
   const totalStok = obatList.reduce((s,o)=>s+Number(o.stok||0),0);
@@ -7251,7 +7302,7 @@ document.querySelectorAll('.tab').forEach(tabBtn=>{
 document.querySelectorAll('.area-tab').forEach(areaBtn=>{
   areaBtn.addEventListener('click', ()=>{
     const area = areaBtn.dataset.area;
-    const defaultTab = area==='klinik' ? 'pasien' : 'kasir';
+    const defaultTab = area==='beranda' ? 'beranda' : (area==='klinik' ? 'pasien' : 'kasir');
     goToTab(defaultTab);
   });
 });
@@ -7610,12 +7661,14 @@ document.getElementById('btnClearStokFilter').addEventListener('click', ()=>{
 });
 document.getElementById('btnGoPengaturanPin').addEventListener('click', ()=> goToTab('pengaturan'));
 
-const TAB_AREA = { kasir:'kasir', riwayat:'kasir', riwayatPengeluaran:'kasir', stok:'kasir', resep:'kasir', piutang:'kasir', laporan:'kasir', pengaturan:'kasir', pasien:'klinik', booking:'klinik', antrian:'klinik', laporanKlinik:'klinik' };
+const TAB_AREA = { beranda:'beranda', kasir:'kasir', riwayat:'kasir', riwayatPengeluaran:'kasir', stok:'kasir', resep:'kasir', piutang:'kasir', laporan:'kasir', pengaturan:'kasir', pasien:'klinik', booking:'klinik', antrian:'klinik', laporanKlinik:'klinik' };
 
 function activateArea(area){
   document.querySelectorAll('.area-tab').forEach(b=>b.classList.toggle('active', b.dataset.area===area));
   document.getElementById('areaSubTabs-kasir').classList.toggle('hidden', area!=='kasir');
   document.getElementById('areaSubTabs-klinik').classList.toggle('hidden', area!=='klinik');
+  const subtopbar = document.querySelector('.subtopbar');
+  if(subtopbar) subtopbar.style.display = (area==='beranda') ? 'none' : '';
 }
 
 function activateTab(target){
@@ -7624,6 +7677,7 @@ function activateTab(target){
   document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active', b.dataset.tab===target));
   document.querySelectorAll('.tab-panel').forEach(p=>p.classList.toggle('active', p.id==='tab-'+target));
 
+  if(target === 'beranda'){ renderBeranda(); }
   if(target === 'stok'){ renderStokTable(); renderStokSummary(); }
   if(target === 'kasir'){ renderResepPendingBanner(); }
   if(target === 'pasien'){ renderPasienTable(); }
