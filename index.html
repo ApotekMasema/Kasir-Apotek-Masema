@@ -177,6 +177,13 @@
   .search-item-expired{opacity:.6;background:var(--danger-soft);}
   .search-item:first-child{border-top:none;}
   .search-item:hover{background:var(--primary-soft);}
+  .global-search{position:relative;width:260px;flex:none;}
+  .global-search input{width:100%;padding:9px 12px;font-size:13px;border-radius:var(--radius);border:1px solid var(--border);}
+  .global-search .search-results{position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:60;box-shadow:0 8px 24px -8px rgba(28,42,38,.3);}
+  .global-search .search-results.hidden{display:none;}
+  .gs-group-label{padding:6px 14px;font-size:11px;font-weight:700;color:var(--primary-dark);background:var(--primary-soft);text-transform:uppercase;letter-spacing:.03em;}
+  .gs-empty{padding:14px;text-align:center;color:var(--ink-soft);font-size:13px;}
+  @media (max-width:900px){.global-search{width:100%;order:10;}}
   .si-name{font-weight:700;font-size:13.5px;}
   .si-sub{font-size:11.5px;color:var(--ink-soft);}
   .si-price{font-family:var(--font-mono);font-size:13px;color:var(--primary-dark);font-weight:700;white-space:nowrap;}
@@ -363,6 +370,10 @@
     <button class="area-tab" data-area="klinik">🏥 Klinik</button>
   </nav>
   <button class="conn-badge" id="connStatusBadge" title="Klik untuk buka pengaturan sinkronisasi cloud"></button>
+  <div class="global-search" id="globalSearchWrap">
+    <input type="text" id="globalSearchInput" placeholder="🔍 Cari obat, pasien, no. struk...">
+    <div class="search-results hidden" id="globalSearchResults"></div>
+  </div>
   <a class="btn btn-sm" id="btnPanduan" href="panduan-interaktif.html" target="_blank" rel="noopener" title="Buka panduan interaktif cara pakai aplikasi">❓ Panduan</a>
   <div class="kasir-session" id="kasirSessionBadge" style="display:none;">
     <span class="name" id="kasirSessionName"></span>
@@ -5022,6 +5033,107 @@ document.getElementById('btnTutupStrukPreview').addEventListener('click', ()=>{
 /* =========================================================
    TAB STOK OBAT
    ========================================================= */
+/* ===== Pencarian Global (header) ===== */
+let gsDebounceTimer = null;
+document.getElementById('globalSearchInput').addEventListener('input', e=>{
+  clearTimeout(gsDebounceTimer);
+  const q = e.target.value;
+  gsDebounceTimer = setTimeout(()=>runGlobalSearch(q), 200);
+});
+document.addEventListener('click', e=>{
+  const wrap = document.getElementById('globalSearchWrap');
+  if(wrap && !wrap.contains(e.target)) document.getElementById('globalSearchResults').classList.add('hidden');
+});
+document.getElementById('globalSearchInput').addEventListener('keydown', e=>{
+  if(e.key === 'Escape'){ e.target.blur(); document.getElementById('globalSearchResults').classList.add('hidden'); }
+});
+
+function runGlobalSearch(qRaw){
+  const resultsBox = document.getElementById('globalSearchResults');
+  const q = qRaw.trim().toLowerCase();
+  if(q.length < 2){ resultsBox.classList.add('hidden'); resultsBox.innerHTML=''; return; }
+
+  const hasilObat = obatList.filter(o=>
+    (o.nama||'').toLowerCase().includes(q) || (o.kode||'').toLowerCase().includes(q)
+  ).slice(0,5);
+
+  const hasilPasien = pasienList.filter(p=>
+    (p.nama||'').toLowerCase().includes(q) || (p.noRm||'').toLowerCase().includes(q) ||
+    (p.hp||'').toLowerCase().includes(q) || (p.nik||'').toLowerCase().includes(q)
+  ).slice(0,5);
+
+  const semuaTrx = [];
+  Object.entries(localDB.transaksi || {}).forEach(([tgl, trxOfDay])=>{
+    Object.values(trxOfDay || {}).forEach(t=> semuaTrx.push(t));
+  });
+  const hasilTrx = semuaTrx.filter(t=>
+    (t.noStruk||'').toLowerCase().includes(q) || (t.pasien||'').toLowerCase().includes(q)
+  ).sort((a,b)=> (b.tanggal+b.waktu).localeCompare(a.tanggal+a.waktu)).slice(0,5);
+
+  if(!hasilObat.length && !hasilPasien.length && !hasilTrx.length){
+    resultsBox.innerHTML = `<div class="gs-empty">Tidak ada hasil untuk "${escapeHtml(qRaw)}"</div>`;
+    resultsBox.classList.remove('hidden');
+    return;
+  }
+
+  let html = '';
+  if(hasilObat.length){
+    html += `<div class="gs-group-label">💊 Obat</div>`;
+    html += hasilObat.map(o=>`
+      <div class="search-item" style="cursor:pointer;" onclick="gsPilihObat('${o.id}')">
+        <div><div class="si-name">${escapeHtml(o.nama)}</div><div class="muted" style="font-size:11.5px;">Stok: ${o.stok} ${o.satuan||''} — ${rupiah(o.hargaJual)}</div></div>
+      </div>`).join('');
+  }
+  if(hasilPasien.length){
+    html += `<div class="gs-group-label">🧑 Pasien</div>`;
+    html += hasilPasien.map(p=>`
+      <div class="search-item" style="cursor:pointer;" onclick="gsPilihPasien('${p.id}')">
+        <div><div class="si-name">${escapeHtml(p.nama)}</div><div class="muted" style="font-size:11.5px;">No. RM: ${escapeHtml(p.noRm||'-')} — ${escapeHtml(p.hp||'-')}</div></div>
+      </div>`).join('');
+  }
+  if(hasilTrx.length){
+    html += `<div class="gs-group-label">🧾 Transaksi</div>`;
+    html += hasilTrx.map(t=>`
+      <div class="search-item" style="cursor:pointer;" onclick="gsPilihTrx('${t.noStruk}','${t.tanggal}')">
+        <div><div class="si-name">${escapeHtml(t.noStruk)}</div><div class="muted" style="font-size:11.5px;">${t.tanggal} — ${rupiah(t.total)}${t.pasien?' — '+escapeHtml(t.pasien):''}</div></div>
+      </div>`).join('');
+  }
+  resultsBox.innerHTML = html;
+  resultsBox.classList.remove('hidden');
+}
+
+function gsCloseSearch(){
+  document.getElementById('globalSearchInput').value = '';
+  document.getElementById('globalSearchResults').classList.add('hidden');
+}
+function gsPilihObat(obatId){
+  gsCloseSearch();
+  goToTab('stok');
+  const o = obatList.find(x=>x.id===obatId);
+  const inp = document.getElementById('stokSearch');
+  if(inp && o){ inp.value = o.nama; inp.dispatchEvent(new Event('input')); }
+}
+function gsPilihPasien(pasienId){
+  gsCloseSearch();
+  goToTab('pasien');
+  const p = pasienList.find(x=>x.id===pasienId);
+  const inp = document.getElementById('pasienSearch');
+  if(inp && p){ inp.value = p.nama; inp.dispatchEvent(new Event('input')); }
+}
+async function gsPilihTrx(noStruk, tanggal){
+  gsCloseSearch();
+  const startInp = document.getElementById('riwayatStart');
+  const endInp = document.getElementById('riwayatEnd');
+  if(startInp && endInp && tanggal && (!startInp.value || tanggal < startInp.value || tanggal > endInp.value)){
+    startInp.value = tanggal;
+    endInp.value = tanggal;
+  }
+  goToTab('riwayat');
+  await renderRiwayat();
+  const inp = document.getElementById('riwayatSearch');
+  if(inp){ inp.value = noStruk; filterRiwayat(noStruk); }
+}
+
 async function renderBeranda(){
   const wrap = document.getElementById('berandaSummaryCards');
   if(!wrap) return;
