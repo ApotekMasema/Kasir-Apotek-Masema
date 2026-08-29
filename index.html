@@ -4648,15 +4648,23 @@ function buildLabelObatHtmlArr(items, pasien, indikasi){
     const obatMaster = c.obatId ? obatList.find(o=>o.id===c.obatId) : null;
     const expD = obatMaster && obatMaster.kadaluarsa ? parseDateInput(obatMaster.kadaluarsa) : null;
     const exp = expD && !isNaN(expD) ? fmtDateFull(expD) : '';
+    const aturanText = (c.aturan && c.aturan.trim()) ? c.aturan.trim() : '-';
+    // UJI COBA (TAHAP 2): markup ditulis meniru PERSIS pola label KALIBRASI yang terbukti
+    // selalu berhasil cetak fisik sempurna - div polos + inline style saja, TIDAK ada
+    // <table>, TIDAK ada class CSS terpisah (.lo-header/.lo-aturan2/.lo-obat2/.lo-row).
+    // Tujuannya isolasi: apakah strukturnya (table/class/margin/line-height/word-break)
+    // yang bikin gagal, bukan datanya. Kalau versi ini BERHASIL, baru kita tahu persis
+    // elemen mana yang harus dihindari dan pelan-pelan tambahkan kembali.
     return `
     <div class="label-obat">
       ${logoHtml}
-      <table class="lo-header"><tr><td>${escapeHtml(namaPasien)}</td><td>${escapeHtml(usia)}</td></tr></table>
-      <div class="lo-aturan2">${escapeHtml(c.aturan && c.aturan.trim() ? c.aturan.trim() : '-')}</div>
-      <div class="lo-obat2">${escapeHtml(c.nama)}</div>
-      <div class="lo-row">JUMLAH OBAT : ${c.qty} ${escapeHtml(c.satuan||'')}</div>
-      <div class="lo-row">EXP DATE : ${escapeHtml(exp)}</div>
-      <div class="lo-row">INDIKASI : ${escapeHtml(indikasiText.toUpperCase())}</div>
+      <div style="font-size:15px;font-weight:700;">${escapeHtml(namaPasien)}</div>
+      <div style="font-size:13px;">${escapeHtml(usia)}</div>
+      <div style="font-size:17px;font-weight:700;text-align:center;">${escapeHtml(aturanText)}</div>
+      <div style="font-size:17px;font-weight:700;">${escapeHtml(c.nama)}</div>
+      <div style="font-size:15px;">JUMLAH OBAT : ${c.qty} ${escapeHtml(c.satuan||'')}</div>
+      <div style="font-size:15px;">EXP DATE : ${escapeHtml(exp)}</div>
+      <div style="font-size:15px;">INDIKASI : ${escapeHtml(indikasiText.toUpperCase())}</div>
     </div>
   `;
   });
