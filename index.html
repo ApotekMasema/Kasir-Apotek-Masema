@@ -1773,6 +1773,10 @@
   <div class="modal" style="max-width:420px;">
     <h3>🏷️ Pratinjau Label Obat</h3>
     <p class="section-hint">Ukuran di bawah ini mendekati ukuran fisik sebenarnya, supaya bisa dicek dulu sebelum benar-benar dicetak. <span id="labelPreviewCount"></span></p>
+    <div class="field" style="margin-bottom:10px;">
+      <label>Indikasi pada label (bisa diubah bebas)</label>
+      <input type="text" id="labelPreviewIndikasi" placeholder="Contoh: demam, batuk pilek, dsb.">
+    </div>
     <div style="background:#e8e8e8;border:1px solid var(--border);border-radius:10px;padding:14px;max-height:55vh;overflow-y:auto;display:flex;flex-direction:column;align-items:center;gap:10px;">
       <div id="labelPreviewBoxes" style="display:flex;flex-direction:column;align-items:center;gap:10px;"></div>
     </div>
@@ -4666,7 +4670,6 @@ function buildLabelObatHtmlArr(items, pasien, indikasi){
       <div style="font-size:17px;font-weight:700;text-align:center;">${escapeHtml(aturanText)}</div>
       <div style="font-size:17px;font-weight:700;text-align:center;">${escapeHtml(c.nama)}</div>
       <div style="font-size:15px;text-align:center;">JUMLAH OBAT : ${c.qty} ${escapeHtml(c.satuan||'')}</div>
-      <div style="font-size:15px;text-align:center;">EXP DATE : ${escapeHtml(exp)}</div>
       <div style="font-size:12px;text-align:center;word-break:break-word;">INDIKASI : ${escapeHtml(indikasiText.toUpperCase())}</div>
     </div>
   `;
@@ -4741,24 +4744,39 @@ function cetakLabelKalibrasi2(){
 // supaya user bisa cek dulu apakah tata letak/ukuran sudah pas dengan label rollnya
 // sebelum buang-buang kertas/waktu untuk trial-and-error di printer.
 let labelPreviewPending = null;
+let labelPreviewCtx = null;
 function previewCetakLabelObatItems(items, pasien, indikasi){
   if(!items || items.length===0){ toast('Belum ada obat untuk dicetak labelnya.', true); return; }
+  labelPreviewCtx = { items, pasien }; // disimpan supaya bisa render ulang saat indikasi diedit manual oleh dokter
   const { htmlArr, mm, hmm } = buildLabelObatHtmlArr(items, pasien, indikasi);
   labelPreviewPending = { htmlArr, mm, hmm };
   const wrap = document.getElementById('labelPreviewBoxes');
   wrap.innerHTML = htmlArr.map(h=>`<div class="label-preview-box" style="width:${mm}mm;height:${hmm}mm;">${h}</div>`).join('');
   document.getElementById('labelPreviewCount').textContent = `${items.length} label · ukuran ${mm}mm × ${hmm}mm`;
+  document.getElementById('labelPreviewIndikasi').value = indikasi || '';
   document.getElementById('labelPreviewModal').classList.remove('hidden');
 }
+// Saat dokter/user mengetik ulang indikasi di kolom pratinjau, label langsung dirender ulang
+// dengan teks indikasi custom itu (menggantikan diagnosa otomatis dari RME/riwayat).
+document.getElementById('labelPreviewIndikasi').addEventListener('input', (e)=>{
+  if(!labelPreviewCtx) return;
+  const { items, pasien } = labelPreviewCtx;
+  const { htmlArr, mm, hmm } = buildLabelObatHtmlArr(items, pasien, e.target.value);
+  labelPreviewPending = { htmlArr, mm, hmm };
+  const wrap = document.getElementById('labelPreviewBoxes');
+  wrap.innerHTML = htmlArr.map(h=>`<div class="label-preview-box" style="width:${mm}mm;height:${hmm}mm;">${h}</div>`).join('');
+});
 document.getElementById('btnLabelPreviewCetak').addEventListener('click', ()=>{
   if(!labelPreviewPending) return;
   printLabelObatHtmlArr(labelPreviewPending.htmlArr, labelPreviewPending.mm, labelPreviewPending.hmm);
   document.getElementById('labelPreviewModal').classList.add('hidden');
   labelPreviewPending = null;
+  labelPreviewCtx = null;
 });
 document.getElementById('btnLabelPreviewBatal').addEventListener('click', ()=>{
   document.getElementById('labelPreviewModal').classList.add('hidden');
   labelPreviewPending = null;
+  labelPreviewCtx = null;
 });
 // Dicetak oleh DOKTER langsung setelah menulis resep di RME (bukan di Kasir),
 // pakai printer label terpisah (mis. Grozzie TP612) - tidak tercampur dengan
