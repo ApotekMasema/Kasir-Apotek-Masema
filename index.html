@@ -4662,12 +4662,12 @@ function buildLabelObatHtmlArr(items, pasien, indikasi){
     return `
     <div class="label-obat">
       ${logoHtml}
-      <div style="font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><span style="display:inline-block;width:62%;overflow:hidden;text-overflow:ellipsis;vertical-align:top;">${escapeHtml(namaPasien)}</span><span style="display:inline-block;width:37%;text-align:right;font-weight:400;font-size:12px;vertical-align:top;">${escapeHtml(usia)}</span></div>
+      <div style="font-size:15px;font-weight:700;text-align:center;">${escapeHtml(namaPasien)}<span style="font-weight:400;font-size:12px;"> · ${escapeHtml(usia)}</span></div>
       <div style="font-size:17px;font-weight:700;text-align:center;">${escapeHtml(aturanText)}</div>
-      <div style="font-size:17px;font-weight:700;">${escapeHtml(c.nama)}</div>
-      <div style="font-size:15px;">JUMLAH OBAT : ${c.qty} ${escapeHtml(c.satuan||'')}</div>
-      <div style="font-size:15px;">EXP DATE : ${escapeHtml(exp)}</div>
-      <div style="font-size:15px;">INDIKASI : ${escapeHtml(indikasiText.toUpperCase())}</div>
+      <div style="font-size:17px;font-weight:700;text-align:center;">${escapeHtml(c.nama)}</div>
+      <div style="font-size:15px;text-align:center;">JUMLAH OBAT : ${c.qty} ${escapeHtml(c.satuan||'')}</div>
+      <div style="font-size:15px;text-align:center;">EXP DATE : ${escapeHtml(exp)}</div>
+      <div style="font-size:15px;text-align:center;">INDIKASI : ${escapeHtml(indikasiText.toUpperCase())}</div>
     </div>
   `;
   });
@@ -4727,13 +4727,13 @@ function cetakLabelKalibrasi(){
 // panjang/tinggi konten, bukan soal data atau struktur HTML.
 function cetakLabelKalibrasi2(){
   const html = `<div class="label-obat">
-    <div style="font-size:15px;font-weight:700;">Baris Nama</div>
-    <div style="font-size:13px;">Baris Usia</div>
+    <div style="font-size:15px;font-weight:700;text-align:center;">Baris Nama</div>
+    <div style="font-size:13px;text-align:center;">Baris Usia</div>
     <div style="font-size:17px;font-weight:700;text-align:center;">Baris Aturan</div>
-    <div style="font-size:17px;font-weight:700;">Baris Nama Obat</div>
-    <div style="font-size:15px;">Baris Jumlah</div>
-    <div style="font-size:15px;">Baris Exp Date</div>
-    <div style="font-size:15px;">Baris Indikasi</div>
+    <div style="font-size:17px;font-weight:700;text-align:center;">Baris Nama Obat</div>
+    <div style="font-size:15px;text-align:center;">Baris Jumlah</div>
+    <div style="font-size:15px;text-align:center;">Baris Exp Date</div>
+    <div style="font-size:15px;text-align:center;">Baris Indikasi</div>
   </div>`;
   printLabelObatHtmlArr([html], null, null);
 }
