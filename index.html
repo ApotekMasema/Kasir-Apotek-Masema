@@ -466,6 +466,7 @@
         <button class="btn" id="kdBtnCetakLabel" type="button">🏷️ Cetak Label Obat</button>
         <button class="btn" id="kdBtnCetakResepFormal" type="button">🖨️ Cetak Resep Formal</button>
         <button class="btn btn-secondary" id="kdBtnCetakKalibrasi" type="button" title="Cetak 1 label uji untuk cek batas area cetak fisik printer">🧪 Tes Kalibrasi Label</button>
+        <button class="btn btn-secondary" id="kdBtnCetakKalibrasi2" type="button" title="Cetak 1 label uji dengan 7 baris teks generik, meniru persis jumlah baris & ukuran font Label Obat asli - untuk uji apakah panjang/tinggi konten yang jadi penyebab gagal cetak">🧪 Tes Kalibrasi Label (7 Baris)</button>
       </div>
       <h3>Surat Dokter</h3>
       <div class="toolbar">
@@ -4137,6 +4138,9 @@ document.getElementById('kdBtnCetakResepFormal').addEventListener('click', ()=>{
 document.getElementById('kdBtnCetakKalibrasi').addEventListener('click', ()=>{
   cetakLabelKalibrasi();
 });
+document.getElementById('kdBtnCetakKalibrasi2').addEventListener('click', ()=>{
+  cetakLabelKalibrasi2();
+});
 document.getElementById('kdBtnCetakSuratSakit').addEventListener('click', ()=>{
   if(!kdPasienSelected){ toast('Cari dan pilih pasien terlebih dahulu.', true); return; }
   kasirSuratCtx = {
@@ -4658,8 +4662,7 @@ function buildLabelObatHtmlArr(items, pasien, indikasi){
     return `
     <div class="label-obat">
       ${logoHtml}
-      <div style="font-size:15px;font-weight:700;">${escapeHtml(namaPasien)}</div>
-      <div style="font-size:13px;">${escapeHtml(usia)}</div>
+      <div style="font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><span style="display:inline-block;width:62%;overflow:hidden;text-overflow:ellipsis;vertical-align:top;">${escapeHtml(namaPasien)}</span><span style="display:inline-block;width:37%;text-align:right;font-weight:400;font-size:12px;vertical-align:top;">${escapeHtml(usia)}</span></div>
       <div style="font-size:17px;font-weight:700;text-align:center;">${escapeHtml(aturanText)}</div>
       <div style="font-size:17px;font-weight:700;">${escapeHtml(c.nama)}</div>
       <div style="font-size:15px;">JUMLAH OBAT : ${c.qty} ${escapeHtml(c.satuan||'')}</div>
@@ -4712,6 +4715,25 @@ function cetakLabelKalibrasi(){
     <div style="font-size:18px;border-top:1px dashed #000;">baris 18px - cccccccccc</div>
     <div style="font-size:24px;border-top:1px dashed #000;">baris 24px - dddddddddd</div>
     <div style="font-size:32px;font-weight:900;text-align:center;border-top:2px solid red;">TES Z</div>
+  </div>`;
+  printLabelObatHtmlArr([html], null, null);
+}
+// Label KALIBRASI TAHAP 2 - beda dari cetakLabelKalibrasi() di atas: bukan menguji
+// batas ukuran font, tapi menguji apakah JUMLAH BARIS/TINGGI KONTEN yang jadi
+// penyebab gagal cetak Label Obat asli. Teksnya generik & pendek (bukan data
+// pasien/obat sungguhan) TAPI jumlah baris (7) dan ukuran font tiap baris dibuat
+// PERSIS SAMA seperti buildLabelObatHtmlArr() versi asli, supaya total tinggi
+// konten sebanding. Kalau ini GAGAL sama seperti label asli -> terbukti soal
+// panjang/tinggi konten, bukan soal data atau struktur HTML.
+function cetakLabelKalibrasi2(){
+  const html = `<div class="label-obat">
+    <div style="font-size:15px;font-weight:700;">Baris Nama</div>
+    <div style="font-size:13px;">Baris Usia</div>
+    <div style="font-size:17px;font-weight:700;text-align:center;">Baris Aturan</div>
+    <div style="font-size:17px;font-weight:700;">Baris Nama Obat</div>
+    <div style="font-size:15px;">Baris Jumlah</div>
+    <div style="font-size:15px;">Baris Exp Date</div>
+    <div style="font-size:15px;">Baris Indikasi</div>
   </div>`;
   printLabelObatHtmlArr([html], null, null);
 }
