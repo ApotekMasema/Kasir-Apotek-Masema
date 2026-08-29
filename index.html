@@ -4662,12 +4662,12 @@ function buildLabelObatHtmlArr(items, pasien, indikasi){
     return `
     <div class="label-obat">
       ${logoHtml}
-      <div style="font-size:15px;font-weight:700;text-align:center;">${escapeHtml(namaPasien)}<span style="font-weight:400;font-size:12px;"> · ${escapeHtml(usia)}</span></div>
+      <div style="font-size:12px;font-weight:700;text-align:center;word-break:break-word;">${escapeHtml(namaPasien)}<span style="font-weight:400;font-size:11px;"> · ${escapeHtml(usia)}</span></div>
       <div style="font-size:17px;font-weight:700;text-align:center;">${escapeHtml(aturanText)}</div>
       <div style="font-size:17px;font-weight:700;text-align:center;">${escapeHtml(c.nama)}</div>
       <div style="font-size:15px;text-align:center;">JUMLAH OBAT : ${c.qty} ${escapeHtml(c.satuan||'')}</div>
       <div style="font-size:15px;text-align:center;">EXP DATE : ${escapeHtml(exp)}</div>
-      <div style="font-size:15px;text-align:center;">INDIKASI : ${escapeHtml(indikasiText.toUpperCase())}</div>
+      <div style="font-size:12px;text-align:center;word-break:break-word;">INDIKASI : ${escapeHtml(indikasiText.toUpperCase())}</div>
     </div>
   `;
   });
