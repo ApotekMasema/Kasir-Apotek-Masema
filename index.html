@@ -177,6 +177,14 @@
   .search-item-expired{opacity:.6;background:var(--danger-soft);}
   .search-item:first-child{border-top:none;}
   .search-item:hover{background:var(--primary-soft);}
+  .ss-wrap{position:relative;}
+  .ss-input{width:100%;}
+  .ss-dropdown{position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:80;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);max-height:260px;overflow-y:auto;box-shadow:0 8px 24px -8px rgba(28,42,38,.3);}
+  .ss-dropdown.hidden{display:none;}
+  .ss-item{padding:9px 12px;font-size:13px;cursor:pointer;border-top:1px solid var(--border);}
+  .ss-item:first-child{border-top:none;}
+  .ss-item:hover,.ss-item.active{background:var(--primary-soft);}
+  .ss-empty{padding:12px;text-align:center;color:var(--ink-soft);font-size:13px;}
   .global-search{position:relative;width:260px;flex:none;}
   .global-search input{width:100%;padding:9px 12px;font-size:13px;border-radius:var(--radius);border:1px solid var(--border);}
   .global-search .search-results{position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:60;box-shadow:0 8px 24px -8px rgba(28,42,38,.3);}
@@ -2142,7 +2150,11 @@
     <p class="section-hint">Untuk menambah stok obat yang SUDAH ADA di daftar Stok Obat. Kalau obat belum ada, tambahkan dulu lewat "+ Tambah Obat".</p>
     <div class="field" style="margin-bottom:10px;">
       <label>Pilih Obat</label>
-      <select id="pembelianObatId"></select>
+      <div class="ss-wrap" id="pembelianObatWrap">
+        <input type="text" id="pembelianObatSearch" class="ss-input" placeholder="🔍 Ketik nama obat untuk mencari..." autocomplete="off">
+        <div class="ss-dropdown hidden" id="pembelianObatDropdown"></div>
+        <select id="pembelianObatId" style="display:none;"></select>
+      </div>
     </div>
     <p class="section-hint" id="pembelianStokInfo" style="margin-top:-4px;">Stok saat ini: -</p>
     <div class="form-grid" style="margin-bottom:8px;">
@@ -2178,7 +2190,11 @@
     <p class="section-hint">Cocokkan stok sistem dengan hasil hitung fisik di rak/gudang. Memerlukan PIN Admin.</p>
     <div class="field" style="margin-bottom:10px;">
       <label>Pilih Obat</label>
-      <select id="opnameObatId"></select>
+      <div class="ss-wrap" id="opnameObatWrap">
+        <input type="text" id="opnameObatSearch" class="ss-input" placeholder="🔍 Ketik nama obat untuk mencari..." autocomplete="off">
+        <div class="ss-dropdown hidden" id="opnameObatDropdown"></div>
+        <select id="opnameObatId" style="display:none;"></select>
+      </div>
     </div>
     <p class="section-hint" id="opnameStokInfo" style="margin-top:-4px;">Stok sistem saat ini: -</p>
     <div class="field" style="margin-bottom:10px;">
@@ -8207,6 +8223,62 @@ document.getElementById('btnExportSaranRestock').addEventListener('click', ()=>{
   XLSX.writeFile(wb, `Saran-Restock-${dateKey(new Date())}.xlsx`);
 });
 
+/* ---------------- searchable select (dropdown obat bisa diketik, tanpa perlu scroll) ---------------- */
+const searchableSelectState = {};
+function initSearchableSelect(selectId, inputId, dropdownId){
+  const selectEl = document.getElementById(selectId);
+  const inputEl = document.getElementById(inputId);
+  const dropdownEl = document.getElementById(dropdownId);
+  searchableSelectState[selectId] = { items: [], filtered: [] };
+
+  function renderDropdown(list){
+    dropdownEl.innerHTML = list.length===0
+      ? '<div class="ss-empty">Obat tidak ditemukan</div>'
+      : list.map((it,i)=>`<div class="ss-item" data-idx="${i}">${escapeHtml(it.label)}</div>`).join('');
+    dropdownEl.classList.remove('hidden');
+  }
+  function filterAndRender(){
+    const q = inputEl.value.trim().toLowerCase();
+    const items = searchableSelectState[selectId].items;
+    const filtered = q ? items.filter(it=>it.label.toLowerCase().includes(q)) : items;
+    searchableSelectState[selectId].filtered = filtered;
+    renderDropdown(filtered);
+  }
+  function selectItem(it){
+    selectEl.value = it.id;
+    inputEl.value = it.label;
+    dropdownEl.classList.add('hidden');
+    selectEl.dispatchEvent(new Event('change'));
+  }
+  inputEl.addEventListener('focus', filterAndRender);
+  inputEl.addEventListener('input', filterAndRender);
+  inputEl.addEventListener('blur', ()=>{ setTimeout(()=>dropdownEl.classList.add('hidden'), 150); });
+  dropdownEl.addEventListener('mousedown', (e)=>{
+    const itemEl = e.target.closest('.ss-item');
+    if(!itemEl) return;
+    const it = searchableSelectState[selectId].filtered[Number(itemEl.dataset.idx)];
+    if(it) selectItem(it);
+  });
+  inputEl.addEventListener('keydown', (e)=>{
+    if(e.key==='Enter'){
+      e.preventDefault();
+      const filtered = searchableSelectState[selectId].filtered;
+      if(filtered.length>=1) selectItem(filtered[0]);
+    } else if(e.key==='Escape'){
+      dropdownEl.classList.add('hidden');
+    }
+  });
+}
+function refreshSearchableSelect(selectId, inputId){
+  const selectEl = document.getElementById(selectId);
+  const inputEl = document.getElementById(inputId);
+  searchableSelectState[selectId].items = Array.from(selectEl.options).map(o=>({id:o.value, label:o.textContent}));
+  const selectedOpt = selectEl.options[selectEl.selectedIndex];
+  inputEl.value = selectedOpt ? selectedOpt.textContent : '';
+}
+initSearchableSelect('pembelianObatId','pembelianObatSearch','pembelianObatDropdown');
+initSearchableSelect('opnameObatId','opnameObatSearch','opnameObatDropdown');
+
 /* ---------------- pembelian dari supplier ---------------- */
 function buildObatSelectOptions(){
   const sorted = [...obatList].sort((a,b)=>a.nama.localeCompare(b.nama));
@@ -8228,6 +8300,7 @@ function updatePembelianTotal(){
 document.getElementById('btnPembelianSupplier').addEventListener('click', ()=>{
   if(obatList.length===0){ toast('Belum ada obat di daftar Stok Obat. Tambahkan obat dulu.', true); return; }
   document.getElementById('pembelianObatId').innerHTML = buildObatSelectOptions();
+  refreshSearchableSelect('pembelianObatId','pembelianObatSearch');
   document.getElementById('pembelianSupplier').value = '';
   document.getElementById('pembelianFaktur').value = '';
   document.getElementById('pembelianQty').value = '';
@@ -8275,6 +8348,7 @@ function updateOpnameInfo(){
 document.getElementById('btnStokOpname').addEventListener('click', ()=>{
   if(obatList.length===0){ toast('Belum ada obat di daftar Stok Obat.', true); return; }
   document.getElementById('opnameObatId').innerHTML = buildObatSelectOptions();
+  refreshSearchableSelect('opnameObatId','opnameObatSearch');
   document.getElementById('opnameAlasan').value = '';
   updateOpnameInfo();
   document.getElementById('opnameModal').classList.remove('hidden');
