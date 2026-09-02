@@ -2540,6 +2540,15 @@ async function pushPathToCloud(path){
     if(res.ok){
       syncMeta.dirtyKeys = (syncMeta.dirtyKeys || []).filter(k=>k!==path);
       persistSyncMeta();
+      // PENTING: naikkan juga nomor versi (_meta/rev) di sini, bukan cuma di
+      // alur sinkron periodik biasa (pushDirtyKeysToCloud). Banyak tempat di
+      // aplikasi ini memanggil pushPathToCloud() langsung ("kirim segera") agar
+      // cepat terlihat di komputer lain (mis. Antrian Klinik, RME, Booking,
+      // Resep) - kalau rev tidak dinaikkan di sini, komputer lain yang mengecek
+      // rev tiap auto-sync akan mengira "tidak ada perubahan" dan SKIP menarik
+      // data baru ini, sehingga data terlihat "kadang tidak muncul" sampai ada
+      // perubahan lain yang kebetulan menaikkan rev.
+      bumpRevOnCloud();
     }
     return res.ok;
   }catch(e){ console.error('Gagal kirim data ke cloud', path, e); return false; }
