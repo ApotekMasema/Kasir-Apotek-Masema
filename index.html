@@ -4588,6 +4588,13 @@ function buildStrukHeader(trx, cfg){
     ${trx.piutang ? `<div>Kasbon: ${escapeHtml(trx.piutang.namaPasien)} - ${escapeHtml(trx.piutang.noHp)}</div>` : ''}
     <hr>`;
 }
+// Pastikan tidak ada class printing-* lain yang masih menempel dari proses cetak
+// sebelumnya (mis. struk) sebelum memulai proses cetak baru (mis. label) - mencegah
+// dua class printing-* aktif bersamaan yang bikin CSS saling menyembunyikan konten
+// satu sama lain kalau user cetak beruntun dengan jeda sangat singkat.
+function resetPrintingClasses(){
+  document.body.classList.remove('printing-struk','printing-label','printing-surat','label-rotate180');
+}
 function cetakStruk(trx){
   const el = document.getElementById('strukContent');
   applyStrukSize(el);
@@ -4613,9 +4620,12 @@ function cetakStruk(trx){
     <hr>
     <div class="center">${escapeHtml(pengaturan.pesanStruk||'Terima kasih atas kunjungan Anda')}</div>
   `;
+  resetPrintingClasses();
   document.body.classList.add('printing-struk');
+  const selesaiCetakStruk = ()=>{ document.body.classList.remove('printing-struk'); window.onafterprint = null; };
+  window.onafterprint = selesaiCetakStruk;
   window.print();
-  setTimeout(()=> document.body.classList.remove('printing-struk'), 500);
+  setTimeout(selesaiCetakStruk, 800); // jaring pengaman kalau event afterprint tidak terpanggil
 }
 function cetakStrukCustom(trx){
   if(!trx.hasCustom) return;
@@ -4636,9 +4646,12 @@ function cetakStrukCustom(trx){
     <hr>
     <div class="center">${escapeHtml(pengaturan.pesanStruk||'Terima kasih atas kunjungan Anda')}</div>
   `;
+  resetPrintingClasses();
   document.body.classList.add('printing-struk');
+  const selesaiCetakStrukCustom = ()=>{ document.body.classList.remove('printing-struk'); window.onafterprint = null; };
+  window.onafterprint = selesaiCetakStrukCustom;
   window.print();
-  setTimeout(()=> document.body.classList.remove('printing-struk'), 500);
+  setTimeout(selesaiCetakStrukCustom, 800);
 }
 function fmtDateFull(d){ return `${d.getDate()} ${BULAN[d.getMonth()]} ${d.getFullYear()}`; }
 
@@ -4718,14 +4731,18 @@ function printLabelObatHtmlArr(htmlArr, mm, hmm){
   const pageStyle = document.getElementById('printPageSizeStyle');
   const prevPageStyle = pageStyle ? pageStyle.textContent : '';
   if(pageStyle) pageStyle.textContent = `@media print { @page { margin: 0; } }`;
+  resetPrintingClasses();
   document.body.classList.add('printing-label');
   if(pengaturan.labelRotate180) document.body.classList.add('label-rotate180');
-  window.print();
-  setTimeout(()=>{
+  const selesaiCetakLabel = ()=>{
     document.body.classList.remove('printing-label');
     document.body.classList.remove('label-rotate180');
     if(pageStyle) pageStyle.textContent = prevPageStyle; // kembalikan ke ukuran struk semula
-  }, 500);
+    window.onafterprint = null;
+  };
+  window.onafterprint = selesaiCetakLabel;
+  window.print();
+  setTimeout(selesaiCetakLabel, 800);
 }
 function cetakLabelObatItems(items, pasien, indikasi){
   if(!items || items.length===0){ toast('Belum ada obat untuk dicetak labelnya.', true); return; }
@@ -4865,9 +4882,12 @@ function printSuratContent(html){
   document.getElementById('suratContent').innerHTML = html;
   const pageStyle = document.getElementById('printPageSizeStyle');
   if(pageStyle) pageStyle.textContent = `@media print { @page { size: A4; margin: 14mm 12mm; } }`;
+  resetPrintingClasses();
   document.body.classList.add('printing-surat');
+  const selesaiCetakSurat = ()=>{ document.body.classList.remove('printing-surat'); window.onafterprint = null; };
+  window.onafterprint = selesaiCetakSurat;
   window.print();
-  setTimeout(()=> document.body.classList.remove('printing-surat'), 500);
+  setTimeout(selesaiCetakSurat, 800);
 }
 
 /* --- Surat Keterangan Sakit --- */
